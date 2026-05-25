@@ -3,141 +3,235 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>おきらく便 - ログイン</title>
+<title>おきらく便 - 会員ログイン</title>
 <style>
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-  min-height: 100vh;
-  font-family: "Segoe UI", "Yu Gothic", "Meiryo", sans-serif;
-  color: #1f2937;
-  background: linear-gradient(135deg, #4f7cff 0%, #263a66 100%);
+    min-height: 100vh;
+    font-family: "Segoe UI", "Yu Gothic", "Meiryo", sans-serif;
+    color: #1f2937;
+    background: linear-gradient(135deg, #4f7cff 0%, #263a66 100%);
 }
 
 button {
-  border: 0;
-  border-radius: 8px;
-  padding: 14px 18px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  background: #2563eb;
-  color: #ffffff;
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #2563eb;
+    color: #ffffff;
 }
 
 button:hover {
-  background: #1d4ed8;
+    background: #1d4ed8;
 }
 
 button:disabled {
-  cursor: wait;
-  opacity: 0.65;
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.hidden {
+    display: none !important;
 }
 
 .login-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
 }
 
 .login-panel {
-  width: 100%;
-  max-width: 520px;
-  padding: 36px;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 18px 50px rgba(31, 41, 55, 0.18);
-  text-align: center;
+    width: 100%;
+    max-width: 520px;
+    padding: 36px;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(31, 41, 55, 0.18);
+    text-align: center;
 }
 
 .login-panel h1 {
-  margin-bottom: 12px;
-  font-size: 30px;
+    margin-bottom: 12px;
+    font-size: 28px;
 }
 
 .login-panel p {
-  line-height: 1.7;
-  color: #4b5563;
+    line-height: 1.7;
+    color: #4b5563;
 }
 
 .login-buttons {
-  display: grid;
-  gap: 12px;
-  margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
 }
 
-.admin-btn {
-  background: #eef2f7;
-  color: #1f2937;
+.login-button {
+    width: 100%;
 }
 
-.admin-btn:hover {
-  background: #dfe7f1;
+.admin-button {
+    width: 100%;
+    background: #eef2f7;
+    color: #6b7280;
+}
+
+.admin-button:hover {
+    background: #eef2f7;
 }
 
 .error-message {
-  display: none;
-  margin-bottom: 18px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #fef3f2;
-  color: #b42318;
-  line-height: 1.6;
-  text-align: left;
+    display: none;
+    margin-bottom: 18px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fef3f2;
+    color: #b42318;
+    line-height: 1.6;
+    text-align: left;
 }
 
 .error-message.show {
-  display: block;
+    display: block;
+}
+
+.app {
+    min-height: 100vh;
+    background: transparent;
+}
+
+.app-header {
+    height: 72px;
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+}
+
+.app-title {
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.logout-btn {
+    background: #eef2f7;
+    color: #1f2937;
+}
+
+.logout-btn:hover {
+    background: #dfe7f1;
+}
+
+.app-body {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px;
+}
+
+.content-panel {
+    padding: 28px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 50px rgba(31, 41, 55, 0.14);
+}
+
+.user-info {
+    margin-top: 12px;
+    color: #4b5563;
+    word-break: break-word;
+}
+
+@media (max-width: 640px) {
+    .app-header {
+        height: auto;
+        padding: 18px;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .logout-btn {
+        width: 100%;
+    }
+
+    .app-body {
+        padding: 18px;
+    }
+
+    .login-panel {
+        padding: 28px;
+    }
 }
 </style>
 </head>
 <body>
 <main>
-  <section class="login-container">
+<section class="login-container" id="loginSection">
     <div class="login-panel">
-      <div class="error-message" id="errorMessage"></div>
+        <div class="error-message" id="errorMessage"></div>
 
-      <h1>おきらく便</h1>
-      <p>Googleアカウントでログインしてください。</p>
+        <h1>おきらく便</h1>
+        <p>Googleアカウントで会員としてログインしてください。</p>
 
-      <div class="login-buttons">
-        <button id="memberLoginBtn" type="button">会員としてログイン</button>
-        <button class="admin-btn" id="adminLoginBtn" type="button">管理者としてログイン</button>
-      </div>
+        <div class="login-buttons">
+            <button class="login-button" id="memberLoginBtn" type="button">会員としてログイン</button>
+            <button class="admin-button" id="adminLoginBtn" type="button" disabled>管理者としてログイン</button>
+        </div>
     </div>
-  </section>
+</section>
+
+<section class="app hidden" id="appSection" aria-live="polite">
+    <header class="app-header">
+        <h1 class="app-title">おきらく便</h1>
+        <button class="logout-btn" id="logoutBtn" type="button">ログアウト</button>
+    </header>
+
+    <div class="app-body">
+        <div class="content-panel">
+            <h2>会員としてログイン済み</h2>
+            <p class="user-info" id="userInfo"></p>
+        </div>
+    </div>
+</section>
 </main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
-  getDatabase,
-  ref,
-  get,
-  set,
-  serverTimestamp
+    getDatabase,
+    ref,
+    set,
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
-  authDomain: "okirakubin-manager.firebaseapp.com",
-  projectId: "okirakubin-manager",
-  storageBucket: "okirakubin-manager.firebasestorage.app",
-  messagingSenderId: "387991576787",
-  appId: "1:387991576787:web:db731b898f46dc8214f426",
+    apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+    authDomain: "okirakubin-manager.firebaseapp.com",
+    projectId: "okirakubin-manager",
+    storageBucket: "okirakubin-manager.firebasestorage.app",
+    messagingSenderId: "387991576787",
+    appId: "1:387991576787:web:db731b898f46dc8214f426"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -145,106 +239,94 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 const provider = new GoogleAuthProvider();
 
+const loginSection = document.getElementById("loginSection");
+const appSection = document.getElementById("appSection");
 const memberLoginBtn = document.getElementById("memberLoginBtn");
-const adminLoginBtn = document.getElementById("adminLoginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
 const errorMessage = document.getElementById("errorMessage");
+const userInfo = document.getElementById("userInfo");
 
-let requestedRole = sessionStorage.getItem("okirakubinRequestedRole") || null;
+memberLoginBtn.addEventListener("click", async () => {
+    clearError();
+    memberLoginBtn.disabled = true;
 
-memberLoginBtn.addEventListener("click", () => {
-  loginAs("member");
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        showError(toJapaneseError(error));
+        console.error(error);
+    } finally {
+        memberLoginBtn.disabled = false;
+    }
 });
 
-adminLoginBtn.addEventListener("click", () => {
-  loginAs("admin");
+logoutBtn.addEventListener("click", async () => {
+    clearError();
+
+    try {
+        await signOut(auth);
+    } catch (error) {
+        showError(toJapaneseError(error));
+        console.error(error);
+    }
 });
-
-async function loginAs(role) {
-  clearError();
-
-  requestedRole = role;
-  sessionStorage.setItem("okirakubinRequestedRole", role);
-
-  memberLoginBtn.disabled = true;
-  adminLoginBtn.disabled = true;
-
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error(error);
-    showError(toJapaneseError(error));
-    memberLoginBtn.disabled = false;
-    adminLoginBtn.disabled = false;
-  }
-}
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    memberLoginBtn.disabled = false;
-    adminLoginBtn.disabled = false;
-    return;
-  }
-
-  if (!requestedRole) {
-    await signOut(auth);
-    showError("会員または管理者のログインボタンからログインしてください。");
-    return;
-  }
-
-  try {
-    const rolePath = requestedRole === "admin" ? "admins" : "members";
-    const roleSnapshot = await get(ref(database, `${rolePath}/${user.uid}`));
-    const hasRole = roleSnapshot.exists() && roleSnapshot.val() === true;
-
-    if (!hasRole) {
-      await signOut(auth);
-      showError(
-        requestedRole === "admin"
-          ? "このアカウントは管理者として登録されていません。"
-          : "このアカウントは会員として登録されていません。"
-      );
-      return;
+    if (!user) {
+        showLoginUI();
+        return;
     }
 
-    await set(ref(database, `loginUsers/${user.uid}`), {
-      uid: user.uid,
-      name: user.displayName || "",
-      email: user.email || "",
-      role: requestedRole,
-      lastLoginAt: serverTimestamp()
-    });
+    showAppUI(user);
 
-    location.href = requestedRole === "admin" ? "admin.html" : "member.html";
-  } catch (error) {
-    console.error(error);
-    await signOut(auth);
-    showError("ログイン後の権限確認に失敗しました。Realtime DatabaseのURLまたはルールを確認してください。");
-  }
+    try {
+        await set(ref(database, `loginUsers/${user.uid}`), {
+            uid: user.uid,
+            name: user.displayName || "",
+            email: user.email || "",
+            role: "member",
+            lastLoginAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error(error);
+    }
 });
 
+function showLoginUI() {
+    loginSection.classList.remove("hidden");
+    appSection.classList.add("hidden");
+    userInfo.textContent = "";
+}
+
+function showAppUI(user) {
+    loginSection.classList.add("hidden");
+    appSection.classList.remove("hidden");
+    userInfo.textContent = user.email || user.displayName || user.uid;
+}
+
 function showError(message) {
-  errorMessage.textContent = message;
-  errorMessage.classList.add("show");
+    errorMessage.textContent = message;
+    errorMessage.classList.add("show");
 }
 
 function clearError() {
-  errorMessage.textContent = "";
-  errorMessage.classList.remove("show");
+    errorMessage.textContent = "";
+    errorMessage.classList.remove("show");
 }
 
 function toJapaneseError(error) {
-  const code = error?.code || "unknown";
+    const code = error?.code || "unknown";
 
-  const messages = {
-    "auth/unauthorized-domain": "このドメインはFirebase Authenticationで許可されていません。",
-    "auth/popup-blocked": "ログイン用ポップアップがブロックされています。",
-    "auth/popup-closed-by-user": "ログイン画面が閉じられました。",
-    "auth/operation-not-allowed": "Googleログインが有効になっていません。",
-    "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。",
-    "auth/network-request-failed": "ネットワーク接続に失敗しました。"
-  };
+    const messages = {
+        "auth/unauthorized-domain": "このドメインがFirebase Authenticationの承認済みドメインに入っていません。Firebase ConsoleでAuthorized domainsを確認してください。",
+        "auth/popup-blocked": "ブラウザがログイン用ポップアップをブロックしています。ポップアップを許可して再試行してください。",
+        "auth/popup-closed-by-user": "ログイン画面が閉じられました。もう一度ログインしてください。",
+        "auth/operation-not-allowed": "Firebase ConsoleのAuthenticationでGoogleログインが有効になっていません。",
+        "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。",
+        "auth/network-request-failed": "ネットワーク接続に失敗しました。通信環境を確認してください。"
+    };
 
-  return messages[code] || `ログインできませんでした。エラーコード: ${code}`;
+    return messages[code] || `ログインできませんでした。エラーコード: ${code}`;
 }
 </script>
 </body>
