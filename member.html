@@ -116,7 +116,6 @@ textarea{min-height:88px;resize:vertical}
   <nav class="tabs">
     <button class="tab active" data-tab="overview" type="button">概要</button>
     <button class="tab" data-tab="register" type="button">商品登録</button>
-    <button class="tab" data-tab="products" type="button">登録済み商品</button>
     <button class="tab" data-tab="stored" type="button">保管商品</button>
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
@@ -148,13 +147,14 @@ textarea{min-height:88px;resize:vertical}
     </div>
   </section>
 
-  <section class="section" id="products">
-    <h2 style="margin-bottom:16px;">登録済み商品</h2>
-    <div id="productsList"></div>
-  </section>
-
   <section class="section" id="stored">
     <h2 style="margin-bottom:16px;">保管商品</h2>
+
+    <div class="ship-filter">
+      <button class="ship-filter-btn active" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
+      <button class="ship-filter-btn" id="storedFilterBtn" type="button">保管商品</button>
+    </div>
+
     <div id="storedList"></div>
   </section>
 
@@ -349,6 +349,7 @@ let currentUser = null;
 let productsCache = [];
 let originsCache = [];
 let entryCount = 0;
+let storedView = "registered";
 let shippingView = "unshipped";
 let selectedProductIds = new Set();
 
@@ -371,6 +372,8 @@ const shippingModalCloseBtn = document.getElementById("shippingModalCloseBtn");
 const shippingForm = document.getElementById("shippingForm");
 const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
+const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
+const storedFilterBtn = document.getElementById("storedFilterBtn");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
 const originForm = document.getElementById("originForm");
@@ -434,6 +437,16 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 addEntryBtn.addEventListener("click", addProductEntry);
+
+registeredStoredFilterBtn.addEventListener("click", () => {
+  storedView = "registered";
+  renderStoredList();
+});
+
+storedFilterBtn.addEventListener("click", () => {
+  storedView = "stored";
+  renderStoredList();
+});
 
 unshippedFilterBtn.addEventListener("click", () => {
   shippingView = "unshipped";
@@ -669,7 +682,6 @@ async function loadData() {
     document.getElementById("recentProducts").innerHTML =
       registeredProducts.slice(0, 5).length ? productTable(registeredProducts.slice(0, 5), false, true) : emptyHtml("商品が登録されていません");
 
-    renderProductsList();
     renderStoredList();
     renderShippingList();
     renderOriginList();
@@ -691,18 +703,20 @@ function getStoredProducts() {
   });
 }
 
-function renderProductsList() {
-  const registeredProducts = getRegisteredProducts();
-
-  document.getElementById("productsList").innerHTML =
-    registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("登録済み商品はありません");
-}
-
 function renderStoredList() {
-  const storedProducts = getStoredProducts();
+  registeredStoredFilterBtn.classList.toggle("active", storedView === "registered");
+  storedFilterBtn.classList.toggle("active", storedView === "stored");
+
+  const products = storedView === "registered"
+    ? getRegisteredProducts()
+    : getStoredProducts();
+
+  const emptyMessage = storedView === "registered"
+    ? "登録済み商品はありません"
+    : "保管商品はありません";
 
   document.getElementById("storedList").innerHTML =
-    storedProducts.length ? productTable(storedProducts, false, true) + bulkActionBar() : emptyHtml("保管商品はありません");
+    products.length ? productTable(products, false, true) + bulkActionBar() : emptyHtml(emptyMessage);
 }
 
 function renderShippingList() {
@@ -890,7 +904,6 @@ window.toggleProductSelection = function(productId, checked) {
     selectedProductIds.delete(productId);
   }
 
-  renderProductsList();
   renderStoredList();
 };
 
