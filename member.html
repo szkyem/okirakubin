@@ -16,6 +16,91 @@ body {
     font-family: "Segoe UI", "Yu Gothic", "Meiryo", sans-serif;
     color: #1f2937;
     background: linear-gradient(135deg, #4f7cff 0%, #263a66 100%);
+}
+
+button {
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.login-panel {
+    width: 100%;
+    max-width: 520px;
+    padding: 36px;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 50px rgba(31, 41, 55, 0.18);
+    text-align: center;
+}
+
+.login-panel h1 {
+    margin-bottom: 12px;
+    font-size: 28px;
+}
+
+.login-panel p {
+    line-height: 1.7;
+    color: #4b5563;
+}
+
+.login-button {
+    width: 100%;
+    margin-top: 24px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 16px;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.error-message {
+    display: none;
+    margin-bottom: 18px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fef3f2;
+    color: #b42318;
+    line-height: 1.6;
+    text-align: left;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.app {
+    min-height: 100vh;
+    background: transparent;
     padding: 24px;
 }
 
@@ -38,17 +123,33 @@ body {
     border-bottom: 1px solid #e5e7eb;
 }
 
-h1 {
+.header h1 {
     font-size: 28px;
     color: #2563eb;
 }
 
+.user-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.user-email {
+    color: #4b5563;
+    word-break: break-word;
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .logout-btn {
-    border: 0;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-weight: 700;
-    cursor: pointer;
     background: #eef2f7;
     color: #1f2937;
 }
@@ -68,15 +169,21 @@ h1 {
 }
 
 @media (max-width: 640px) {
-    body {
+    .app {
         padding: 16px;
     }
 
-    .container {
+    .container,
+    .login-panel {
         padding: 24px;
     }
 
     .header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .user-area {
         align-items: stretch;
         flex-direction: column;
     }
@@ -88,25 +195,54 @@ h1 {
 </style>
 </head>
 <body>
-<div class="container">
-    <header class="header">
-        <h1>おきらく便</h1>
-        <button class="logout-btn" id="logoutBtn" type="button">ログアウト</button>
-    </header>
+<main>
+<section class="login-container" id="loginSection">
+    <div class="login-panel">
+        <div class="error-message" id="errorMessage"></div>
 
-    <main class="content">
-        <h2>目次</h2>
-        <p>会員ページ</p>
-    </main>
-</div>
+        <h1>おきらく便</h1>
+        <p>会員としてGoogleアカウントでログインしてください。</p>
+
+        <button class="login-button" id="loginBtn" type="button">Googleで会員ログイン</button>
+        <a class="back-link" href="index.html">入口へ戻る</a>
+    </div>
+</section>
+
+<section class="app hidden" id="memberApp" aria-live="polite">
+    <div class="container">
+        <header class="header">
+            <h1>おきらく便</h1>
+
+            <div class="user-area">
+                <span class="user-email" id="userEmail"></span>
+                <span class="badge">会員</span>
+                <button class="logout-btn" id="logoutBtn" type="button">ログアウト</button>
+            </div>
+        </header>
+
+        <main class="content">
+            <h2>目次</h2>
+            <p>会員ページ</p>
+        </main>
+    </div>
+</section>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
     getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
     signOut,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+    getDatabase,
+    ref,
+    set,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
@@ -119,19 +255,98 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const database = getDatabase(app);
+const provider = new GoogleAuthProvider();
 
+const loginSection = document.getElementById("loginSection");
+const memberApp = document.getElementById("memberApp");
+const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const errorMessage = document.getElementById("errorMessage");
+const userEmail = document.getElementById("userEmail");
 
-onAuthStateChanged(auth, (user) => {
-    if (!user) {
-        location.href = "index.html";
+loginBtn.addEventListener("click", async () => {
+    clearError();
+    loginBtn.disabled = true;
+
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        showError(toJapaneseError(error));
+        console.error(error);
+    } finally {
+        loginBtn.disabled = false;
     }
 });
 
 logoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-    location.href = "index.html";
+    clearError();
+
+    try {
+        await signOut(auth);
+    } catch (error) {
+        showError(toJapaneseError(error));
+        console.error(error);
+    }
 });
+
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        showLoginUI();
+        return;
+    }
+
+    showMemberUI(user);
+
+    try {
+        await set(ref(database, `loginUsers/${user.uid}`), {
+            uid: user.uid,
+            name: user.displayName || "",
+            email: user.email || "",
+            role: "member",
+            lastLoginAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error(error);
+    }
+});
+
+function showLoginUI() {
+    loginSection.classList.remove("hidden");
+    memberApp.classList.add("hidden");
+    userEmail.textContent = "";
+}
+
+function showMemberUI(user) {
+    loginSection.classList.add("hidden");
+    memberApp.classList.remove("hidden");
+    userEmail.textContent = user.email || user.displayName || user.uid;
+}
+
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.classList.add("show");
+}
+
+function clearError() {
+    errorMessage.textContent = "";
+    errorMessage.classList.remove("show");
+}
+
+function toJapaneseError(error) {
+    const code = error?.code || "unknown";
+
+    const messages = {
+        "auth/unauthorized-domain": "このドメインがFirebase Authenticationの承認済みドメインに入っていません。Firebase ConsoleでAuthorized domainsを確認してください。",
+        "auth/popup-blocked": "ブラウザがログイン用ポップアップをブロックしています。ポップアップを許可して再試行してください。",
+        "auth/popup-closed-by-user": "ログイン画面が閉じられました。もう一度ログインしてください。",
+        "auth/operation-not-allowed": "Firebase ConsoleのAuthenticationでGoogleログインが有効になっていません。",
+        "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。",
+        "auth/network-request-failed": "ネットワーク接続に失敗しました。通信環境を確認してください。"
+    };
+
+    return messages[code] || `ログインできませんでした。エラーコード: ${code}`;
+}
 </script>
 </body>
 </html>
