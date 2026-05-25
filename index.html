@@ -1,6 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おきらく便 - ログイン</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;background:linear-gradient(135deg,#4f7cff 0%,#263a66 100%)}
+button{border:0;border-radius:8px;padding:14px 18px;font-size:15px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
+button:hover{background:#1d4ed8}
+button:disabled{cursor:wait;opacity:.65}
+.hidden{display:none!important}
+.login-container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-panel{width:100%;max-width:520px;padding:36px;border-radius:12px;background:#fff;box-shadow:0 18px 50px rgba(31,41,55,.18);text-align:center}
+.login-panel h1{margin-bottom:12px;font-size:30px}
+.login-panel p{line-height:1.7;color:#4b5563}
+.login-buttons{display:grid;gap:12px;margin-top:24px}
+.admin-btn{background:#eef2f7;color:#1f2937}
+.admin-btn:hover{background:#dfe7f1}
+.error-message{display:none;margin-bottom:18px;padding:12px;border-radius:8px;background:#fef3f2;color:#b42318;line-height:1.6;text-align:left}
+.error-message.show{display:block}
+</style>
+</head>
+<body>
+<main>
+<section class="login-container" id="loginSection">
+  <div class="login-panel">
+    <div class="error-message" id="errorMessage"></div>
+    <h1>おきらく便</h1>
+    <p>Googleアカウントでログインしてください。</p>
+    <div class="login-buttons">
+      <button id="memberLoginBtn" type="button">会員としてログイン</button>
+      <button class="admin-btn" id="adminLoginBtn" type="button">管理者としてログイン</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  get,
+  set,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+  authDomain: "okirakubin-manager.firebaseapp.com",
+  projectId: "okirakubin-manager",
+  storageBucket: "okirakubin-manager.firebasestorage.app",
+  messagingSenderId: "387991576787",
+  appId: "1:387991576787:web:db731b898f46dc8214f426"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
+const provider = new GoogleAuthProvider();
+
+const memberLoginBtn = document.getElementById("memberLoginBtn");
+const adminLoginBtn = document.getElementById("adminLoginBtn");
+const errorMessage = document.getElementById("errorMessage");
+
+let requestedRole = sessionStorage.getItem("okirakubinRequestedRole") || null;
+
+memberLoginBtn.addEventListener("click", () => login("member"));
+adminLoginBtn.addEventListener("click", () => login("admin"));
+
+async function login(role) {
+  clearError();
+  requestedRole = role;
+  sessionStorage.setItem("okirakubinRequestedRole", role);
+  memberLoginBtn.disabled = true;
+  adminLoginBtn.disabled = true;
+
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    showError(toJapaneseError(error));
+    console.error(error);
+    memberLoginBtn.disabled = false;
+    adminLoginBtn.disabled = false;
+  }
+}
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    showLoginUI();
+    memberLoginBtn.disabled = false;
+    adminLoginBtn.disabled = false;
     return;
   }
 
@@ -8,17 +105,20 @@ onAuthStateChanged(auth, async (user) => {
     const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
     const memberSnapshot = await get(ref(database, `members/${user.uid}`));
 
+    const isAdmin = adminSnapshot.exists() && adminSnapshot.val() === true;
+    const isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
+
     let role = null;
 
-    if (adminSnapshot.exists() && adminSnapshot.val() === true) {
-      role = "admin";
-    } else if (memberSnapshot.exists() && memberSnapshot.val() === true) {
-      role = "member";
+    if (requestedRole === "admin") {
+      role = isAdmin ? "admin" : null;
+    } else {
+      role = isMember || isAdmin ? "member" : null;
     }
 
     if (!role) {
       await signOut(auth);
-      showError("このアカウントは利用登録されていません。管理者に確認してください。");
+      showError("このアカウントは選択した権限で登録されていません。管理者に確認してください。");
       return;
     }
 
@@ -30,13 +130,35 @@ onAuthStateChanged(auth, async (user) => {
       lastLoginAt: serverTimestamp()
     });
 
-    if (role === "admin") {
-      location.href = "admin.html";
-    } else {
-      location.href = "member.html";
-    }
+    location.href = role === "admin" ? "admin.html" : "member.html";
   } catch (error) {
     console.error(error);
     showError("ログイン後の権限確認に失敗しました。");
   }
 });
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.classList.add("show");
+}
+
+function clearError() {
+  errorMessage.textContent = "";
+  errorMessage.classList.remove("show");
+}
+
+function toJapaneseError(error) {
+  const code = error?.code || "unknown";
+  const messages = {
+    "auth/unauthorized-domain": "このドメインはFirebase Authenticationで許可されていません。",
+    "auth/popup-blocked": "ログイン用ポップアップがブロックされています。",
+    "auth/popup-closed-by-user": "ログイン画面が閉じられました。",
+    "auth/operation-not-allowed": "Googleログインが有効になっていません。",
+    "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。",
+    "auth/network-request-failed": "ネットワーク接続に失敗しました。"
+  };
+  return messages[code] || `ログインできませんでした。エラーコード: ${code}`;
+}
+</script>
+</body>
+</html>
