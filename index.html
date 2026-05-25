@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>お気楽便 - 発送管理システム</title>
+  <title>おきらく便 - 発送管理システム</title>
   <style>
     * {
       margin: 0;
@@ -32,7 +32,6 @@
       padding: 24px;
     }
 
-    /* ==================== ログイン画面 ==================== */
     .login-container {
       min-height: calc(100vh - 48px);
       display: flex;
@@ -142,7 +141,6 @@
       to { transform: translateY(0); opacity: 1; }
     }
 
-    /* ==================== メイン画面 ==================== */
     .container {
       background: var(--bg-white);
       border-radius: 10px;
@@ -161,7 +159,6 @@
       display: block;
     }
 
-    /* ヘッダー */
     .app-header {
       display: flex;
       align-items: center;
@@ -216,7 +213,6 @@
       background: var(--border);
     }
 
-    /* ナビゲーション */
     .nav-tabs {
       display: flex;
       gap: 10px;
@@ -247,7 +243,6 @@
       border-bottom-color: var(--primary);
     }
 
-    /* ページセクション */
     .page-section {
       display: none;
     }
@@ -262,7 +257,6 @@
       to { opacity: 1; }
     }
 
-    /* ダッシュボード */
     .dashboard-stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -292,7 +286,6 @@
       color: var(--primary);
     }
 
-    /* カード */
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -369,7 +362,6 @@
       background: var(--border);
     }
 
-    /* フォーム */
     .form-section {
       background: var(--bg-white);
       border-radius: 10px;
@@ -421,7 +413,6 @@
       display: none !important;
     }
 
-    /* レスポンシブ */
     @media (max-width: 768px) {
       body {
         padding: 16px;
@@ -456,12 +447,11 @@
   </style>
 </head>
 <body>
-  <!-- ログイン画面 -->
   <section class="login-container" id="loginSection">
     <div class="login-panel">
       <div class="error-message" id="errorMessage"></div>
 
-      <h1>🚚 お気楽便</h1>
+      <h1>おきらく便</h1>
       <p class="subtitle">カメラ発送代行サービス<br>発送管理システム</p>
 
       <div class="login-buttons">
@@ -471,20 +461,18 @@
         </button>
 
         <button class="login-btn admin" id="adminLoginBtn" type="button">
-          <span class="btn-icon">⚙️</span>
+          <span class="btn-icon">⚙</span>
           管理者としてログイン
         </button>
       </div>
     </div>
   </section>
 
-  <!-- メインアプリ -->
   <div class="container main-app" id="mainApp">
     <div class="error-message" id="appErrorMessage"></div>
 
-    <!-- ヘッダー -->
     <header class="app-header">
-      <h1 class="app-title">🚚 お気楽便</h1>
+      <h1 class="app-title">おきらく便</h1>
       <div class="user-info">
         <span id="userEmail" style="color: var(--text-gray);"></span>
         <span class="user-badge" id="roleLabel">メンバー</span>
@@ -492,17 +480,14 @@
       </div>
     </header>
 
-    <!-- ========== 会員用ダッシュボード ========== -->
     <div id="memberDashboard" class="page-section">
-      <!-- ナビゲーション -->
       <div class="nav-tabs">
-        <button class="nav-tab active" onclick="switchTab('member', 'overview')">📊 概要</button>
-        <button class="nav-tab" onclick="switchTab('member', 'register')">➕ 商品登録</button>
-        <button class="nav-tab" onclick="switchTab('member', 'products')">📦 商品一覧</button>
-        <button class="nav-tab" onclick="switchTab('member', 'shipping')">🚚 発送管理</button>
+        <button class="nav-tab active" onclick="switchTab(event, 'member', 'overview')">概要</button>
+        <button class="nav-tab" onclick="switchTab(event, 'member', 'register')">商品登録</button>
+        <button class="nav-tab" onclick="switchTab(event, 'member', 'products')">商品一覧</button>
+        <button class="nav-tab" onclick="switchTab(event, 'member', 'shipping')">発送管理</button>
       </div>
 
-      <!-- 概要 -->
       <div id="memberOverview" class="page-section show">
         <div class="dashboard-stats">
           <div class="stat-card">
@@ -528,19 +513,18 @@
         </div>
       </div>
 
-      <!-- 商品登録 -->
       <div id="memberRegister" class="page-section">
         <div class="form-section">
           <h2 style="margin-bottom: 20px;">商品を登録する</h2>
           <form id="productForm" onsubmit="registerProduct(event)">
             <div class="form-group">
               <label for="productName">商品名 *</label>
-              <input type="text" id="productName" placeholder="例：Canon EOS R5" required>
+              <input type="text" id="productName" placeholder="例: Canon EOS R5" required>
             </div>
 
             <div class="form-group">
               <label for="productModel">型番</label>
-              <input type="text" id="productModel" placeholder="例：4147C001">
+              <input type="text" id="productModel" placeholder="例: 4147C001">
             </div>
 
             <div class="form-group">
@@ -563,7 +547,6 @@
         </div>
       </div>
 
-      <!-- 商品一覧 -->
       <div id="memberProducts" class="page-section">
         <h2 style="margin-bottom: 20px;">登録済み商品</h2>
         <div id="memberProductsList" class="cards-grid">
@@ -573,7 +556,6 @@
         </div>
       </div>
 
-      <!-- 発送管理 -->
       <div id="memberShipping" class="page-section">
         <h2 style="margin-bottom: 20px;">発送管理</h2>
         <div id="memberShippingList" class="cards-grid">
@@ -584,17 +566,14 @@
       </div>
     </div>
 
-    <!-- ========== 管理者用ダッシュボード ========== -->
     <div id="adminDashboard" class="page-section">
-      <!-- ナビゲーション -->
       <div class="nav-tabs">
-        <button class="nav-tab active" onclick="switchTab('admin', 'overview')">📊 概要</button>
-        <button class="nav-tab" onclick="switchTab('admin', 'members')">👥 メンバー</button>
-        <button class="nav-tab" onclick="switchTab('admin', 'products')">📦 全商品</button>
-        <button class="nav-tab" onclick="switchTab('admin', 'shipping')">🚚 発送管理</button>
+        <button class="nav-tab active" onclick="switchTab(event, 'admin', 'overview')">概要</button>
+        <button class="nav-tab" onclick="switchTab(event, 'admin', 'members')">メンバー</button>
+        <button class="nav-tab" onclick="switchTab(event, 'admin', 'products')">全商品</button>
+        <button class="nav-tab" onclick="switchTab(event, 'admin', 'shipping')">発送管理</button>
       </div>
 
-      <!-- 概要 -->
       <div id="adminOverview" class="page-section show">
         <div class="dashboard-stats">
           <div class="stat-card">
@@ -616,7 +595,6 @@
         </div>
       </div>
 
-      <!-- メンバー一覧 -->
       <div id="adminMembers" class="page-section">
         <h2 style="margin-bottom: 20px;">メンバー一覧</h2>
         <div id="adminMembersList" class="cards-grid">
@@ -626,7 +604,6 @@
         </div>
       </div>
 
-      <!-- 全商品 -->
       <div id="adminProducts" class="page-section">
         <h2 style="margin-bottom: 20px;">全商品一覧</h2>
         <div id="adminProductsList" class="cards-grid">
@@ -636,7 +613,6 @@
         </div>
       </div>
 
-      <!-- 発送管理 -->
       <div id="adminShipping" class="page-section">
         <h2 style="margin-bottom: 20px;">発送管理</h2>
         <div id="adminShippingList" class="cards-grid">
@@ -648,13 +624,24 @@
     </div>
   </div>
 
-  <!-- Firebase SDK (Compat版) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      get,
+      set,
+      update,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  <script>
-    // ========== Firebase設定 ==========
     const firebaseConfig = {
       apiKey: "AIzaSyB2CH410X3yk4YTJWFC2JyEWScXZn77Z3I",
       authDomain: "my-portfolio-d3560.firebaseapp.com",
@@ -665,13 +652,11 @@
       appId: "1:293517847141:web:bec173cf345b47cf91f48c"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+    const provider = new GoogleAuthProvider();
 
-    const auth = firebase.auth();
-    const database = firebase.database();
-    const provider = new firebase.auth.GoogleAuthProvider();
-
-    // DOM要素
     const loginSection = document.getElementById("loginSection");
     const mainApp = document.getElementById("mainApp");
     const memberLoginBtn = document.getElementById("memberLoginBtn");
@@ -684,19 +669,18 @@
     const memberDashboard = document.getElementById("memberDashboard");
     const adminDashboard = document.getElementById("adminDashboard");
 
-    // グローバル変数
     let currentUser = null;
     let currentRole = null;
-    let loginMode = null;
+    let loginMode = sessionStorage.getItem("okirakubinLoginMode") || null;
 
-    // ========== ログイン処理 ==========
     memberLoginBtn.addEventListener("click", async () => {
       clearError();
       memberLoginBtn.disabled = true;
       loginMode = "member";
+      sessionStorage.setItem("okirakubinLoginMode", "member");
 
       try {
-        await auth.signInWithPopup(provider);
+        await signInWithPopup(auth, provider);
       } catch (error) {
         showError(toJapaneseError(error));
         console.error(error);
@@ -709,9 +693,10 @@
       clearError();
       adminLoginBtn.disabled = true;
       loginMode = "admin";
+      sessionStorage.setItem("okirakubinLoginMode", "admin");
 
       try {
-        await auth.signInWithPopup(provider);
+        await signInWithPopup(auth, provider);
       } catch (error) {
         showError(toJapaneseError(error));
         console.error(error);
@@ -722,11 +707,16 @@
 
     logoutBtn.addEventListener("click", async () => {
       clearError();
-      await auth.signOut();
+
+      try {
+        await signOut(auth);
+      } catch (error) {
+        showError(toJapaneseError(error));
+        console.error(error);
+      }
     });
 
-    // ========== 認証状態の監視 ==========
-    auth.onAuthStateChanged(async (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         showLoginUI();
         currentUser = null;
@@ -737,53 +727,53 @@
       currentUser = user;
 
       try {
-        // ユーザーの役割を取得または設定
-        const userSnapshot = await database.ref(`users/${user.uid}`).once("value");
-        
+        const userSnapshot = await get(ref(database, `users/${user.uid}`));
+
         if (userSnapshot.exists()) {
-          currentRole = userSnapshot.val().role;
+          currentRole = userSnapshot.val().role || "member";
         } else {
           currentRole = loginMode || "member";
-          await database.ref(`users/${user.uid}`).set({
-            email: user.email,
+
+          await set(ref(database, `users/${user.uid}`), {
+            uid: user.uid,
+            email: user.email || "",
+            name: user.displayName || "",
             role: currentRole,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
+            createdAt: serverTimestamp()
           });
         }
 
-        // ログイン履歴を記録
-        await database.ref(`loginUsers/${user.uid}`).update({
+        await update(ref(database, `loginUsers/${user.uid}`), {
           uid: user.uid,
-          email: user.email,
+          email: user.email || "",
+          name: user.displayName || "",
           role: currentRole,
-          lastLoginAt: firebase.database.ServerValue.TIMESTAMP
+          lastLoginAt: serverTimestamp()
         });
 
-        // UI表示
-        userEmail.textContent = user.email;
-        
+        userEmail.textContent = user.email || user.displayName || user.uid;
+
         if (currentRole === "admin") {
           roleLabel.textContent = "管理者";
           roleLabel.classList.add("admin");
           memberDashboard.classList.remove("show");
           adminDashboard.classList.add("show");
-          loadAdminData();
+          await loadAdminData();
         } else {
           roleLabel.textContent = "メンバー";
           roleLabel.classList.remove("admin");
           adminDashboard.classList.remove("show");
           memberDashboard.classList.add("show");
-          loadMemberData();
+          await loadMemberData();
         }
 
         showMainApp();
       } catch (error) {
         console.error("Error handling user:", error);
-        showError("ユーザー情報の取得に失敗しました");
+        showError("ユーザー情報の取得に失敗しました。");
       }
     });
 
-    // ========== UI制御 ==========
     function showLoginUI() {
       loginSection.classList.remove("hidden");
       mainApp.classList.remove("show");
@@ -808,67 +798,69 @@
       appErrorMessage.classList.remove("show");
     }
 
-    // ========== タブ切り替え ==========
-    window.switchTab = function(dashboard, tabName) {
-      const sections = document.querySelectorAll(".page-section");
-      sections.forEach(el => el.classList.remove("show"));
+    window.switchTab = function(event, dashboard, tabName) {
+      const root = dashboard === "member" ? memberDashboard : adminDashboard;
 
-      const tabs = document.querySelectorAll(".nav-tab");
-      tabs.forEach(el => el.classList.remove("active"));
+      root.querySelectorAll(".page-section").forEach((el) => {
+        el.classList.remove("show");
+      });
 
-      const sectionId = `${dashboard === 'member' ? 'member' : 'admin'}${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+      root.querySelectorAll(".nav-tab").forEach((el) => {
+        el.classList.remove("active");
+      });
+
+      const prefix = dashboard === "member" ? "member" : "admin";
+      const sectionId = `${prefix}${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
       const section = document.getElementById(sectionId);
+
       if (section) {
         section.classList.add("show");
       }
 
-      event.target.classList.add("active");
+      event.currentTarget.classList.add("active");
     };
 
-    // ========== 商品登録 ==========
     window.registerProduct = async function(event) {
       event.preventDefault();
-      
+
       const name = document.getElementById("productName").value.trim();
       const model = document.getElementById("productModel").value.trim();
       const condition = document.getElementById("productCondition").value;
       const description = document.getElementById("productDescription").value.trim();
 
       if (!name) {
-        showError("商品名は必須です");
+        showError("商品名は必須です。");
         return;
       }
 
       try {
         const productId = Date.now().toString();
+
         const product = {
           id: productId,
-          name: name,
-          model: model,
-          condition: condition,
-          description: description,
+          name,
+          model,
+          condition,
+          description,
           status: "registered",
-          createdAt: firebase.database.ServerValue.TIMESTAMP
+          createdAt: Date.now()
         };
 
-        await database.ref(`products/${currentUser.uid}/${productId}`).set(product);
+        await set(ref(database, `products/${currentUser.uid}/${productId}`), product);
 
         document.getElementById("productForm").reset();
-        alert("商品が登録されました！");
-        loadMemberData();
+        alert("商品が登録されました。");
+        await loadMemberData();
       } catch (error) {
         console.error("Error registering product:", error);
-        showError("商品の登録に失敗しました");
+        showError("商品の登録に失敗しました。");
       }
     };
 
-    // ========== 会員データ読み込み ==========
     async function loadMemberData() {
       try {
         const uid = currentUser.uid;
-
-        // 商品一覧を取得
-        const productsSnapshot = await database.ref(`products/${uid}`).once("value");
+        const productsSnapshot = await get(ref(database, `products/${uid}`));
         const productsList = document.getElementById("memberProductsList");
         const recentProducts = document.getElementById("memberRecentProducts");
 
@@ -877,83 +869,36 @@
         let completedCount = 0;
 
         if (productsSnapshot.exists()) {
-          const products = Object.values(productsSnapshot.val()).sort((a, b) => 
-            b.createdAt - a.createdAt
-          );
+          const products = Object.values(productsSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
           productCount = products.length;
 
-          const html = products.map(product => `
-            <div class="card">
-              <div class="card-title">${escapeHtml(product.name)}</div>
-              <div class="card-meta">
-                ${product.model ? '型番: ' + escapeHtml(product.model) + ' | ' : ''}
-                状態: ${getConditionLabel(product.condition)}
-              </div>
-              <div class="card-content">${product.description ? escapeHtml(product.description) : '説明なし'}</div>
-              <div style="font-size: 12px; color: #9ca3af;">
-                登録日: ${new Date(product.createdAt).toLocaleDateString('ja-JP')}
-              </div>
-              <div class="card-actions">
-                <button class="btn btn-primary" onclick="requestShipping('${product.id}', '${escapeHtml(product.name)}')">
-                  発送依頼
-                </button>
-              </div>
-            </div>
-          `).join('');
+          const html = products.map((product) => productCardHtml(product, true)).join("");
 
-          productsList.innerHTML = html || '<div class="empty-state"><h3>商品がありません</h3></div>';
-          recentProducts.innerHTML = html.length > 0 ? products.slice(0, 3).map(product => `
-            <div class="card">
-              <div class="card-title">${escapeHtml(product.name)}</div>
-              <div class="card-meta">${getConditionLabel(product.condition)}</div>
-              <div class="card-content">${product.description ? escapeHtml(product.description) : '説明なし'}</div>
-              <div class="card-actions">
-                <button class="btn btn-primary" onclick="requestShipping('${product.id}', '${escapeHtml(product.name)}')">
-                  発送依頼
-                </button>
-              </div>
-            </div>
-          `).join('') : '<div class="empty-state"><h3>商品が登録されていません</h3></div>';
+          productsList.innerHTML = html || emptyHtml("商品がありません");
+          recentProducts.innerHTML = products.length > 0
+            ? products.slice(0, 3).map((product) => productCardHtml(product, true)).join("")
+            : emptyHtml("商品が登録されていません");
         } else {
-          productsList.innerHTML = '<div class="empty-state"><h3>商品が登録されていません</h3></div>';
-          recentProducts.innerHTML = '<div class="empty-state"><h3>商品が登録されていません</h3></div>';
+          productsList.innerHTML = emptyHtml("商品が登録されていません");
+          recentProducts.innerHTML = emptyHtml("商品が登録されていません");
         }
 
-        // 発送情報を取得
-        const shippingSnapshot = await database.ref(`shipping/${uid}`).once("value");
+        const shippingSnapshot = await get(ref(database, `shipping/${uid}`));
         const shippingList = document.getElementById("memberShippingList");
 
         if (shippingSnapshot.exists()) {
-          const shippings = Object.values(shippingSnapshot.val()).sort((a, b) => 
-            b.createdAt - a.createdAt
-          );
+          const shippings = Object.values(shippingSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-          shippings.forEach(shipping => {
-            if (shipping.status === 'pending') pendingCount++;
-            if (shipping.status === 'completed') completedCount++;
+          shippings.forEach((shipping) => {
+            if (shipping.status === "pending") pendingCount++;
+            if (shipping.status === "completed") completedCount++;
           });
 
-          const html = shippings.map(shipping => `
-            <div class="card">
-              <div class="card-title">${escapeHtml(shipping.productName)}</div>
-              <div class="card-meta">
-                <span style="background: ${getStatusColor(shipping.status)}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                  ${getStatusLabel(shipping.status)}
-                </span>
-              </div>
-              <div class="card-content">
-                依頼日: ${new Date(shipping.createdAt).toLocaleDateString('ja-JP')}
-                ${shipping.trackingNumber ? '<br>追跡番号: ' + escapeHtml(shipping.trackingNumber) : ''}
-              </div>
-            </div>
-          `).join('');
-
-          shippingList.innerHTML = html || '<div class="empty-state"><h3>発送依頼がありません</h3></div>';
+          shippingList.innerHTML = shippings.map(shippingCardHtml).join("") || emptyHtml("発送依頼がありません");
         } else {
-          shippingList.innerHTML = '<div class="empty-state"><h3>発送依頼がありません</h3></div>';
+          shippingList.innerHTML = emptyHtml("発送依頼がありません");
         }
 
-        // 統計を更新
         document.getElementById("memberProductCount").textContent = productCount;
         document.getElementById("memberPendingCount").textContent = pendingCount;
         document.getElementById("memberCompletedCount").textContent = completedCount;
@@ -962,11 +907,11 @@
       }
     }
 
-    // ========== 管理者データ読み込み ==========
     async function loadAdminData() {
       try {
-        const usersSnapshot = await database.ref("users").once("value");
+        const usersSnapshot = await get(ref(database, "users"));
         const membersList = document.getElementById("adminMembersList");
+
         let memberCount = 0;
         let productCount = 0;
         let pendingCount = 0;
@@ -974,98 +919,74 @@
 
         if (usersSnapshot.exists()) {
           const users = usersSnapshot.val();
+
           const members = Object.entries(users)
-            .filter(([uid, user]) => user.role === "member")
+            .filter(([, user]) => user.role === "member")
             .map(([uid, user]) => ({ uid, ...user }));
 
           memberCount = members.length;
 
-          const html = members.map(member => `
+          membersList.innerHTML = members.map((member) => `
             <div class="card">
-              <div class="card-title">${escapeHtml(member.email)}</div>
+              <div class="card-title">${escapeHtml(member.email || member.name || member.uid)}</div>
               <div class="card-meta">メンバー</div>
-              <div class="card-content">
-                参加日: ${new Date(member.createdAt).toLocaleDateString('ja-JP')}
-              </div>
+              <div class="card-content">参加日: ${formatDate(member.createdAt)}</div>
               <div class="card-actions">
-                <button class="btn btn-primary" onclick="viewMemberProducts('${member.uid}')">
-                  商品を見る
-                </button>
+                <button class="btn btn-primary" onclick="viewMemberProducts('${escapeAttr(member.uid)}')">商品を見る</button>
               </div>
             </div>
-          `).join('');
-
-          membersList.innerHTML = html || '<div class="empty-state"><h3>メンバーがいません</h3></div>';
+          `).join("") || emptyHtml("メンバーがいません");
+        } else {
+          membersList.innerHTML = emptyHtml("メンバーがいません");
         }
 
-        // 全商品を取得
-        const productsSnapshot = await database.ref("products").once("value");
+        const productsSnapshot = await get(ref(database, "products"));
         const productsList = document.getElementById("adminProductsList");
 
         if (productsSnapshot.exists()) {
           const allProducts = [];
-          const products = productsSnapshot.val();
 
-          Object.entries(products).forEach(([uid, userProducts]) => {
-            Object.values(userProducts).forEach(product => {
+          Object.entries(productsSnapshot.val()).forEach(([uid, userProducts]) => {
+            Object.values(userProducts || {}).forEach((product) => {
               allProducts.push({ ...product, uid });
             });
           });
 
           productCount = allProducts.length;
 
-          const html = allProducts.sort((a, b) => b.createdAt - a.createdAt).map(product => `
-            <div class="card">
-              <div class="card-title">${escapeHtml(product.name)}</div>
-              <div class="card-meta">
-                ${product.model ? '型番: ' + escapeHtml(product.model) + ' | ' : ''}
-                状態: ${getConditionLabel(product.condition)}
-              </div>
-              <div class="card-content">${product.description ? escapeHtml(product.description) : '説明なし'}</div>
-            </div>
-          `).join('');
-
-          productsList.innerHTML = html || '<div class="empty-state"><h3>商品がありません</h3></div>';
+          productsList.innerHTML = allProducts
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .map((product) => productCardHtml(product, false))
+            .join("") || emptyHtml("商品がありません");
+        } else {
+          productsList.innerHTML = emptyHtml("商品が登録されていません");
         }
 
-        // 発送情報を取得
-        const shippingSnapshot = await database.ref("shipping").once("value");
+        const shippingSnapshot = await get(ref(database, "shipping"));
         const shippingList = document.getElementById("adminShippingList");
 
         if (shippingSnapshot.exists()) {
           const allShippings = [];
-          const shippings = shippingSnapshot.val();
 
-          Object.entries(shippings).forEach(([uid, userShippings]) => {
-            Object.values(userShippings).forEach(shipping => {
+          Object.entries(shippingSnapshot.val()).forEach(([uid, userShippings]) => {
+            Object.values(userShippings || {}).forEach((shipping) => {
               allShippings.push({ ...shipping, uid });
             });
           });
 
-          allShippings.forEach(shipping => {
-            if (shipping.status === 'pending') pendingCount++;
-            if (shipping.status === 'completed') completedCount++;
+          allShippings.forEach((shipping) => {
+            if (shipping.status === "pending") pendingCount++;
+            if (shipping.status === "completed") completedCount++;
           });
 
-          const html = allShippings.sort((a, b) => b.createdAt - a.createdAt).map(shipping => `
-            <div class="card">
-              <div class="card-title">${escapeHtml(shipping.productName)}</div>
-              <div class="card-meta">
-                <span style="background: ${getStatusColor(shipping.status)}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                  ${getStatusLabel(shipping.status)}
-                </span>
-              </div>
-              <div class="card-content">
-                依頼日: ${new Date(shipping.createdAt).toLocaleDateString('ja-JP')}
-                ${shipping.trackingNumber ? '<br>追跡番号: ' + escapeHtml(shipping.trackingNumber) : ''}
-              </div>
-            </div>
-          `).join('');
-
-          shippingList.innerHTML = html || '<div class="empty-state"><h3>発送依頼がありません</h3></div>';
+          shippingList.innerHTML = allShippings
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .map(shippingCardHtml)
+            .join("") || emptyHtml("発送依頼がありません");
+        } else {
+          shippingList.innerHTML = emptyHtml("発送依頼がありません");
         }
 
-        // 統計を更新
         document.getElementById("adminMemberCount").textContent = memberCount;
         document.getElementById("adminProductCount").textContent = productCount;
         document.getElementById("adminPendingCount").textContent = pendingCount;
@@ -1075,78 +996,142 @@
       }
     }
 
-    // ========== 発送依頼 ==========
     window.requestShipping = async function(productId, productName) {
       try {
         const shippingId = Date.now().toString();
+
         const shipping = {
           id: shippingId,
-          productId: productId,
-          productName: productName,
+          productId,
+          productName,
           status: "pending",
           trackingNumber: null,
-          createdAt: firebase.database.ServerValue.TIMESTAMP
+          createdAt: Date.now()
         };
 
-        await database.ref(`shipping/${currentUser.uid}/${shippingId}`).set(shipping);
-        alert("発送依頼が作成されました。管理者が対応するのをお待ちください。");
-        loadMemberData();
+        await set(ref(database, `shipping/${currentUser.uid}/${shippingId}`), shipping);
+
+        alert("発送依頼が作成されました。管理者の対応をお待ちください。");
+        await loadMemberData();
       } catch (error) {
         console.error("Error requesting shipping:", error);
-        showError("発送依頼の作成に失敗しました");
+        showError("発送依頼の作成に失敗しました。");
       }
     };
 
-    // ========== メンバー商品表示 ==========
     window.viewMemberProducts = function(uid) {
-      alert("メンバーID: " + uid + " の商品管理画面（現在は未実装）");
+      alert("メンバーID: " + uid + " の商品管理画面は現在未実装です。");
     };
 
-    // ========== ヘルパー関数 ==========
+    function productCardHtml(product, showShippingButton) {
+      return `
+        <div class="card">
+          <div class="card-title">${escapeHtml(product.name)}</div>
+          <div class="card-meta">
+            ${product.model ? "型番: " + escapeHtml(product.model) + " | " : ""}
+            状態: ${getConditionLabel(product.condition)}
+          </div>
+          <div class="card-content">${product.description ? escapeHtml(product.description) : "説明なし"}</div>
+          <div style="font-size: 12px; color: #9ca3af;">登録日: ${formatDate(product.createdAt)}</div>
+          ${showShippingButton ? `
+            <div class="card-actions">
+              <button class="btn btn-primary" onclick="requestShipping('${escapeAttr(product.id)}', '${escapeAttr(product.name)}')">発送依頼</button>
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    function shippingCardHtml(shipping) {
+      return `
+        <div class="card">
+          <div class="card-title">${escapeHtml(shipping.productName)}</div>
+          <div class="card-meta">
+            <span style="background: ${getStatusColor(shipping.status)}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+              ${getStatusLabel(shipping.status)}
+            </span>
+          </div>
+          <div class="card-content">
+            依頼日: ${formatDate(shipping.createdAt)}
+            ${shipping.trackingNumber ? "<br>追跡番号: " + escapeHtml(shipping.trackingNumber) : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function emptyHtml(message) {
+      return `<div class="empty-state"><h3>${escapeHtml(message)}</h3></div>`;
+    }
+
     function escapeHtml(text) {
       const div = document.createElement("div");
-      div.textContent = text;
+      div.textContent = String(text ?? "");
       return div.innerHTML;
+    }
+
+    function escapeAttr(text) {
+      return String(text ?? "").replace(/[&<>"']/g, (s) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[s]));
+    }
+
+    function formatDate(value) {
+      if (!value) return "-";
+
+      const date = typeof value === "number" ? new Date(value) : new Date(value);
+
+      if (Number.isNaN(date.getTime())) return "-";
+
+      return date.toLocaleDateString("ja-JP");
     }
 
     function getConditionLabel(condition) {
       const labels = {
-        'new': '新品',
-        'like-new': '未使用品',
-        'excellent': '良好',
-        'good': '通常'
+        "new": "新品",
+        "like-new": "未使用品",
+        "excellent": "良好",
+        "good": "通常"
       };
-      return labels[condition] || condition;
+
+      return labels[condition] || condition || "-";
     }
 
     function getStatusLabel(status) {
       const labels = {
-        'pending': '待機中',
-        'shipped': '発送済み',
-        'completed': '完了'
+        "pending": "待機中",
+        "shipped": "発送済み",
+        "completed": "完了"
       };
-      return labels[status] || status;
+
+      return labels[status] || status || "-";
     }
 
     function getStatusColor(status) {
       const colors = {
-        'pending': '#f59e0b',
-        'shipped': '#3b82f6',
-        'completed': '#10b981'
+        "pending": "#f59e0b",
+        "shipped": "#3b82f6",
+        "completed": "#10b981"
       };
-      return colors[status] || '#6b7280';
+
+      return colors[status] || "#6b7280";
     }
 
-    // ========== エラーメッセージ処理 ==========
     function toJapaneseError(error) {
       const code = error?.code || "unknown";
+
       const messages = {
         "auth/unauthorized-domain": "このドメインがFirebase Authenticationの承認済みドメインに入っていません。Firebase ConsoleでAuthorized domainsを確認してください。",
         "auth/popup-blocked": "ブラウザがログイン用ポップアップをブロックしています。ポップアップを許可して再試行してください。",
         "auth/popup-closed-by-user": "ログイン画面が閉じられました。もう一度ログインしてください。",
         "auth/operation-not-allowed": "Firebase ConsoleのAuthenticationでGoogleログインが有効になっていません。",
-        "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。"
+        "auth/invalid-api-key": "Firebase設定のapiKeyが正しくありません。",
+        "auth/network-request-failed": "ネットワーク接続に失敗しました。通信環境を確認してください。"
       };
+
       return messages[code] || `ログインできませんでした。エラーコード: ${code}`;
     }
   </script>
