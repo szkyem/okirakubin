@@ -57,7 +57,6 @@ textarea{min-height:88px;resize:vertical}
 .status-pill.return{background:#fee2e2;color:#b91c1c}
 .status-pill.none{background:#f3f4f6;color:#6b7280}
 .compact-btn{padding:7px 10px;font-size:12px}
-.note-preview{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2563eb;text-decoration:underline;background:none;padding:0;font-weight:700}
 .ship-filter{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:18px}
 .ship-filter-btn{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
 .ship-filter-btn.active{color:#2563eb;border-bottom-color:#2563eb}
@@ -83,10 +82,14 @@ textarea{min-height:88px;resize:vertical}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .modal-title{font-size:20px;font-weight:800}
 .modal-body{line-height:1.8;white-space:pre-wrap}
+.detail-section{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
+.detail-heading{font-weight:800;color:#2563eb;margin-bottom:8px}
+.detail-grid{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:14px}
+.detail-label{color:#6b7280;font-weight:700}
 .modal-form{display:grid;gap:14px}
 .modal-section-title{background:#eaf2ff;color:#1d4ed8;font-weight:800;padding:9px 12px;margin:8px 0}
 .required{display:inline-block;background:#ef4444;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}}
+@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -798,7 +801,7 @@ function productTable(products, showShippingStatus = false, isSelectableList = f
             <th>発送</th>
             <th>商品名</th>
             <th>ナンバリング</th>
-            <th>備考欄</th>
+            <th>発送情報</th>
             <th>情報</th>
             <th>撮影日</th>
             ${showShippingStatus ? "<th>状態</th>" : ""}
@@ -826,8 +829,8 @@ function productRow(product, showShippingStatus = false, isSelectableList = fals
       <td>${escapeHtml(product.numbering || "-")}</td>
       <td>
         ${
-          product.note
-            ? `<button class="note-preview" type="button" onclick="showNote('${escapeAttr(product.id)}')">${escapeHtml(product.note)}</button>`
+          hasValue(product.shippingRequest)
+            ? `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button>`
             : "-"
         }
       </td>
@@ -921,35 +924,104 @@ window.editOrigin = function(originId) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-window.showNote = function(productId) {
+window.showShippingInfo = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
-  openModal("備考欄", product.note || "備考はありません。");
+  openModal("発送情報", shippingDetailHtml(product), true);
 };
 
 window.showInfo = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
-  openModal("商品情報", `
-確認日: ${product.confirmationDate || "-"}
-確認結果: ${product.confirmationResult || "-"}
-写真URL: ${product.photoUrl || "-"}
-予想サイズ: ${product.expectedSize || "-"}
-保管場所: ${product.storageLocation || "-"}
-購入先URL: ${product.purchaseUrl || "-"}
-  `.trim());
+  openModal("商品情報", productDetailHtml(product), true);
 };
 
-function openModal(title, body) {
+function productDetailHtml(product) {
+  return `
+    <div class="detail-section">
+      <div class="detail-heading">会員記載情報</div>
+      <div class="detail-grid">
+        <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
+        <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
+        <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
+        <div class="detail-label">備考欄</div><div>${escapeHtml(product.note || "-")}</div>
+        <div class="detail-label">購入先URL</div><div>${product.purchaseUrl ? `<a href="${escapeAttr(product.purchaseUrl)}" target="_blank" rel="noopener">${escapeHtml(product.purchaseUrl)}</a>` : "-"}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">管理者記載情報</div>
+      <div class="detail-grid">
+        <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
+        <div class="detail-label">確認結果</div><div>${escapeHtml(product.confirmationResult || "-")}</div>
+        <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
+        <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
+        <div class="detail-label">保管場所</div><div>${escapeHtml(product.storageLocation || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function shippingDetailHtml(product) {
+  const destination = product.shippingDestination || {};
+  const origin = product.shippingOrigin || {};
+
+  return `
+    <div class="detail-section">
+      <div class="detail-heading">発送内容</div>
+      <div class="detail-grid">
+        <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
+        <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+        <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
+        <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
+        <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送先</div>
+      <div class="detail-grid">
+        <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送元</div>
+      <div class="detail-grid">
+        <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
+        <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function openModal(title, body, isHtml = false) {
   modalTitle.textContent = title;
-  modalBody.textContent = body;
+
+  if (isHtml) {
+    modalBody.innerHTML = body;
+  } else {
+    modalBody.textContent = body;
+  }
+
   modalBackdrop.classList.add("show");
 }
 
 function closeModal() {
   modalBackdrop.classList.remove("show");
+  modalBody.textContent = "";
 }
 
 function closeShippingModal() {
