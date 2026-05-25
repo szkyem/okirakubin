@@ -49,11 +49,21 @@ textarea{min-height:88px;resize:vertical}
 .products-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
 .products-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
 .products-table tr:nth-child(even){background:#fafafa}
-.shipping-cell{background:#fffde7;text-align:center}
+.shipping-cell{background:#fffde7;text-align:center;min-width:170px}
 .shipping-control{display:flex;align-items:center;gap:8px;justify-content:center}
 .shipping-select{min-width:112px;padding:7px;font-size:13px}
+.shipping-select.hidden-select{display:none}
+.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
+.status-pill.domestic{background:#dbeafe;color:#1d4ed8}
+.status-pill.overseas{background:#dcfce7;color:#15803d}
+.status-pill.return{background:#fee2e2;color:#b91c1c}
+.status-pill.none{background:#f3f4f6;color:#6b7280}
 .compact-btn{padding:7px 10px;font-size:12px}
 .note-preview{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2563eb;text-decoration:underline;background:none;padding:0;font-weight:700}
+.ship-filter{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:18px}
+.ship-filter-btn{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
+.ship-filter-btn.active{color:#2563eb;border-bottom-color:#2563eb}
+.ship-filter-btn:hover{background:#f8fafc}
 .info-lines{line-height:1.6;color:#374151}
 .link{color:#2563eb;text-decoration:underline;word-break:break-all}
 .empty{padding:32px;text-align:center;color:#6b7280}
@@ -66,7 +76,7 @@ textarea{min-height:88px;resize:vertical}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .modal-title{font-size:20px;font-weight:800}
 .modal-body{line-height:1.8;white-space:pre-wrap}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}}
+@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}}
 </style>
 </head>
 <body>
@@ -100,11 +110,11 @@ textarea{min-height:88px;resize:vertical}
   <section class="section show" id="overview">
     <div class="grid">
       <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
-      <div class="stat"><div class="stat-label">発送依頼</div><div class="stat-value" id="shippingRequestCount">0</div></div>
-      <div class="stat"><div class="stat-label">撮影日登録済み</div><div class="stat-value" id="shootingDateCount">0</div></div>
+      <div class="stat"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
+      <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
 
-    <h2>最近の商品</h2>
+    <h2 style="margin-bottom:16px;">最近の商品</h2>
     <div id="recentProducts"></div>
   </section>
 
@@ -129,6 +139,10 @@ textarea{min-height:88px;resize:vertical}
 
   <section class="section" id="shipping">
     <h2 style="margin-bottom:16px;">発送管理</h2>
+    <div class="ship-filter">
+      <button class="ship-filter-btn active" id="unshippedFilterBtn" type="button">未発送</button>
+      <button class="ship-filter-btn" id="shippedFilterBtn" type="button">発送済み</button>
+    </div>
     <div id="shippingList"></div>
   </section>
 </div>
@@ -181,6 +195,7 @@ const database = getDatabase(
 let currentUser = null;
 let productsCache = [];
 let entryCount = 0;
+let shippingView = "unshipped";
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -196,6 +211,8 @@ const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
+const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
+const shippedFilterBtn = document.getElementById("shippedFilterBtn");
 
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
@@ -258,6 +275,16 @@ addEntryBtn.addEventListener("click", () => {
   addProductEntry();
 });
 
+unshippedFilterBtn.addEventListener("click", () => {
+  shippingView = "unshipped";
+  renderShippingList();
+});
+
+shippedFilterBtn.addEventListener("click", () => {
+  shippingView = "shipped";
+  renderShippingList();
+});
+
 productForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
@@ -304,6 +331,7 @@ productForm.addEventListener("submit", async (event) => {
         note: item.note,
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
+        shippingStatus: "unshipped",
         confirmationDate: "",
         confirmationResult: "",
         photoUrl: "",
@@ -351,25 +379,34 @@ async function loadData() {
       : [];
 
     document.getElementById("productCount").textContent = productsCache.length;
-    document.getElementById("shippingRequestCount").textContent = productsCache.filter((product) => product.shippingRequest).length;
-    document.getElementById("shootingDateCount").textContent = productsCache.filter((product) => product.shootingDate).length;
-
-    const tableHtml = productTable(productsCache);
+    document.getElementById("unshippedCount").textContent = productsCache.filter((product) => product.shippingRequest && product.shippingStatus !== "shipped").length;
+    document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
 
     document.getElementById("recentProducts").innerHTML =
       productsCache.slice(0, 5).length ? productTable(productsCache.slice(0, 5)) : emptyHtml("商品が登録されていません");
 
     document.getElementById("productsList").innerHTML =
-      productsCache.length ? tableHtml : emptyHtml("商品が登録されていません");
+      productsCache.length ? productTable(productsCache) : emptyHtml("商品が登録されていません");
 
-    document.getElementById("shippingList").innerHTML =
-      productsCache.filter((product) => product.shippingRequest).length
-        ? productTable(productsCache.filter((product) => product.shippingRequest))
-        : emptyHtml("発送依頼がありません");
+    renderShippingList();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
   }
+}
+
+function renderShippingList() {
+  unshippedFilterBtn.classList.toggle("active", shippingView === "unshipped");
+  shippedFilterBtn.classList.toggle("active", shippingView === "shipped");
+
+  const filtered = productsCache.filter((product) => {
+    if (!product.shippingRequest) return false;
+    if (shippingView === "shipped") return product.shippingStatus === "shipped";
+    return product.shippingStatus !== "shipped";
+  });
+
+  document.getElementById("shippingList").innerHTML =
+    filtered.length ? productTable(filtered, true) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
 }
 
 function resetEntries() {
@@ -435,7 +472,7 @@ function addProductEntry() {
   productEntries.appendChild(entry);
 }
 
-function productTable(products) {
+function productTable(products, showShippingStatus = false) {
   return `
     <div class="table-wrap">
       <table class="products-table">
@@ -447,29 +484,33 @@ function productTable(products) {
             <th>備考欄</th>
             <th>情報</th>
             <th>撮影日</th>
+            ${showShippingStatus ? "<th>状態</th>" : ""}
           </tr>
         </thead>
         <tbody>
-          ${products.map(productRow).join("")}
+          ${products.map((product) => productRow(product, showShippingStatus)).join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function productRow(product) {
+function productRow(product, showShippingStatus = false) {
+  const hasShipping = Boolean(product.shippingRequest);
+
   return `
     <tr>
       <td class="shipping-cell">
         <div class="shipping-control">
-          <input type="checkbox" ${product.shippingRequest ? "checked" : ""} onchange="toggleShipping('${escapeAttr(product.id)}', this.checked)">
-          <select class="shipping-select" onchange="changeShipping('${escapeAttr(product.id)}', this.value)" ${product.shippingRequest ? "" : "disabled"}>
+          <input type="checkbox" ${hasShipping ? "checked" : ""} onchange="toggleShipping('${escapeAttr(product.id)}', this.checked)">
+          <select class="shipping-select ${hasShipping ? "" : "hidden-select"}" onchange="changeShipping('${escapeAttr(product.id)}', this.value)">
             <option value="">選択</option>
             <option value="国内発送" ${product.shippingRequest === "国内発送" ? "selected" : ""}>国内発送</option>
             <option value="海外発送" ${product.shippingRequest === "海外発送" ? "selected" : ""}>海外発送</option>
             <option value="返品依頼" ${product.shippingRequest === "返品依頼" ? "selected" : ""}>返品依頼</option>
           </select>
         </div>
+        ${hasShipping ? `<div style="margin-top:8px;">${shippingPill(product.shippingRequest)}</div>` : ""}
       </td>
       <td>${escapeHtml(product.name)}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
@@ -484,7 +525,26 @@ function productRow(product) {
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       <td>${escapeHtml(product.shootingDate || "-")}</td>
+      ${
+        showShippingStatus
+          ? `<td>${shippingStatusControl(product)}</td>`
+          : ""
+      }
     </tr>
+  `;
+}
+
+function shippingPill(value) {
+  const className = value === "国内発送" ? "domestic" : value === "海外発送" ? "overseas" : value === "返品依頼" ? "return" : "none";
+  return `<span class="status-pill ${className}">${escapeHtml(value || "未選択")}</span>`;
+}
+
+function shippingStatusControl(product) {
+  return `
+    <select class="shipping-select" onchange="changeShippingStatus('${escapeAttr(product.id)}', this.value)">
+      <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
+      <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
+    </select>
   `;
 }
 
@@ -492,14 +552,20 @@ window.toggleShipping = async function(productId, checked) {
   if (!currentUser) return;
 
   const product = productsCache.find((item) => item.id === productId);
-  const shippingRequest = checked ? product?.shippingRequest || "国内発送" : "";
+  const updates = checked
+    ? {
+        shippingRequest: product?.shippingRequest || "国内発送",
+        shippingStatus: product?.shippingStatus || "unshipped",
+        updatedAt: Date.now()
+      }
+    : {
+        shippingRequest: "",
+        shippingStatus: "unshipped",
+        updatedAt: Date.now()
+      };
 
   try {
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
-      shippingRequest,
-      updatedAt: Date.now()
-    });
-
+    await update(ref(database, `products/${currentUser.uid}/${productId}`), updates);
     await loadData();
   } catch (error) {
     console.error(error);
@@ -513,6 +579,7 @@ window.changeShipping = async function(productId, value) {
   try {
     await update(ref(database, `products/${currentUser.uid}/${productId}`), {
       shippingRequest: value,
+      shippingStatus: "unshipped",
       updatedAt: Date.now()
     });
 
@@ -520,6 +587,22 @@ window.changeShipping = async function(productId, value) {
   } catch (error) {
     console.error(error);
     showError("発送依頼の更新に失敗しました。");
+  }
+};
+
+window.changeShippingStatus = async function(productId, value) {
+  if (!currentUser) return;
+
+  try {
+    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
+      shippingStatus: value,
+      updatedAt: Date.now()
+    });
+
+    await loadData();
+  } catch (error) {
+    console.error(error);
+    showError("発送状態の更新に失敗しました。");
   }
 };
 
