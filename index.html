@@ -525,30 +525,30 @@
           <div class="form-section">
             <h2 style="margin-bottom: 20px;">商品を登録する</h2>
             <form id="productForm" onsubmit="registerProduct(event)">
-              <div class="form-group">
-                <label>商品名 *</label>
-                <input type="text" id="productName" placeholder="例：Canon EOS R5" required>
-              </div>
+<div class="form-group">
+  <label for="productName">商品名 *</label>
+  <input type="text" id="productName" placeholder="例：Canon EOS R5" required>
+</div>
+<!-- 型番 -->
+<div class="form-group">
+  <label for="productModel">型番</label>
+  <input type="text" id="productModel" placeholder="例：4147C001">
+</div>
 
-              <div class="form-group">
-                <label>型番</label>
-                <input type="text" id="productModel" placeholder="例：4147C001">
-              </div>
+<!-- 状態 -->
+<div class="form-group">
+  <label for="productCondition">状態</label>
+  <select id="productCondition">
+    <option value="new">新品</option>
+    ...
+  </select>
+</div>
 
-              <div class="form-group">
-                <label>状態</label>
-                <select id="productCondition">
-                  <option value="new">新品</option>
-                  <option value="like-new">未使用品</option>
-                  <option value="excellent">良好</option>
-                  <option value="good">通常</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>説明</label>
-                <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
-              </div>
+<!-- 説明 -->
+<div class="form-group">
+  <label for="productDescription">説明</label>
+  <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
+</div>
 
               <button type="submit" class="btn btn-primary" style="width: 100%;">登録する</button>
             </form>
@@ -695,7 +695,9 @@
     window.initiateLogin = async function(role) {
       loginMode = role;
       try {
-        const result = await signInWithPopup(auth, provider);
+const result = await signInWithRedirect(auth, provider);
+// ログイン後、以下を追加
+const result = await getRedirectResult(auth);
         const user = result.user;
         currentUser = user;
         
