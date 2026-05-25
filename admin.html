@@ -62,10 +62,18 @@ button.secondary:hover{background:#dfe7f1}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .modal-title{font-size:20px;font-weight:800}
 .detail-section{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
-.detail-heading{font-weight:800;color:#2563eb;margin-bottom:8px}
+.detail-heading-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.detail-heading{font-weight:800;color:#2563eb}
 .detail-grid{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:14px}
 .detail-label{color:#6b7280;font-weight:700}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.sub-tab{min-width:120px}.detail-grid{grid-template-columns:1fr}}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-group{margin-bottom:12px}
+.form-group.full{grid-column:1/-1}
+label{display:block;font-weight:700;margin-bottom:7px;color:#4b5563}
+input,textarea,select{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:10px;font-size:14px;background:#fff}
+textarea{min-height:90px;resize:vertical}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.sub-tab{min-width:120px}.detail-grid,.form-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -131,6 +139,16 @@ button.secondary:hover{background:#dfe7f1}
   </div>
 </div>
 
+<div class="modal-backdrop" id="editModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="editModalTitle"></div>
+      <button class="secondary compact-btn" id="editModalCloseBtn" type="button">閉じる</button>
+    </div>
+    <form id="editForm"></form>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
@@ -145,6 +163,7 @@ import {
   ref,
   get,
   set,
+  update,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
@@ -169,6 +188,7 @@ let currentUser = null;
 let membersCache = [];
 let selectedMemberUid = "";
 let detailView = "registered";
+let activeEdit = null;
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -183,6 +203,10 @@ const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
+const editModalBackdrop = document.getElementById("editModalBackdrop");
+const editModalTitle = document.getElementById("editModalTitle");
+const editModalCloseBtn = document.getElementById("editModalCloseBtn");
+const editForm = document.getElementById("editForm");
 
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
@@ -253,6 +277,62 @@ document.querySelectorAll(".tab").forEach((btn) => {
 modalCloseBtn.addEventListener("click", closeModal);
 modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
+});
+
+editModalCloseBtn.addEventListener("click", closeEditModal);
+editModalBackdrop.addEventListener("click", (event) => {
+  if (event.target === editModalBackdrop) closeEditModal();
+});
+
+editForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!activeEdit) return;
+
+  clearError();
+
+  const { ownerUid, productId, type } = activeEdit;
+
+  try {
+    if (type === "member") {
+      await update(ref(database, `products/${ownerUid}/${productId}`), {
+        name: document.getElementById("editName").value.trim(),
+        numbering: document.getElementById("editNumbering").value.trim(),
+        workRequest: document.getElementById("editWorkRequest").value,
+        note: document.getElementById("editNote").value.trim(),
+        purchaseUrl: document.getElementById("editPurchaseUrl").value.trim(),
+        updatedAt: Date.now()
+      });
+    }
+
+    if (type === "admin") {
+      const confirmationDate = document.getElementById("editConfirmationDate").value;
+
+      await update(ref(database, `products/${ownerUid}/${productId}`), {
+        confirmationDate,
+        confirmationResult: document.getElementById("editConfirmationResult").value.trim(),
+        photoUrl: document.getElementById("editPhotoUrl").value.trim(),
+        expectedSize: document.getElementById("editExpectedSize").value.trim(),
+        storageLocation: document.getElementById("editStorageLocation").value.trim(),
+        shootingDate: confirmationDate,
+        updatedAt: Date.now()
+      });
+    }
+
+    if (type === "shippingStatus") {
+      await update(ref(database, `products/${ownerUid}/${productId}`), {
+        shippingStatus: document.getElementById("editShippingStatus").value,
+        updatedAt: Date.now()
+      });
+    }
+
+    closeEditModal();
+    closeModal();
+    await loadData();
+    if (selectedMemberUid) renderMemberDetail(selectedMemberUid);
+  } catch (error) {
+    console.error(error);
+    showError("更新に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
 });
 
 async function loadData() {
@@ -458,7 +538,10 @@ function productRow(product) {
         }
       </td>
       <td>${escapeHtml(product.shootingDate || "-")}</td>
-      <td>${shippingStatusText(product)}</td>
+      <td>
+        ${shippingStatusText(product)}
+        ${hasValue(product.shippingRequest) ? `<button class="secondary compact-btn" style="margin-left:6px;" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>` : ""}
+      </td>
     </tr>
   `;
 }
@@ -486,7 +569,10 @@ function findProduct(ownerUid, productId) {
 function productDetailHtml(product) {
   return `
     <div class="detail-section">
-      <div class="detail-heading">会員記載情報</div>
+      <div class="detail-heading-row">
+        <div class="detail-heading">会員記載情報</div>
+        <button class="secondary compact-btn" type="button" onclick="openMemberFieldsEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
+      </div>
       <div class="detail-grid">
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
@@ -497,7 +583,10 @@ function productDetailHtml(product) {
     </div>
 
     <div class="detail-section">
-      <div class="detail-heading">管理者記載情報</div>
+      <div class="detail-heading-row">
+        <div class="detail-heading">管理者記載情報</div>
+        <button class="secondary compact-btn" type="button" onclick="openAdminFieldsEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
+      </div>
       <div class="detail-grid">
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
         <div class="detail-label">確認結果</div><div>${escapeHtml(product.confirmationResult || "-")}</div>
@@ -515,7 +604,10 @@ function shippingDetailHtml(product) {
 
   return `
     <div class="detail-section">
-      <div class="detail-heading">発送内容</div>
+      <div class="detail-heading-row">
+        <div class="detail-heading">発送内容</div>
+        <button class="secondary compact-btn" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">状態を編集</button>
+      </div>
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
@@ -552,6 +644,107 @@ function shippingDetailHtml(product) {
   `;
 }
 
+window.openMemberFieldsEdit = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  activeEdit = { ownerUid, productId, type: "member" };
+  editModalTitle.textContent = "会員記載情報を編集";
+  editForm.innerHTML = `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>商品名</label>
+        <input id="editName" type="text" value="${escapeAttr(product.name || "")}">
+      </div>
+      <div class="form-group">
+        <label>ナンバリング</label>
+        <input id="editNumbering" type="text" value="${escapeAttr(product.numbering || "")}">
+      </div>
+      <div class="form-group">
+        <label>作業依頼</label>
+        <select id="editWorkRequest">
+          <option value="検品+写真" ${product.workRequest === "検品+写真" ? "selected" : ""}>検品+写真</option>
+          <option value="写真のみ" ${product.workRequest === "写真のみ" ? "selected" : ""}>写真のみ</option>
+          <option value="検品のみ" ${product.workRequest === "検品のみ" ? "selected" : ""}>検品のみ</option>
+          <option value="保管のみ" ${product.workRequest === "保管のみ" ? "selected" : ""}>保管のみ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>購入先URL</label>
+        <input id="editPurchaseUrl" type="url" value="${escapeAttr(product.purchaseUrl || "")}">
+      </div>
+      <div class="form-group full">
+        <label>備考欄</label>
+        <textarea id="editNote">${escapeHtml(product.note || "")}</textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" type="button" onclick="closeEditModal()">キャンセル</button>
+      <button type="submit">保存する</button>
+    </div>
+  `;
+  editModalBackdrop.classList.add("show");
+};
+
+window.openAdminFieldsEdit = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  activeEdit = { ownerUid, productId, type: "admin" };
+  editModalTitle.textContent = "管理者記載情報を編集";
+  editForm.innerHTML = `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>確認日</label>
+        <input id="editConfirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}">
+      </div>
+      <div class="form-group">
+        <label>予想サイズ</label>
+        <input id="editExpectedSize" type="text" value="${escapeAttr(product.expectedSize || "")}">
+      </div>
+      <div class="form-group full">
+        <label>確認結果</label>
+        <textarea id="editConfirmationResult">${escapeHtml(product.confirmationResult || "")}</textarea>
+      </div>
+      <div class="form-group">
+        <label>写真URL</label>
+        <input id="editPhotoUrl" type="url" value="${escapeAttr(product.photoUrl || "")}">
+      </div>
+      <div class="form-group">
+        <label>保管場所</label>
+        <input id="editStorageLocation" type="text" value="${escapeAttr(product.storageLocation || "")}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" type="button" onclick="closeEditModal()">キャンセル</button>
+      <button type="submit">保存する</button>
+    </div>
+  `;
+  editModalBackdrop.classList.add("show");
+};
+
+window.openShippingStatusEdit = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  activeEdit = { ownerUid, productId, type: "shippingStatus" };
+  editModalTitle.textContent = "発送状態を編集";
+  editForm.innerHTML = `
+    <div class="form-group">
+      <label>状態</label>
+      <select id="editShippingStatus">
+        <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
+        <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" type="button" onclick="closeEditModal()">キャンセル</button>
+      <button type="submit">保存する</button>
+    </div>
+  `;
+  editModalBackdrop.classList.add("show");
+};
+
 function shippingPill(value) {
   if (value === "国内発送") return `<span class="status-pill blue">国内発送</span>`;
   if (value === "海外発送") return `<span class="status-pill green">海外発送</span>`;
@@ -576,6 +769,12 @@ function closeModal() {
   modalBackdrop.classList.remove("show");
   modalBody.innerHTML = "";
 }
+
+window.closeEditModal = function() {
+  editModalBackdrop.classList.remove("show");
+  editForm.innerHTML = "";
+  activeEdit = null;
+};
 
 function showLoginUI() {
   currentUser = null;
