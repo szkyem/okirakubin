@@ -279,7 +279,10 @@ modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
 });
 
-editModalCloseBtn.addEventListener("click", closeEditModal);
+editModalCloseBtn.addEventListener("click", () => {
+  closeEditModal();
+});
+
 editModalBackdrop.addEventListener("click", (event) => {
   if (event.target === editModalBackdrop) closeEditModal();
 });
@@ -770,11 +773,13 @@ function closeModal() {
   modalBody.innerHTML = "";
 }
 
-window.closeEditModal = function() {
+function closeEditModal() {
   editModalBackdrop.classList.remove("show");
   editForm.innerHTML = "";
   activeEdit = null;
-};
+}
+
+window.closeEditModal = closeEditModal;
 
 function showLoginUI() {
   currentUser = null;
