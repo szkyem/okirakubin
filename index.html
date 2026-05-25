@@ -105,77 +105,6 @@ button:disabled {
 .error-message.show {
     display: block;
 }
-
-.app {
-    min-height: 100vh;
-    background: transparent;
-}
-
-.app-header {
-    height: 72px;
-    padding: 0 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.28);
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(10px);
-}
-
-.app-title {
-    font-size: 24px;
-    font-weight: 800;
-}
-
-.logout-btn {
-    background: #eef2f7;
-    color: #1f2937;
-}
-
-.logout-btn:hover {
-    background: #dfe7f1;
-}
-
-.app-body {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 28px;
-}
-
-.content-panel {
-    padding: 28px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 18px 50px rgba(31, 41, 55, 0.14);
-}
-
-.user-info {
-    margin-top: 12px;
-    color: #4b5563;
-    word-break: break-word;
-}
-
-@media (max-width: 640px) {
-    .app-header {
-        height: auto;
-        padding: 18px;
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .logout-btn {
-        width: 100%;
-    }
-
-    .app-body {
-        padding: 18px;
-    }
-
-    .login-panel {
-        padding: 28px;
-    }
-}
 </style>
 </head>
 <body>
@@ -190,20 +119,6 @@ button:disabled {
         <div class="login-buttons">
             <button class="login-button" id="memberLoginBtn" type="button">会員としてログイン</button>
             <button class="admin-button" id="adminLoginBtn" type="button" disabled>管理者としてログイン</button>
-        </div>
-    </div>
-</section>
-
-<section class="app hidden" id="appSection" aria-live="polite">
-    <header class="app-header">
-        <h1 class="app-title">おきらく便</h1>
-        <button class="logout-btn" id="logoutBtn" type="button">ログアウト</button>
-    </header>
-
-    <div class="app-body">
-        <div class="content-panel">
-            <h2>会員としてログイン済み</h2>
-            <p class="user-info" id="userInfo"></p>
         </div>
     </div>
 </section>
@@ -239,45 +154,31 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 const provider = new GoogleAuthProvider();
 
-const loginSection = document.getElementById("loginSection");
-const appSection = document.getElementById("appSection");
 const memberLoginBtn = document.getElementById("memberLoginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
 const errorMessage = document.getElementById("errorMessage");
-const userInfo = document.getElementById("userInfo");
+
+let loginStarted = false;
 
 memberLoginBtn.addEventListener("click", async () => {
     clearError();
     memberLoginBtn.disabled = true;
+    loginStarted = true;
 
     try {
         await signInWithPopup(auth, provider);
     } catch (error) {
         showError(toJapaneseError(error));
         console.error(error);
-    } finally {
         memberLoginBtn.disabled = false;
-    }
-});
-
-logoutBtn.addEventListener("click", async () => {
-    clearError();
-
-    try {
-        await signOut(auth);
-    } catch (error) {
-        showError(toJapaneseError(error));
-        console.error(error);
+        loginStarted = false;
     }
 });
 
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
-        showLoginUI();
+        memberLoginBtn.disabled = false;
         return;
     }
-
-    showAppUI(user);
 
     try {
         await set(ref(database, `loginUsers/${user.uid}`), {
@@ -290,19 +191,9 @@ onAuthStateChanged(auth, async (user) => {
     } catch (error) {
         console.error(error);
     }
+
+    location.href = "member.html";
 });
-
-function showLoginUI() {
-    loginSection.classList.remove("hidden");
-    appSection.classList.add("hidden");
-    userInfo.textContent = "";
-}
-
-function showAppUI(user) {
-    loginSection.classList.add("hidden");
-    appSection.classList.remove("hidden");
-    userInfo.textContent = user.email || user.displayName || user.uid;
-}
 
 function showError(message) {
     errorMessage.textContent = message;
