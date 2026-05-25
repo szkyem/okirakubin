@@ -30,7 +30,7 @@ button.danger:hover{background:#fecaca}
 .section{display:none}
 .section.show{display:block}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
-.stat,.card,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.stat,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
 .stat-value{font-size:32px;font-weight:800;color:#2563eb}
 .form{margin-top:16px}
@@ -49,11 +49,9 @@ textarea{min-height:88px;resize:vertical}
 .products-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
 .products-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
 .products-table tr:nth-child(even){background:#fafafa}
-.shipping-cell{background:#fffde7;text-align:center;min-width:170px}
-.shipping-control{display:flex;align-items:center;gap:8px;justify-content:center}
-.shipping-select{min-width:112px;padding:7px;font-size:13px}
-.shipping-select.hidden-select{display:none}
-.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
+.shipping-cell{background:#fffde7;text-align:center;min-width:92px}
+.shipping-check{width:auto}
+.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
 .status-pill.overseas{background:#dcfce7;color:#15803d}
 .status-pill.return{background:#fee2e2;color:#b91c1c}
@@ -64,8 +62,12 @@ textarea{min-height:88px;resize:vertical}
 .ship-filter-btn{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
 .ship-filter-btn.active{color:#2563eb;border-bottom-color:#2563eb}
 .ship-filter-btn:hover{background:#f8fafc}
-.info-lines{line-height:1.6;color:#374151}
-.link{color:#2563eb;text-decoration:underline;word-break:break-all}
+.bulk-action-bar{display:none;position:sticky;bottom:0;margin-top:12px;grid-template-columns:repeat(3,1fr);box-shadow:0 -8px 24px rgba(15,23,42,.12);z-index:5}
+.bulk-action-bar.show{display:grid}
+.bulk-btn{border-radius:0;padding:18px 12px;font-size:15px}
+.bulk-btn.domestic{background:#334155}
+.bulk-btn.overseas{background:#5acb88}
+.bulk-btn.return{background:#f59e0b}
 .empty{padding:32px;text-align:center;color:#6b7280}
 .error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px;line-height:1.6}
 .error.show{display:block}
@@ -76,7 +78,7 @@ textarea{min-height:88px;resize:vertical}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .modal-title{font-size:20px;font-weight:800}
 .modal-body{line-height:1.8;white-space:pre-wrap}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}}
+@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -196,6 +198,7 @@ let currentUser = null;
 let productsCache = [];
 let entryCount = 0;
 let shippingView = "unshipped";
+let selectedProductIds = new Set();
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -345,6 +348,7 @@ productForm.addEventListener("submit", async (event) => {
 
     productForm.reset();
     resetEntries();
+    selectedProductIds.clear();
     await loadData();
     alert("商品を登録しました。");
   } catch (error) {
@@ -375,24 +379,39 @@ async function loadData() {
     const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
 
     productsCache = productsSnapshot.exists()
-      ? Object.values(productsSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      ? Object.values(productsSnapshot.val()).sort((a, b) => {
+          const aNumber = String(a.numbering || "");
+          const bNumber = String(b.numbering || "");
+          return aNumber.localeCompare(bNumber, "ja", { numeric: true });
+        })
       : [];
 
-    document.getElementById("productCount").textContent = productsCache.length;
+    const registeredProducts = productsCache.filter((product) => !product.shippingRequest);
+    const existingIds = new Set(registeredProducts.map((product) => product.id));
+    selectedProductIds = new Set([...selectedProductIds].filter((id) => existingIds.has(id)));
+
+    document.getElementById("productCount").textContent = registeredProducts.length;
     document.getElementById("unshippedCount").textContent = productsCache.filter((product) => product.shippingRequest && product.shippingStatus !== "shipped").length;
     document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
 
     document.getElementById("recentProducts").innerHTML =
-      productsCache.slice(0, 5).length ? productTable(productsCache.slice(0, 5)) : emptyHtml("商品が登録されていません");
+      registeredProducts.slice(0, 5).length ? productTable(registeredProducts.slice(0, 5), false, true) : emptyHtml("商品が登録されていません");
 
     document.getElementById("productsList").innerHTML =
-      productsCache.length ? productTable(productsCache) : emptyHtml("商品が登録されていません");
+      registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("商品が登録されていません");
 
     renderShippingList();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
   }
+}
+
+function renderProductsList() {
+  const registeredProducts = productsCache.filter((product) => !product.shippingRequest);
+
+  document.getElementById("productsList").innerHTML =
+    registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("商品が登録されていません");
 }
 
 function renderShippingList() {
@@ -406,7 +425,7 @@ function renderShippingList() {
   });
 
   document.getElementById("shippingList").innerHTML =
-    filtered.length ? productTable(filtered, true) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
+    filtered.length ? productTable(filtered, true, false) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
 }
 
 function resetEntries() {
@@ -472,7 +491,7 @@ function addProductEntry() {
   productEntries.appendChild(entry);
 }
 
-function productTable(products, showShippingStatus = false) {
+function productTable(products, showShippingStatus = false, isRegisteredList = false) {
   return `
     <div class="table-wrap">
       <table class="products-table">
@@ -488,29 +507,22 @@ function productTable(products, showShippingStatus = false) {
           </tr>
         </thead>
         <tbody>
-          ${products.map((product) => productRow(product, showShippingStatus)).join("")}
+          ${products.map((product) => productRow(product, showShippingStatus, isRegisteredList)).join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function productRow(product, showShippingStatus = false) {
-  const hasShipping = Boolean(product.shippingRequest);
-
+function productRow(product, showShippingStatus = false, isRegisteredList = false) {
   return `
     <tr>
       <td class="shipping-cell">
-        <div class="shipping-control">
-          <input type="checkbox" ${hasShipping ? "checked" : ""} onchange="toggleShipping('${escapeAttr(product.id)}', this.checked)">
-          <select class="shipping-select ${hasShipping ? "" : "hidden-select"}" onchange="changeShipping('${escapeAttr(product.id)}', this.value)">
-            <option value="">選択</option>
-            <option value="国内発送" ${product.shippingRequest === "国内発送" ? "selected" : ""}>国内発送</option>
-            <option value="海外発送" ${product.shippingRequest === "海外発送" ? "selected" : ""}>海外発送</option>
-            <option value="返品依頼" ${product.shippingRequest === "返品依頼" ? "selected" : ""}>返品依頼</option>
-          </select>
-        </div>
-        ${hasShipping ? `<div style="margin-top:8px;">${shippingPill(product.shippingRequest)}</div>` : ""}
+        ${
+          isRegisteredList
+            ? `<input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">`
+            : shippingPill(product.shippingRequest)
+        }
       </td>
       <td>${escapeHtml(product.name)}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
@@ -525,12 +537,18 @@ function productRow(product, showShippingStatus = false) {
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       <td>${escapeHtml(product.shootingDate || "-")}</td>
-      ${
-        showShippingStatus
-          ? `<td>${shippingStatusControl(product)}</td>`
-          : ""
-      }
+      ${showShippingStatus ? `<td>${shippingStatusControl(product)}</td>` : ""}
     </tr>
+  `;
+}
+
+function bulkActionBar() {
+  return `
+    <div class="bulk-action-bar ${selectedProductIds.size ? "show" : ""}">
+      <button type="button" class="bulk-btn domestic" onclick="moveSelectedToShipping('国内発送')">選択中を国内発送する</button>
+      <button type="button" class="bulk-btn overseas" onclick="moveSelectedToShipping('海外発送')">選択中を海外発送する</button>
+      <button type="button" class="bulk-btn return" onclick="moveSelectedToShipping('返品依頼')">選択中を返品依頼する</button>
+    </div>
   `;
 }
 
@@ -541,48 +559,38 @@ function shippingPill(value) {
 
 function shippingStatusControl(product) {
   return `
-    <select class="shipping-select" onchange="changeShippingStatus('${escapeAttr(product.id)}', this.value)">
+    <select onchange="changeShippingStatus('${escapeAttr(product.id)}', this.value)">
       <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
       <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
     </select>
   `;
 }
 
-window.toggleShipping = async function(productId, checked) {
-  if (!currentUser) return;
-
-  const product = productsCache.find((item) => item.id === productId);
-  const updates = checked
-    ? {
-        shippingRequest: product?.shippingRequest || "国内発送",
-        shippingStatus: product?.shippingStatus || "unshipped",
-        updatedAt: Date.now()
-      }
-    : {
-        shippingRequest: "",
-        shippingStatus: "unshipped",
-        updatedAt: Date.now()
-      };
-
-  try {
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), updates);
-    await loadData();
-  } catch (error) {
-    console.error(error);
-    showError("発送依頼の更新に失敗しました。");
+window.toggleProductSelection = function(productId, checked) {
+  if (checked) {
+    selectedProductIds.add(productId);
+  } else {
+    selectedProductIds.delete(productId);
   }
+
+  renderProductsList();
 };
 
-window.changeShipping = async function(productId, value) {
-  if (!currentUser) return;
+window.moveSelectedToShipping = async function(shippingRequest) {
+  if (!currentUser || !selectedProductIds.size) return;
 
   try {
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
-      shippingRequest: value,
-      shippingStatus: "unshipped",
-      updatedAt: Date.now()
-    });
+    const now = Date.now();
 
+    await Promise.all([...selectedProductIds].map((productId) => {
+      return update(ref(database, `products/${currentUser.uid}/${productId}`), {
+        shippingRequest,
+        shippingStatus: "unshipped",
+        updatedAt: now
+      });
+    }));
+
+    selectedProductIds.clear();
     await loadData();
   } catch (error) {
     console.error(error);
