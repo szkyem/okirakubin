@@ -727,21 +727,7 @@
       currentUser = user;
 
       try {
-        const userSnapshot = await get(ref(database, `users/${user.uid}`));
-
-        if (userSnapshot.exists()) {
-          currentRole = userSnapshot.val().role || "member";
-        } else {
-          currentRole = loginMode || "member";
-
-          await set(ref(database, `users/${user.uid}`), {
-            uid: user.uid,
-            email: user.email || "",
-            name: user.displayName || "",
-            role: currentRole,
-            createdAt: serverTimestamp()
-          });
-        }
+        currentRole = await findUserRoleByEmailOrUid(user);
 
         await update(ref(database, `loginUsers/${user.uid}`), {
           uid: user.uid,
@@ -773,6 +759,68 @@
         showError("ユーザー情報の取得に失敗しました。");
       }
     });
+
+    async function findUserRoleByEmailOrUid(user) {
+      const uidSnapshot = await get(ref(database, `users/${user.uid}`));
+
+      if (uidSnapshot.exists()) {
+        const existingUser = uidSnapshot.val();
+        if (existingUser.role) {
+          return existingUser.role;
+        }
+      }
+
+      const usersSnapshot = await get(ref(database, "users"));
+      const email = String(user.email || "").toLowerCase();
+      let matchedRole = null;
+      let matchedCreatedAt = null;
+
+      if (usersSnapshot.exists()) {
+        const matchedEntries = Object.values(usersSnapshot.val() || {}).filter((entry) => {
+          return String(entry.email || "").toLowerCase() === email;
+        });
+
+        const modeMatched = matchedEntries.find((entry) => entry.role === loginMode);
+        const adminMatched = matchedEntries.find((entry) => entry.role === "admin");
+        const firstMatched = matchedEntries[0];
+
+        const selected = modeMatched || adminMatched || firstMatched;
+
+        if (selected?.role) {
+          matchedRole = selected.role;
+          matchedCreatedAt = selected.createdAt || null;
+        }
+      }
+
+      const role = matchedRole || loginMode || "member";
+
+      await update(ref(database, `users/${user.uid}`), {
+        uid: user.uid,
+        email: user.email || "",
+        name: user.displayName || "",
+        role,
+        createdAt: matchedCreatedAt || serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      return role;
+    }
+
+    async function ensureCurrentUserRecord() {
+      if (!currentUser) {
+        throw new Error("ログイン状態を確認できません。");
+      }
+
+      const role = currentRole || "member";
+
+      await update(ref(database, `users/${currentUser.uid}`), {
+        uid: currentUser.uid,
+        email: currentUser.email || "",
+        name: currentUser.displayName || "",
+        role,
+        updatedAt: serverTimestamp()
+      });
+    }
 
     function showLoginUI() {
       loginSection.classList.remove("hidden");
@@ -822,6 +870,7 @@
 
     window.registerProduct = async function(event) {
       event.preventDefault();
+      clearError();
 
       const name = document.getElementById("productName").value.trim();
       const model = document.getElementById("productModel").value.trim();
@@ -834,16 +883,21 @@
       }
 
       try {
+        await ensureCurrentUserRecord();
+
         const productId = Date.now().toString();
 
         const product = {
           id: productId,
+          ownerUid: currentUser.uid,
+          ownerEmail: currentUser.email || "",
           name,
           model,
           condition,
           description,
           status: "registered",
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         };
 
         await set(ref(database, `products/${currentUser.uid}/${productId}`), product);
@@ -853,7 +907,12 @@
         await loadMemberData();
       } catch (error) {
         console.error("Error registering product:", error);
-        showError("商品の登録に失敗しました。");
+
+        if (error?.code === "PERMISSION_DENIED" || String(error?.message || "").includes("Permission denied")) {
+          showError("商品の登録に失敗しました。Realtime Databaseのルールで書き込みが許可されていない可能性があります。");
+        } else {
+          showError("商品の登録に失敗しました。");
+        }
       }
     };
 
@@ -998,15 +1057,20 @@
 
     window.requestShipping = async function(productId, productName) {
       try {
+        await ensureCurrentUserRecord();
+
         const shippingId = Date.now().toString();
 
         const shipping = {
           id: shippingId,
+          ownerUid: currentUser.uid,
+          ownerEmail: currentUser.email || "",
           productId,
           productName,
           status: "pending",
           trackingNumber: null,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         };
 
         await set(ref(database, `shipping/${currentUser.uid}/${shippingId}`), shipping);
@@ -1015,7 +1079,12 @@
         await loadMemberData();
       } catch (error) {
         console.error("Error requesting shipping:", error);
-        showError("発送依頼の作成に失敗しました。");
+
+        if (error?.code === "PERMISSION_DENIED" || String(error?.message || "").includes("Permission denied")) {
+          showError("発送依頼の作成に失敗しました。Realtime Databaseのルールで書き込みが許可されていない可能性があります。");
+        } else {
+          showError("発送依頼の作成に失敗しました。");
+        }
       }
     };
 
