@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おきらく便 - 管理者</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:24px}
+button{border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
+button:hover{background:#1d4ed8}
+.container{background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px;max-width:1200px;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap}
+.title{font-size:28px;font-weight:800;color:#2563eb}
+.user{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.badge{background:#f59e0b;color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:800}
+.logout{background:#eef2f7;color:#1f2937}
+.logout:hover{background:#dfe7f1}
+.tabs{display:flex;gap:10px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;flex-wrap:wrap}
+.tab{background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent}
+.tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.section{display:none}
+.section.show{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.stat,.card{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
+.stat-value{font-size:32px;font-weight:800;color:#2563eb}
+.card-title{font-weight:800;font-size:18px;margin-bottom:8px}
+.card-meta{font-size:13px;color:#6b7280;margin-bottom:10px}
+.card-content{line-height:1.6;margin-bottom:12px}
+.empty{padding:32px;text-align:center;color:#6b7280}
+.error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px}
+.error.show{display:block}
+@media(max-width:700px){body{padding:16px}.container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="error" id="errorMessage"></div>
+
+  <header class="header">
+    <h1 class="title">おきらく便</h1>
+    <div class="user">
+      <span id="userEmail"></span>
+      <span class="badge">管理者</span>
+      <button class="logout" id="logoutBtn" type="button">ログアウト</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview">概要</button>
+    <button class="tab" data-tab="members">メンバー</button>
+    <button class="tab" data-tab="products">全商品</button>
+    <button class="tab" data-tab="shipping">発送管理</button>
+  </nav>
+
+  <section class="section show" id="overview">
+    <div class="grid">
+      <div class="stat"><div class="stat-label">総メンバー数</div><div class="stat-value" id="memberCount">0</div></div>
+      <div class="stat"><div class="stat-label">管理中の商品</div><div class="stat-value" id="productCount">0</div></div>
+      <div class="stat"><div class="stat-label">待機中の発送</div><div class="stat-value" id="pendingCount">0</div></div>
+      <div class="stat"><div class="stat-label">発送完了</div><div class="stat-value" id="completedCount">0</div></div>
+    </div>
+  </section>
+
+  <section class="section" id="members">
+    <h2>メンバー一覧</h2>
+    <div class="grid" id="membersList"></div>
+  </section>
+
+  <section class="section" id="products">
+    <h2>全商品一覧</h2>
+    <div class="grid" id="productsList"></div>
+  </section>
+
+  <section class="section" id="shipping">
+    <h2>発送管理</h2>
+    <div class="grid" id="shippingList"></div>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+  authDomain: "okirakubin-manager.firebaseapp.com",
+  projectId: "okirakubin-manager",
+  storageBucket: "okirakubin-manager.firebasestorage.app",
+  messagingSenderId: "387991576787",
+  appId: "1:387991576787:web:db731b898f46dc8214f426"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
+
+const userEmail = document.getElementById("userEmail");
+const logoutBtn = document.getElementById("logoutBtn");
+const errorMessage = document.getElementById("errorMessage");
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    location.href = "index.html";
+    return;
+  }
+
+  const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
+
+  if (!adminSnapshot.exists() || adminSnapshot.val() !== true) {
+    await signOut(auth);
+    location.href = "index.html";
+    return;
+  }
+
+  userEmail.textContent = user.email || user.displayName || user.uid;
+  await loadData();
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+  location.href = "index.html";
+});
+
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".section").forEach((section) => section.classList.remove("show"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("show");
+  });
+});
+
+async function loadData() {
+  try {
+    const membersSnapshot = await get(ref(database, "members"));
+    const loginUsersSnapshot = await get(ref(database, "loginUsers"));
+    const productsSnapshot = await get(ref(database, "products"));
+    const shippingSnapshot = await get(ref(database, "shipping"));
+
+    const loginUsers = loginUsersSnapshot.exists() ? loginUsersSnapshot.val() : {};
+    const memberIds = membersSnapshot.exists() ? Object.keys(membersSnapshot.val()) : [];
+
+    const members = memberIds.map((uid) => ({
+      uid,
+      ...(loginUsers[uid] || {})
+    }));
+
+    const products = [];
+    if (productsSnapshot.exists()) {
+      Object.entries(productsSnapshot.val()).forEach(([uid, userProducts]) => {
+        Object.values(userProducts || {}).forEach((product) => products.push({ ...product, uid }));
+      });
+    }
+
+    const shippings = [];
+    if (shippingSnapshot.exists()) {
+      Object.entries(shippingSnapshot.val()).forEach(([uid, userShippings]) => {
+        Object.values(userShippings || {}).forEach((shipping) => shippings.push({ ...shipping, uid }));
+      });
+    }
+
+    document.getElementById("memberCount").textContent = members.length;
+    document.getElementById("productCount").textContent = products.length;
+    document.getElementById("pendingCount").textContent = shippings.filter((s) => s.status === "pending").length;
+    document.getElementById("completedCount").textContent = shippings.filter((s) => s.status === "completed").length;
+
+    document.getElementById("membersList").innerHTML = members.map(memberCard).join("") || emptyHtml("メンバーがいません");
+    document.getElementById("productsList").innerHTML = products.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(productCard).join("") || emptyHtml("商品が登録されていません");
+    document.getElementById("shippingList").innerHTML = shippings.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(shippingCard).join("") || emptyHtml("発送依頼がありません");
+  } catch (error) {
+    console.error(error);
+    showError("データの読み込みに失敗しました。");
+  }
+}
+
+function memberCard(member) {
+  return `
+    <div class="card">
+      <div class="card-title">${escapeHtml(member.email || member.uid)}</div>
+      <div class="card-meta">UID: ${escapeHtml(member.uid)}</div>
+      <div class="card-content">最終ログイン: ${formatDate(member.lastLoginAt)}</div>
+    </div>
+  `;
+}
+
+function productCard(product) {
+  return `
+    <div class="card">
+      <div class="card-title">${escapeHtml(product.name)}</div>
+      <div class="card-meta">所有者: ${escapeHtml(product.ownerEmail || product.uid || "-")}</div>
+      <div class="card-content">${product.description ? escapeHtml(product.description) : "説明なし"}</div>
+    </div>
+  `;
+}
+
+function shippingCard(shipping) {
+  return `
+    <div class="card">
+      <div class="card-title">${escapeHtml(shipping.productName)}</div>
+      <div class="card-meta">状態: ${statusLabel(shipping.status)}</div>
+      <div class="card-content">所有者: ${escapeHtml(shipping.ownerEmail || shipping.uid || "-")}<br>依頼日: ${formatDate(shipping.createdAt)}</div>
+    </div>
+  `;
+}
+
+function emptyHtml(message) {
+  return `<div class="empty"><h3>${escapeHtml(message)}</h3></div>`;
+}
+
+function statusLabel(value) {
+  return {"pending":"待機中","shipped":"発送済み","completed":"完了"}[value] || value || "-";
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("ja-JP");
+}
+
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = String(value ?? "");
+  return div.innerHTML;
+}
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.classList.add("show");
+}
+</script>
+</body>
+</html>

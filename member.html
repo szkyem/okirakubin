@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おきらく便 - 会員</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:24px}
+button,input,textarea,select{font-family:inherit}
+button{border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
+button:hover{background:#1d4ed8}
+.container{background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px;max-width:1200px;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap}
+.title{font-size:28px;font-weight:800;color:#2563eb}
+.user{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.badge{background:#2563eb;color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:800}
+.logout{background:#eef2f7;color:#1f2937}
+.logout:hover{background:#dfe7f1}
+.tabs{display:flex;gap:10px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;flex-wrap:wrap}
+.tab{background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent}
+.tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.section{display:none}
+.section.show{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.stat,.card,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
+.stat-value{font-size:32px;font-weight:800;color:#2563eb}
+.form{margin-top:16px}
+.form-group{margin-bottom:16px}
+label{display:block;margin-bottom:8px;font-weight:700}
+input,textarea,select{width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:14px}
+textarea{min-height:100px;resize:vertical}
+.card-title{font-weight:800;font-size:18px;margin-bottom:8px}
+.card-meta{font-size:13px;color:#6b7280;margin-bottom:10px}
+.card-content{line-height:1.6;margin-bottom:12px}
+.empty{padding:32px;text-align:center;color:#6b7280}
+.error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px}
+.error.show{display:block}
+@media(max-width:700px){body{padding:16px}.container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="error" id="errorMessage"></div>
+
+  <header class="header">
+    <h1 class="title">おきらく便</h1>
+    <div class="user">
+      <span id="userEmail"></span>
+      <span class="badge">会員</span>
+      <button class="logout" id="logoutBtn" type="button">ログアウト</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview">概要</button>
+    <button class="tab" data-tab="register">商品登録</button>
+    <button class="tab" data-tab="products">商品一覧</button>
+    <button class="tab" data-tab="shipping">発送管理</button>
+  </nav>
+
+  <section class="section show" id="overview">
+    <div class="grid">
+      <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
+      <div class="stat"><div class="stat-label">待機中の発送</div><div class="stat-value" id="pendingCount">0</div></div>
+      <div class="stat"><div class="stat-label">発送完了</div><div class="stat-value" id="completedCount">0</div></div>
+    </div>
+    <h2>最近の商品</h2>
+    <div class="grid" id="recentProducts"></div>
+  </section>
+
+  <section class="section" id="register">
+    <div class="form">
+      <h2 style="margin-bottom:18px;">商品を登録する</h2>
+      <form id="productForm">
+        <div class="form-group">
+          <label for="productName">商品名 *</label>
+          <input id="productName" type="text" required placeholder="例: Canon EOS R5">
+        </div>
+        <div class="form-group">
+          <label for="productModel">型番</label>
+          <input id="productModel" type="text" placeholder="例: 4147C001">
+        </div>
+        <div class="form-group">
+          <label for="productCondition">状態</label>
+          <select id="productCondition">
+            <option value="new">新品</option>
+            <option value="like-new">未使用品</option>
+            <option value="excellent">良好</option>
+            <option value="good">通常</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="productDescription">説明</label>
+          <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
+        </div>
+        <button type="submit" style="width:100%;">登録する</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="section" id="products">
+    <h2>登録済み商品</h2>
+    <div class="grid" id="productsList"></div>
+  </section>
+
+  <section class="section" id="shipping">
+    <h2>発送管理</h2>
+    <div class="grid" id="shippingList"></div>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+  authDomain: "okirakubin-manager.firebaseapp.com",
+  projectId: "okirakubin-manager",
+  storageBucket: "okirakubin-manager.firebasestorage.app",
+  messagingSenderId: "387991576787",
+  appId: "1:387991576787:web:db731b898f46dc8214f426"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
+
+let currentUser = null;
+
+const userEmail = document.getElementById("userEmail");
+const logoutBtn = document.getElementById("logoutBtn");
+const errorMessage = document.getElementById("errorMessage");
+const productForm = document.getElementById("productForm");
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    location.href = "index.html";
+    return;
+  }
+
+  const memberSnapshot = await get(ref(database, `members/${user.uid}`));
+  const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
+
+  if (!memberSnapshot.exists() && !adminSnapshot.exists()) {
+    await signOut(auth);
+    location.href = "index.html";
+    return;
+  }
+
+  currentUser = user;
+  userEmail.textContent = user.email || user.displayName || user.uid;
+  await loadData();
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+  location.href = "index.html";
+});
+
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".section").forEach((section) => section.classList.remove("show"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("show");
+  });
+});
+
+productForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearError();
+
+  const name = document.getElementById("productName").value.trim();
+  const model = document.getElementById("productModel").value.trim();
+  const condition = document.getElementById("productCondition").value;
+  const description = document.getElementById("productDescription").value.trim();
+
+  if (!name) return showError("商品名は必須です。");
+
+  try {
+    const productId = Date.now().toString();
+    await set(ref(database, `products/${currentUser.uid}/${productId}`), {
+      id: productId,
+      ownerUid: currentUser.uid,
+      ownerEmail: currentUser.email || "",
+      name,
+      model,
+      condition,
+      description,
+      status: "registered",
+      createdAt: Date.now()
+    });
+
+    productForm.reset();
+    await loadData();
+    alert("商品が登録されました。");
+  } catch (error) {
+    console.error(error);
+    showError("商品の登録に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+});
+
+async function loadData() {
+  const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
+  const shippingSnapshot = await get(ref(database, `shipping/${currentUser.uid}`));
+
+  const products = productsSnapshot.exists()
+    ? Object.values(productsSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    : [];
+
+  const shippings = shippingSnapshot.exists()
+    ? Object.values(shippingSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    : [];
+
+  document.getElementById("productCount").textContent = products.length;
+  document.getElementById("pendingCount").textContent = shippings.filter((s) => s.status === "pending").length;
+  document.getElementById("completedCount").textContent = shippings.filter((s) => s.status === "completed").length;
+
+  document.getElementById("recentProducts").innerHTML = products.slice(0, 3).map(productCard).join("") || emptyHtml("商品が登録されていません");
+  document.getElementById("productsList").innerHTML = products.map(productCard).join("") || emptyHtml("商品が登録されていません");
+  document.getElementById("shippingList").innerHTML = shippings.map(shippingCard).join("") || emptyHtml("発送依頼がありません");
+}
+
+window.requestShipping = async function(productId, productName) {
+  try {
+    const shippingId = Date.now().toString();
+    await set(ref(database, `shipping/${currentUser.uid}/${shippingId}`), {
+      id: shippingId,
+      ownerUid: currentUser.uid,
+      ownerEmail: currentUser.email || "",
+      productId,
+      productName,
+      status: "pending",
+      trackingNumber: "",
+      createdAt: Date.now()
+    });
+
+    await loadData();
+    alert("発送依頼が作成されました。");
+  } catch (error) {
+    console.error(error);
+    showError("発送依頼の作成に失敗しました。");
+  }
+};
+
+function productCard(product) {
+  return `
+    <div class="card">
+      <div class="card-title">${escapeHtml(product.name)}</div>
+      <div class="card-meta">${product.model ? "型番: " + escapeHtml(product.model) + " | " : ""}状態: ${conditionLabel(product.condition)}</div>
+      <div class="card-content">${product.description ? escapeHtml(product.description) : "説明なし"}</div>
+      <div class="card-actions">
+        <button onclick="requestShipping('${escapeAttr(product.id)}','${escapeAttr(product.name)}')">発送依頼</button>
+      </div>
+    </div>
+  `;
+}
+
+function shippingCard(shipping) {
+  return `
+    <div class="card">
+      <div class="card-title">${escapeHtml(shipping.productName)}</div>
+      <div class="card-meta">状態: ${statusLabel(shipping.status)}</div>
+      <div class="card-content">依頼日: ${formatDate(shipping.createdAt)}${shipping.trackingNumber ? "<br>追跡番号: " + escapeHtml(shipping.trackingNumber) : ""}</div>
+    </div>
+  `;
+}
+
+function emptyHtml(message) {
+  return `<div class="empty"><h3>${escapeHtml(message)}</h3></div>`;
+}
+
+function conditionLabel(value) {
+  return {"new":"新品","like-new":"未使用品","excellent":"良好","good":"通常"}[value] || value || "-";
+}
+
+function statusLabel(value) {
+  return {"pending":"待機中","shipped":"発送済み","completed":"完了"}[value] || value || "-";
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("ja-JP");
+}
+
+function
