@@ -653,14 +653,14 @@ async function loadData() {
       ? Object.values(originsSnapshot.val()).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"))
       : [];
 
-    const registeredProducts = productsCache.filter((product) => !product.shippingRequest && !product.shootingDate);
-    const storedProducts = productsCache.filter((product) => !product.shippingRequest && product.shootingDate);
-    const existingIds = new Set([...registeredProducts, ...storedProducts].map((product) => product.id));
-    selectedProductIds = new Set([...selectedProductIds].filter((id) => existingIds.has(id)));
+    const registeredProducts = getRegisteredProducts();
+    const storedProducts = getStoredProducts();
+    const selectableIds = new Set([...registeredProducts, ...storedProducts].map((product) => product.id));
+    selectedProductIds = new Set([...selectedProductIds].filter((id) => selectableIds.has(id)));
 
     document.getElementById("productCount").textContent = registeredProducts.length;
     document.getElementById("storedCount").textContent = storedProducts.length;
-    document.getElementById("unshippedCount").textContent = productsCache.filter((product) => product.shippingRequest && product.shippingStatus !== "shipped").length;
+    document.getElementById("unshippedCount").textContent = productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped").length;
     document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
 
     document.getElementById("recentProducts").innerHTML =
@@ -676,15 +676,27 @@ async function loadData() {
   }
 }
 
+function getRegisteredProducts() {
+  return productsCache.filter((product) => {
+    return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate);
+  });
+}
+
+function getStoredProducts() {
+  return productsCache.filter((product) => {
+    return !hasValue(product.shippingRequest) && hasValue(product.shootingDate);
+  });
+}
+
 function renderProductsList() {
-  const registeredProducts = productsCache.filter((product) => !product.shippingRequest && !product.shootingDate);
+  const registeredProducts = getRegisteredProducts();
 
   document.getElementById("productsList").innerHTML =
     registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("登録済み商品はありません");
 }
 
 function renderStoredList() {
-  const storedProducts = productsCache.filter((product) => !product.shippingRequest && product.shootingDate);
+  const storedProducts = getStoredProducts();
 
   document.getElementById("storedList").innerHTML =
     storedProducts.length ? productTable(storedProducts, false, true) + bulkActionBar() : emptyHtml("保管商品はありません");
@@ -695,7 +707,7 @@ function renderShippingList() {
   shippedFilterBtn.classList.toggle("active", shippingView === "shipped");
 
   const filtered = productsCache.filter((product) => {
-    if (!product.shippingRequest) return false;
+    if (!hasValue(product.shippingRequest)) return false;
     if (shippingView === "shipped") return product.shippingStatus === "shipped";
     return product.shippingStatus !== "shipped";
   });
@@ -978,6 +990,10 @@ function showError(message) {
 function clearError() {
   errorMessage.textContent = "";
   errorMessage.classList.remove("show");
+}
+
+function hasValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
 }
 
 function escapeHtml(value) {
