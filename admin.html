@@ -30,7 +30,9 @@ button.secondary:hover{background:#dfe7f1}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
 .stat,.panel{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
-.stat-value{font-size:32px;font-weight:800;color:#2563eb}
+.stat-value{font-size:32px;font-weight:800;color:#9ca3af}
+.stat.highlight{border-color:#bfdbfe;background:#eff6ff}
+.stat.highlight .stat-value{color:#2563eb}
 .table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:20px}
 .data-table{width:100%;border-collapse:collapse;min-width:860px}
 .data-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
@@ -45,6 +47,7 @@ button.secondary:hover{background:#dfe7f1}
 .status-pill.green{background:#dcfce7;color:#15803d}
 .status-pill.yellow{background:#fef3c7;color:#b45309}
 .status-pill.gray{background:#f3f4f6;color:#6b7280}
+.shipped-date{margin-left:8px;color:#6b7280;font-size:12px;white-space:nowrap}
 .detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 .detail-title{font-size:22px;font-weight:800}
 .detail-sub{font-size:13px;color:#6b7280;margin-top:4px;word-break:break-all}
@@ -104,15 +107,15 @@ textarea{min-height:90px;resize:vertical}
 
   <section class="section show" id="members">
     <div class="grid">
-      <div class="stat">
+      <div class="stat" id="memberCountCard">
         <div class="stat-label">メンバー</div>
         <div class="stat-value" id="memberCount">0</div>
       </div>
-      <div class="stat">
+      <div class="stat" id="registeredCountCard">
         <div class="stat-label">登録済み商品</div>
         <div class="stat-value" id="registeredCount">0</div>
       </div>
-      <div class="stat">
+      <div class="stat" id="unshippedCountCard">
         <div class="stat-label">未発送</div>
         <div class="stat-value" id="unshippedCount">0</div>
       </div>
@@ -279,10 +282,7 @@ modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
 });
 
-editModalCloseBtn.addEventListener("click", () => {
-  closeEditModal();
-});
-
+editModalCloseBtn.addEventListener("click", closeEditModal);
 editModalBackdrop.addEventListener("click", (event) => {
   if (event.target === editModalBackdrop) closeEditModal();
 });
@@ -322,8 +322,11 @@ editForm.addEventListener("submit", async (event) => {
     }
 
     if (type === "shippingStatus") {
+      const shippingStatus = document.getElementById("editShippingStatus").value;
+
       await update(ref(database, `products/${ownerUid}/${productId}`), {
-        shippingStatus: document.getElementById("editShippingStatus").value,
+        shippingStatus,
+        shippedDate: shippingStatus === "shipped" ? todayString() : "",
         updatedAt: Date.now()
       });
     }
@@ -381,9 +384,13 @@ async function loadData() {
       };
     }).sort((a, b) => String(a.email || a.uid).localeCompare(String(b.email || b.uid), "ja"));
 
-    document.getElementById("memberCount").textContent = membersCache.length;
-    document.getElementById("registeredCount").textContent = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
-    document.getElementById("unshippedCount").textContent = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
+    const memberCount = membersCache.length;
+    const registeredCount = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
+    const unshippedCount = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
+
+    setStat("memberCount", "memberCountCard", memberCount);
+    setStat("registeredCount", "registeredCountCard", registeredCount);
+    setStat("unshippedCount", "unshippedCountCard", unshippedCount);
 
     renderMemberList();
 
@@ -431,10 +438,10 @@ function memberRow(member) {
         <div class="member-meta">${escapeHtml(member.email || "")}</div>
         <div class="member-meta">${escapeHtml(member.uid)}</div>
       </td>
-      <td><span class="status-pill blue">${member.registeredProducts.length}</span></td>
-      <td><span class="status-pill green">${member.storedProducts.length}</span></td>
-      <td><span class="status-pill yellow">${member.unshippedProducts.length}</span></td>
-      <td><span class="status-pill gray">${member.shippedProducts.length}</span></td>
+      <td>${countPill(member.registeredProducts.length, "blue")}</td>
+      <td>${countPill(member.storedProducts.length, "green")}</td>
+      <td>${countPill(member.unshippedProducts.length, "yellow")}</td>
+      <td>${countPill(member.shippedProducts.length, "blue")}</td>
       <td>${formatDateTime(member.lastLoginAt)}</td>
     </tr>
   `;
@@ -475,10 +482,22 @@ function renderMemberDetail(uid) {
     </div>
 
     <div class="grid">
-      <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value">${member.registeredProducts.length}</div></div>
-      <div class="stat"><div class="stat-label">保管商品</div><div class="stat-value">${member.storedProducts.length}</div></div>
-      <div class="stat"><div class="stat-label">未発送</div><div class="stat-value">${member.unshippedProducts.length}</div></div>
-      <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value">${member.shippedProducts.length}</div></div>
+      <div class="${statClass(member.registeredProducts.length)}">
+        <div class="stat-label">登録済み商品</div>
+        <div class="stat-value">${member.registeredProducts.length}</div>
+      </div>
+      <div class="${statClass(member.storedProducts.length)}">
+        <div class="stat-label">保管商品</div>
+        <div class="stat-value">${member.storedProducts.length}</div>
+      </div>
+      <div class="${statClass(member.unshippedProducts.length)}">
+        <div class="stat-label">未発送</div>
+        <div class="stat-value">${member.unshippedProducts.length}</div>
+      </div>
+      <div class="${statClass(member.shippedProducts.length)}">
+        <div class="stat-label">発送済み</div>
+        <div class="stat-value">${member.shippedProducts.length}</div>
+      </div>
     </div>
 
     <div class="sub-tabs">
@@ -513,7 +532,6 @@ function productTable(products) {
             <th>作業依頼</th>
             <th>情報</th>
             <th>発送情報</th>
-            <th>撮影日</th>
             <th>状態</th>
           </tr>
         </thead>
@@ -540,7 +558,6 @@ function productRow(product) {
             : "-"
         }
       </td>
-      <td>${escapeHtml(product.shootingDate || "-")}</td>
       <td>
         ${shippingStatusText(product)}
         ${hasValue(product.shippingRequest) ? `<button class="secondary compact-btn" style="margin-left:6px;" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>` : ""}
@@ -614,6 +631,7 @@ function shippingDetailHtml(product) {
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+        <div class="detail-label">発送日</div><div>${escapeHtml(product.shippedDate || "-")}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
         <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
@@ -757,9 +775,15 @@ function shippingPill(value) {
 
 function shippingStatusText(product) {
   if (!hasValue(product.shippingRequest)) return `<span class="status-pill gray">未依頼</span>`;
-  return product.shippingStatus === "shipped"
-    ? `<span class="status-pill blue">発送済み</span>`
-    : `<span class="status-pill yellow">未発送</span>`;
+
+  if (product.shippingStatus === "shipped") {
+    return `
+      <span class="status-pill blue">発送済み</span>
+      <span class="shipped-date">${escapeHtml(product.shippedDate || "-")}</span>
+    `;
+  }
+
+  return `<span class="status-pill yellow">未発送</span>`;
 }
 
 function openModal(title, body) {
@@ -819,6 +843,28 @@ function clearError() {
 
 function hasValue(value) {
   return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function statClass(value) {
+  return Number(value) > 0 ? "stat highlight" : "stat";
+}
+
+function setStat(valueId, cardId, value) {
+  document.getElementById(valueId).textContent = value;
+  document.getElementById(cardId).className = statClass(value);
+}
+
+function countPill(value, color) {
+  if (Number(value) <= 0) return `<span class="status-pill gray">0</span>`;
+  return `<span class="status-pill ${color}">${value}</span>`;
+}
+
+function todayString() {
+  const date = new Date();
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function formatDateTime(value) {
