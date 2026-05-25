@@ -1,143 +1,3 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>おきらく便 - 会員</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:24px}
-button,input,textarea,select{font-family:inherit}
-button{border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
-button:hover{background:#1d4ed8}
-.container{background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px;max-width:1200px;margin:0 auto}
-.login-container{max-width:520px;margin:80px auto;background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px}
-.login-title{font-size:28px;font-weight:800;color:#2563eb;margin-bottom:12px}
-.login-text{color:#6b7280;margin-bottom:24px;line-height:1.7}
-.login-button{width:100%;font-size:16px}
-.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap}
-.title{font-size:28px;font-weight:800;color:#2563eb}
-.user{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.badge{background:#2563eb;color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:800}
-.logout{background:#eef2f7;color:#1f2937}
-.logout:hover{background:#dfe7f1}
-.tabs{display:flex;gap:10px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;flex-wrap:wrap}
-.tab{background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent}
-.tab.active{color:#2563eb;border-bottom-color:#2563eb}
-.section{display:none}
-.section.show{display:block}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
-.stat,.card,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
-.stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
-.stat-value{font-size:32px;font-weight:800;color:#2563eb}
-.form{margin-top:16px}
-.form-group{margin-bottom:16px}
-label{display:block;margin-bottom:8px;font-weight:700}
-input,textarea,select{width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:14px}
-textarea{min-height:100px;resize:vertical}
-.card-title{font-weight:800;font-size:18px;margin-bottom:8px}
-.card-meta{font-size:13px;color:#6b7280;margin-bottom:10px}
-.card-content{line-height:1.6;margin-bottom:12px;white-space:pre-wrap}
-.empty{padding:32px;text-align:center;color:#6b7280}
-.error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px;line-height:1.6}
-.error.show{display:block}
-.hidden{display:none}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}}
-</style>
-</head>
-<body>
-
-<section class="login-container" id="loginArea">
-  <div class="error" id="loginError"></div>
-  <h1 class="login-title">おきらく便</h1>
-  <p class="login-text">会員としてログインしてください。</p>
-  <button class="login-button" id="loginBtn" type="button">Googleで会員ログイン</button>
-</section>
-
-<div class="container hidden" id="appArea">
-  <div class="error" id="errorMessage"></div>
-
-  <header class="header">
-    <h1 class="title">おきらく便</h1>
-    <div class="user">
-      <span id="userEmail"></span>
-      <span class="badge">会員</span>
-      <button class="logout" id="logoutBtn" type="button">ログアウト</button>
-    </div>
-  </header>
-
-  <nav class="tabs">
-    <button class="tab active" data-tab="overview" type="button">概要</button>
-    <button class="tab" data-tab="register" type="button">商品登録</button>
-    <button class="tab" data-tab="products" type="button">商品一覧</button>
-    <button class="tab" data-tab="shipping" type="button">発送管理</button>
-  </nav>
-
-  <section class="section show" id="overview">
-    <div class="grid">
-      <div class="stat">
-        <div class="stat-label">登録済み商品</div>
-        <div class="stat-value" id="productCount">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">待機中の発送</div>
-        <div class="stat-value" id="pendingCount">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">発送完了</div>
-        <div class="stat-value" id="completedCount">0</div>
-      </div>
-    </div>
-
-    <h2>最近の商品</h2>
-    <div class="grid" id="recentProducts"></div>
-  </section>
-
-  <section class="section" id="register">
-    <div class="form">
-      <h2 style="margin-bottom:18px;">商品を登録する</h2>
-      <form id="productForm">
-        <div class="form-group">
-          <label for="productName">商品名 *</label>
-          <input id="productName" type="text" required placeholder="例：Canon EOS R5">
-        </div>
-
-        <div class="form-group">
-          <label for="productModel">型番</label>
-          <input id="productModel" type="text" placeholder="例：4147C001">
-        </div>
-
-        <div class="form-group">
-          <label for="productCondition">状態</label>
-          <select id="productCondition">
-            <option value="new">新品</option>
-            <option value="like-new">未使用品</option>
-            <option value="excellent">良好</option>
-            <option value="good">通常</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="productDescription">説明</label>
-          <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
-        </div>
-
-        <button type="submit" style="width:100%;">登録する</button>
-      </form>
-    </div>
-  </section>
-
-  <section class="section" id="products">
-    <h2>登録済み商品</h2>
-    <div class="grid" id="productsList"></div>
-  </section>
-
-  <section class="section" id="shipping">
-    <h2>発送管理</h2>
-    <div class="grid" id="shippingList"></div>
-  </section>
-</div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
@@ -209,13 +69,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    const memberSnapshot = await get(ref(database, `members/${user.uid}`));
-    const isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
+    const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
+    const isAdmin = adminSnapshot.exists() && adminSnapshot.val() === true;
 
-    if (!isMember) {
+    if (!isAdmin) {
       await signOut(auth);
       showLoginUI();
-      showLoginError("このアカウントは会員として登録されていません。");
+      showLoginError("このアカウントは管理者として登録されていません。");
       return;
     }
 
@@ -225,7 +85,7 @@ onAuthStateChanged(auth, async (user) => {
       uid: user.uid,
       name: user.displayName || "",
       email: user.email || "",
-      role: "member",
+      role: "admin",
       lastLoginAt: serverTimestamp()
     });
 
@@ -235,7 +95,7 @@ onAuthStateChanged(auth, async (user) => {
     console.error(error);
     await signOut(auth);
     showLoginUI();
-    showLoginError("会員情報の確認に失敗しました。Realtime Databaseのルールとデータを確認してください。");
+    showLoginError("管理者情報の確認に失敗しました。Realtime Databaseのルールとデータを確認してください。");
   }
 });
 
@@ -450,5 +310,3 @@ function escapeAttr(value) {
   return escapeHtml(value).replaceAll("`", "&#096;");
 }
 </script>
-</body>
-</html>
