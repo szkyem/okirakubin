@@ -38,10 +38,6 @@ button:disabled {
     opacity: 0.55;
 }
 
-.hidden {
-    display: none !important;
-}
-
 .login-container {
     min-height: 100vh;
     display: flex;
@@ -157,12 +153,11 @@ const provider = new GoogleAuthProvider();
 const memberLoginBtn = document.getElementById("memberLoginBtn");
 const errorMessage = document.getElementById("errorMessage");
 
-let loginStarted = false;
+let redirecting = false;
 
 memberLoginBtn.addEventListener("click", async () => {
     clearError();
     memberLoginBtn.disabled = true;
-    loginStarted = true;
 
     try {
         await signInWithPopup(auth, provider);
@@ -170,15 +165,18 @@ memberLoginBtn.addEventListener("click", async () => {
         showError(toJapaneseError(error));
         console.error(error);
         memberLoginBtn.disabled = false;
-        loginStarted = false;
     }
 });
 
 onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        memberLoginBtn.disabled = false;
+    if (!user || redirecting) {
+        if (!user) {
+            memberLoginBtn.disabled = false;
+        }
         return;
     }
+
+    redirecting = true;
 
     try {
         await set(ref(database, `loginUsers/${user.uid}`), {
@@ -192,8 +190,16 @@ onAuthStateChanged(auth, async (user) => {
         console.error(error);
     }
 
-    location.href = "member.html";
+    goToPage("member.html");
 });
+
+function goToPage(fileName) {
+    const basePath = location.pathname.includes("/okirakubin/")
+        ? "/okirakubin/"
+        : "./";
+
+    window.location.assign(basePath + fileName);
+}
 
 function showError(message) {
     errorMessage.textContent = message;
