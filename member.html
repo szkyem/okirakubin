@@ -68,16 +68,24 @@ textarea{min-height:88px;resize:vertical}
 .bulk-btn.domestic{background:#334155}
 .bulk-btn.overseas{background:#5acb88}
 .bulk-btn.return{background:#f59e0b}
+.origin-list{display:grid;gap:12px;margin-top:18px}
+.origin-card{border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fff}
+.origin-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.origin-title{font-weight:800}
+.origin-meta{font-size:13px;color:#4b5563;line-height:1.7}
 .empty{padding:32px;text-align:center;color:#6b7280}
 .error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px;line-height:1.6}
 .error.show{display:block}
 .hidden{display:none}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
 .modal-backdrop.show{display:flex}
-.modal{background:#fff;border-radius:10px;max-width:560px;width:100%;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:24px}
+.modal{background:#fff;border-radius:10px;max-width:760px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:24px}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .modal-title{font-size:20px;font-weight:800}
 .modal-body{line-height:1.8;white-space:pre-wrap}
+.modal-form{display:grid;gap:14px}
+.modal-section-title{background:#eaf2ff;color:#1d4ed8;font-weight:800;padding:9px 12px;margin:8px 0}
+.required{display:inline-block;background:#ef4444;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px}
 @media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}}
 </style>
 </head>
@@ -105,13 +113,16 @@ textarea{min-height:88px;resize:vertical}
   <nav class="tabs">
     <button class="tab active" data-tab="overview" type="button">概要</button>
     <button class="tab" data-tab="register" type="button">商品登録</button>
-    <button class="tab" data-tab="products" type="button">商品一覧</button>
+    <button class="tab" data-tab="products" type="button">登録済み商品</button>
+    <button class="tab" data-tab="stored" type="button">保管商品</button>
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
+    <button class="tab" data-tab="origins" type="button">発送元登録</button>
   </nav>
 
   <section class="section show" id="overview">
     <div class="grid">
       <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
+      <div class="stat"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
       <div class="stat"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
       <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
@@ -139,6 +150,11 @@ textarea{min-height:88px;resize:vertical}
     <div id="productsList"></div>
   </section>
 
+  <section class="section" id="stored">
+    <h2 style="margin-bottom:16px;">保管商品</h2>
+    <div id="storedList"></div>
+  </section>
+
   <section class="section" id="shipping">
     <h2 style="margin-bottom:16px;">発送管理</h2>
     <div class="ship-filter">
@@ -146,6 +162,60 @@ textarea{min-height:88px;resize:vertical}
       <button class="ship-filter-btn" id="shippedFilterBtn" type="button">発送済み</button>
     </div>
     <div id="shippingList"></div>
+  </section>
+
+  <section class="section" id="origins">
+    <div class="form">
+      <div class="form-header">
+        <h2>発送元を登録する</h2>
+        <button class="secondary" id="clearOriginBtn" type="button">追加</button>
+      </div>
+
+      <form id="originForm">
+        <input type="hidden" id="originId">
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>発送元名 *</label>
+            <input id="originName" type="text" required placeholder="例：自宅 / 倉庫A">
+          </div>
+
+          <div class="form-group">
+            <label>郵便番号 *</label>
+            <input id="originPostalCode" type="text" required placeholder="例：4370021">
+          </div>
+
+          <div class="form-group">
+            <label>都道府県 *</label>
+            <input id="originPrefecture" type="text" required placeholder="例：静岡県">
+          </div>
+
+          <div class="form-group">
+            <label>住所 *</label>
+            <input id="originAddress" type="text" required placeholder="例：袋井市広岡1290-8">
+          </div>
+
+          <div class="form-group">
+            <label>アパート名、会社名など</label>
+            <input id="originBuilding" type="text">
+          </div>
+
+          <div class="form-group">
+            <label>お名前 *</label>
+            <input id="originSenderName" type="text" required>
+          </div>
+
+          <div class="form-group">
+            <label>電話番号</label>
+            <input id="originPhone" type="text">
+          </div>
+        </div>
+
+        <button type="submit" style="width:100%;">保存する</button>
+      </form>
+    </div>
+
+    <div class="origin-list" id="originList"></div>
   </section>
 </div>
 
@@ -156,6 +226,84 @@ textarea{min-height:88px;resize:vertical}
       <button class="secondary compact-btn" id="modalCloseBtn" type="button">閉じる</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="shippingModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="shippingModalTitle">発送先情報</div>
+      <button class="secondary compact-btn" id="shippingModalCloseBtn" type="button">閉じる</button>
+    </div>
+
+    <form class="modal-form" id="shippingForm">
+      <input type="hidden" id="shippingRequestType">
+
+      <div class="modal-section-title">発送先住所</div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>宛名 <span class="required">必須</span></label>
+          <input id="destName" type="text" required>
+        </div>
+
+        <div class="form-group">
+          <label>郵便番号 <span class="required">必須</span></label>
+          <input id="destPostalCode" type="text" required>
+        </div>
+
+        <div class="form-group">
+          <label>都道府県 <span class="required">必須</span></label>
+          <input id="destPrefecture" type="text" required>
+        </div>
+
+        <div class="form-group">
+          <label>住所 <span class="required">必須</span></label>
+          <input id="destAddress" type="text" required>
+        </div>
+
+        <div class="form-group">
+          <label>アパート名、会社名など</label>
+          <input id="destBuilding" type="text">
+        </div>
+
+        <div class="form-group">
+          <label>電話番号</label>
+          <input id="destPhone" type="text">
+        </div>
+
+        <div class="form-group">
+          <label>配送希望日</label>
+          <input id="deliveryDate" type="date">
+        </div>
+
+        <div class="form-group">
+          <label>配送希望時間</label>
+          <select id="deliveryTime">
+            <option value="">なし</option>
+            <option value="午前中">午前中</option>
+            <option value="14-16時">14-16時</option>
+            <option value="16-18時">16-18時</option>
+            <option value="18-20時">18-20時</option>
+            <option value="19-21時">19-21時</option>
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label>備考</label>
+          <textarea id="shippingNote"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-section-title">発送元住所</div>
+
+      <div class="form-group">
+        <label>登録済み発送元 <span class="required">必須</span></label>
+        <select id="originSelect" required></select>
+      </div>
+
+      <button type="submit" style="width:100%;">発送依頼を作成する</button>
+    </form>
   </div>
 </div>
 
@@ -196,6 +344,7 @@ const database = getDatabase(
 
 let currentUser = null;
 let productsCache = [];
+let originsCache = [];
 let entryCount = 0;
 let shippingView = "unshipped";
 let selectedProductIds = new Set();
@@ -214,8 +363,15 @@ const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
+const shippingModalBackdrop = document.getElementById("shippingModalBackdrop");
+const shippingModalCloseBtn = document.getElementById("shippingModalCloseBtn");
+const shippingForm = document.getElementById("shippingForm");
+const shippingRequestType = document.getElementById("shippingRequestType");
+const originSelect = document.getElementById("originSelect");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
+const originForm = document.getElementById("originForm");
+const clearOriginBtn = document.getElementById("clearOriginBtn");
 
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
@@ -274,9 +430,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-addEntryBtn.addEventListener("click", () => {
-  addProductEntry();
-});
+addEntryBtn.addEventListener("click", addProductEntry);
 
 unshippedFilterBtn.addEventListener("click", () => {
   shippingView = "unshipped";
@@ -335,11 +489,14 @@ productForm.addEventListener("submit", async (event) => {
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
         shippingStatus: "unshipped",
+        shippingDestination: null,
+        shippingOrigin: null,
         confirmationDate: "",
         confirmationResult: "",
         photoUrl: "",
         expectedSize: "",
         shootingDate: "",
+        storageLocation: "",
         status: "registered",
         createdAt: now + index,
         updatedAt: now
@@ -354,6 +511,106 @@ productForm.addEventListener("submit", async (event) => {
   } catch (error) {
     console.error(error);
     showError("商品の登録に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+});
+
+originForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearError();
+
+  if (!currentUser) {
+    showError("ログイン情報を確認できません。再度ログインしてください。");
+    return;
+  }
+
+  const existingId = document.getElementById("originId").value;
+  const originId = existingId || Date.now().toString();
+
+  const data = {
+    id: originId,
+    name: document.getElementById("originName").value.trim(),
+    postalCode: document.getElementById("originPostalCode").value.trim(),
+    prefecture: document.getElementById("originPrefecture").value.trim(),
+    address: document.getElementById("originAddress").value.trim(),
+    building: document.getElementById("originBuilding").value.trim(),
+    senderName: document.getElementById("originSenderName").value.trim(),
+    phone: document.getElementById("originPhone").value.trim(),
+    updatedAt: Date.now()
+  };
+
+  if (!data.name || !data.postalCode || !data.prefecture || !data.address || !data.senderName) {
+    showError("発送元名、郵便番号、都道府県、住所、お名前は必須です。");
+    return;
+  }
+
+  try {
+    await set(ref(database, `shippingOrigins/${currentUser.uid}/${originId}`), data);
+    originForm.reset();
+    document.getElementById("originId").value = "";
+    await loadData();
+    alert("発送元を保存しました。");
+  } catch (error) {
+    console.error(error);
+    showError("発送元の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+});
+
+clearOriginBtn.addEventListener("click", () => {
+  originForm.reset();
+  document.getElementById("originId").value = "";
+});
+
+shippingForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearError();
+
+  if (!currentUser || !selectedProductIds.size) return;
+
+  const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
+  if (!selectedOrigin) {
+    showError("発送元を選択してください。");
+    return;
+  }
+
+  const destination = {
+    name: document.getElementById("destName").value.trim(),
+    postalCode: document.getElementById("destPostalCode").value.trim(),
+    prefecture: document.getElementById("destPrefecture").value.trim(),
+    address: document.getElementById("destAddress").value.trim(),
+    building: document.getElementById("destBuilding").value.trim(),
+    phone: document.getElementById("destPhone").value.trim(),
+    deliveryDate: document.getElementById("deliveryDate").value,
+    deliveryTime: document.getElementById("deliveryTime").value,
+    note: document.getElementById("shippingNote").value.trim()
+  };
+
+  if (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address) {
+    showError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
+    return;
+  }
+
+  try {
+    const now = Date.now();
+    const requestType = shippingRequestType.value;
+
+    await Promise.all([...selectedProductIds].map((productId) => {
+      return update(ref(database, `products/${currentUser.uid}/${productId}`), {
+        shippingRequest: requestType,
+        shippingStatus: "unshipped",
+        shippingDestination: destination,
+        shippingOrigin: selectedOrigin,
+        updatedAt: now
+      });
+    }));
+
+    selectedProductIds.clear();
+    shippingForm.reset();
+    closeShippingModal();
+    await loadData();
+    alert("発送依頼を作成しました。");
+  } catch (error) {
+    console.error(error);
+    showError("発送依頼の作成に失敗しました。");
   }
 });
 
@@ -372,11 +629,17 @@ modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
 });
 
+shippingModalCloseBtn.addEventListener("click", closeShippingModal);
+shippingModalBackdrop.addEventListener("click", (event) => {
+  if (event.target === shippingModalBackdrop) closeShippingModal();
+});
+
 async function loadData() {
   if (!currentUser) return;
 
   try {
     const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
+    const originsSnapshot = await get(ref(database, `shippingOrigins/${currentUser.uid}`));
 
     productsCache = productsSnapshot.exists()
       ? Object.values(productsSnapshot.val()).sort((a, b) => {
@@ -386,21 +649,27 @@ async function loadData() {
         })
       : [];
 
-    const registeredProducts = productsCache.filter((product) => !product.shippingRequest);
-    const existingIds = new Set(registeredProducts.map((product) => product.id));
+    originsCache = originsSnapshot.exists()
+      ? Object.values(originsSnapshot.val()).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"))
+      : [];
+
+    const registeredProducts = productsCache.filter((product) => !product.shippingRequest && !product.shootingDate);
+    const storedProducts = productsCache.filter((product) => !product.shippingRequest && product.shootingDate);
+    const existingIds = new Set([...registeredProducts, ...storedProducts].map((product) => product.id));
     selectedProductIds = new Set([...selectedProductIds].filter((id) => existingIds.has(id)));
 
     document.getElementById("productCount").textContent = registeredProducts.length;
+    document.getElementById("storedCount").textContent = storedProducts.length;
     document.getElementById("unshippedCount").textContent = productsCache.filter((product) => product.shippingRequest && product.shippingStatus !== "shipped").length;
     document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
 
     document.getElementById("recentProducts").innerHTML =
       registeredProducts.slice(0, 5).length ? productTable(registeredProducts.slice(0, 5), false, true) : emptyHtml("商品が登録されていません");
 
-    document.getElementById("productsList").innerHTML =
-      registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("商品が登録されていません");
-
+    renderProductsList();
+    renderStoredList();
     renderShippingList();
+    renderOriginList();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
@@ -408,10 +677,17 @@ async function loadData() {
 }
 
 function renderProductsList() {
-  const registeredProducts = productsCache.filter((product) => !product.shippingRequest);
+  const registeredProducts = productsCache.filter((product) => !product.shippingRequest && !product.shootingDate);
 
   document.getElementById("productsList").innerHTML =
-    registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("商品が登録されていません");
+    registeredProducts.length ? productTable(registeredProducts, false, true) + bulkActionBar() : emptyHtml("登録済み商品はありません");
+}
+
+function renderStoredList() {
+  const storedProducts = productsCache.filter((product) => !product.shippingRequest && product.shootingDate);
+
+  document.getElementById("storedList").innerHTML =
+    storedProducts.length ? productTable(storedProducts, false, true) + bulkActionBar() : emptyHtml("保管商品はありません");
 }
 
 function renderShippingList() {
@@ -426,6 +702,16 @@ function renderShippingList() {
 
   document.getElementById("shippingList").innerHTML =
     filtered.length ? productTable(filtered, true, false) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
+}
+
+function renderOriginList() {
+  document.getElementById("originList").innerHTML = originsCache.length
+    ? originsCache.map(originCard).join("")
+    : emptyHtml("発送元が登録されていません");
+
+  originSelect.innerHTML = originsCache.length
+    ? `<option value="">選択してください</option>${originsCache.map((origin) => `<option value="${escapeAttr(origin.id)}">${escapeHtml(originLabel(origin))}</option>`).join("")}`
+    : `<option value="">発送元を先に登録してください</option>`;
 }
 
 function resetEntries() {
@@ -491,7 +777,7 @@ function addProductEntry() {
   productEntries.appendChild(entry);
 }
 
-function productTable(products, showShippingStatus = false, isRegisteredList = false) {
+function productTable(products, showShippingStatus = false, isSelectableList = false) {
   return `
     <div class="table-wrap">
       <table class="products-table">
@@ -507,19 +793,19 @@ function productTable(products, showShippingStatus = false, isRegisteredList = f
           </tr>
         </thead>
         <tbody>
-          ${products.map((product) => productRow(product, showShippingStatus, isRegisteredList)).join("")}
+          ${products.map((product) => productRow(product, showShippingStatus, isSelectableList)).join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function productRow(product, showShippingStatus = false, isRegisteredList = false) {
+function productRow(product, showShippingStatus = false, isSelectableList = false) {
   return `
     <tr>
       <td class="shipping-cell">
         ${
-          isRegisteredList
+          isSelectableList
             ? `<input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">`
             : shippingPill(product.shippingRequest)
         }
@@ -537,7 +823,7 @@ function productRow(product, showShippingStatus = false, isRegisteredList = fals
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       <td>${escapeHtml(product.shootingDate || "-")}</td>
-      ${showShippingStatus ? `<td>${shippingStatusControl(product)}</td>` : ""}
+      ${showShippingStatus ? `<td>${shippingStatusText(product)}</td>` : ""}
     </tr>
   `;
 }
@@ -545,9 +831,24 @@ function productRow(product, showShippingStatus = false, isRegisteredList = fals
 function bulkActionBar() {
   return `
     <div class="bulk-action-bar ${selectedProductIds.size ? "show" : ""}">
-      <button type="button" class="bulk-btn domestic" onclick="moveSelectedToShipping('国内発送')">選択中を国内発送する</button>
-      <button type="button" class="bulk-btn overseas" onclick="moveSelectedToShipping('海外発送')">選択中を海外発送する</button>
-      <button type="button" class="bulk-btn return" onclick="moveSelectedToShipping('返品依頼')">選択中を返品依頼する</button>
+      <button type="button" class="bulk-btn domestic" onclick="openShippingModal('国内発送')">選択中を国内発送する</button>
+      <button type="button" class="bulk-btn overseas" onclick="openShippingModal('海外発送')">選択中を海外発送する</button>
+      <button type="button" class="bulk-btn return" onclick="openShippingModal('返品依頼')">選択中を返品依頼する</button>
+    </div>
+  `;
+}
+
+function originCard(origin) {
+  return `
+    <div class="origin-card">
+      <div class="origin-card-head">
+        <div class="origin-title">${escapeHtml(origin.name)}</div>
+        <button class="secondary compact-btn" type="button" onclick="editOrigin('${escapeAttr(origin.id)}')">変更</button>
+      </div>
+      <div class="origin-meta">
+        ${escapeHtml(origin.postalCode)} ${escapeHtml(origin.prefecture)} ${escapeHtml(origin.address)} ${escapeHtml(origin.building || "")}<br>
+        ${escapeHtml(origin.senderName)} ${origin.phone ? " / " + escapeHtml(origin.phone) : ""}
+      </div>
     </div>
   `;
 }
@@ -557,13 +858,14 @@ function shippingPill(value) {
   return `<span class="status-pill ${className}">${escapeHtml(value || "未選択")}</span>`;
 }
 
-function shippingStatusControl(product) {
-  return `
-    <select onchange="changeShippingStatus('${escapeAttr(product.id)}', this.value)">
-      <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
-      <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
-    </select>
-  `;
+function shippingStatusText(product) {
+  return product.shippingStatus === "shipped"
+    ? `<span class="status-pill domestic">発送済み</span>`
+    : `<span class="status-pill none">未発送</span>`;
+}
+
+function originLabel(origin) {
+  return `${origin.postalCode || ""} ${origin.prefecture || ""} ${origin.address || ""}`;
 }
 
 window.toggleProductSelection = function(productId, checked) {
@@ -574,44 +876,37 @@ window.toggleProductSelection = function(productId, checked) {
   }
 
   renderProductsList();
+  renderStoredList();
 };
 
-window.moveSelectedToShipping = async function(shippingRequest) {
-  if (!currentUser || !selectedProductIds.size) return;
+window.openShippingModal = function(type) {
+  if (!selectedProductIds.size) return;
 
-  try {
-    const now = Date.now();
-
-    await Promise.all([...selectedProductIds].map((productId) => {
-      return update(ref(database, `products/${currentUser.uid}/${productId}`), {
-        shippingRequest,
-        shippingStatus: "unshipped",
-        updatedAt: now
-      });
-    }));
-
-    selectedProductIds.clear();
-    await loadData();
-  } catch (error) {
-    console.error(error);
-    showError("発送依頼の更新に失敗しました。");
+  if (!originsCache.length) {
+    showError("発送元を先に登録してください。");
+    document.querySelector('[data-tab="origins"]').click();
+    return;
   }
+
+  clearError();
+  shippingRequestType.value = type;
+  document.getElementById("shippingModalTitle").textContent = `${type}の発送先情報`;
+  shippingModalBackdrop.classList.add("show");
 };
 
-window.changeShippingStatus = async function(productId, value) {
-  if (!currentUser) return;
+window.editOrigin = function(originId) {
+  const origin = originsCache.find((item) => item.id === originId);
+  if (!origin) return;
 
-  try {
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
-      shippingStatus: value,
-      updatedAt: Date.now()
-    });
-
-    await loadData();
-  } catch (error) {
-    console.error(error);
-    showError("発送状態の更新に失敗しました。");
-  }
+  document.getElementById("originId").value = origin.id;
+  document.getElementById("originName").value = origin.name || "";
+  document.getElementById("originPostalCode").value = origin.postalCode || "";
+  document.getElementById("originPrefecture").value = origin.prefecture || "";
+  document.getElementById("originAddress").value = origin.address || "";
+  document.getElementById("originBuilding").value = origin.building || "";
+  document.getElementById("originSenderName").value = origin.senderName || "";
+  document.getElementById("originPhone").value = origin.phone || "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 window.showNote = function(productId) {
@@ -630,6 +925,8 @@ window.showInfo = function(productId) {
 確認結果: ${product.confirmationResult || "-"}
 写真URL: ${product.photoUrl || "-"}
 予想サイズ: ${product.expectedSize || "-"}
+保管場所: ${product.storageLocation || "-"}
+購入先URL: ${product.purchaseUrl || "-"}
   `.trim());
 };
 
@@ -641,6 +938,10 @@ function openModal(title, body) {
 
 function closeModal() {
   modalBackdrop.classList.remove("show");
+}
+
+function closeShippingModal() {
+  shippingModalBackdrop.classList.remove("show");
 }
 
 function showLoginUI() {
