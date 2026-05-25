@@ -10,7 +10,9 @@ body{font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;backgr
 button,input,textarea,select{font-family:inherit}
 button{border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;background:#2563eb;color:#fff}
 button:hover{background:#1d4ed8}
-.container{background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px;max-width:1200px;margin:0 auto}
+button.secondary{background:#eef2f7;color:#1f2937}
+button.secondary:hover{background:#dfe7f1}
+.container{background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px;max-width:1280px;margin:0 auto}
 .login-container{max-width:520px;margin:80px auto;background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(31,41,55,.18);padding:36px}
 .login-title{font-size:28px;font-weight:800;color:#2563eb;margin-bottom:12px}
 .login-text{color:#6b7280;margin-bottom:24px;line-height:1.7}
@@ -20,29 +22,50 @@ button:hover{background:#1d4ed8}
 .user{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .badge{background:#2563eb;color:#fff;border-radius:20px;padding:6px 12px;font-size:12px;font-weight:800}
 .logout{background:#eef2f7;color:#1f2937}
-.logout:hover{background:#dfe7f1}
 .tabs{display:flex;gap:10px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;flex-wrap:wrap}
 .tab{background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent}
 .tab.active{color:#2563eb;border-bottom-color:#2563eb}
 .section{display:none}
 .section.show{display:block}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
-.stat,.card,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
+.stat,.panel{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
 .stat-value{font-size:32px;font-weight:800;color:#2563eb}
-.form{margin-top:16px}
-.form-group{margin-bottom:16px}
-label{display:block;margin-bottom:8px;font-weight:700}
-input,textarea,select{width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:14px}
-textarea{min-height:100px;resize:vertical}
-.card-title{font-weight:800;font-size:18px;margin-bottom:8px}
-.card-meta{font-size:13px;color:#6b7280;margin-bottom:10px}
-.card-content{line-height:1.6;margin-bottom:12px;white-space:pre-wrap}
+.table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:20px}
+.data-table{width:100%;border-collapse:collapse;min-width:860px}
+.data-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
+.data-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
+.data-table tr:nth-child(even){background:#fafafa}
+.member-row{cursor:pointer}
+.member-row:hover{background:#eff6ff}
+.member-name{font-weight:800;color:#1f2937}
+.member-meta{font-size:12px;color:#6b7280;margin-top:4px;word-break:break-all}
+.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.status-pill.blue{background:#dbeafe;color:#1d4ed8}
+.status-pill.green{background:#dcfce7;color:#15803d}
+.status-pill.yellow{background:#fef3c7;color:#b45309}
+.status-pill.gray{background:#f3f4f6;color:#6b7280}
+.detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.detail-title{font-size:22px;font-weight:800}
+.detail-sub{font-size:13px;color:#6b7280;margin-top:4px;word-break:break-all}
+.sub-tabs{display:flex;gap:0;justify-content:center;margin-bottom:18px}
+.sub-tab{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
+.sub-tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.compact-btn{padding:7px 10px;font-size:12px}
 .empty{padding:32px;text-align:center;color:#6b7280}
 .error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px;line-height:1.6}
 .error.show{display:block}
 .hidden{display:none}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}}
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal-backdrop.show{display:flex}
+.modal{background:#fff;border-radius:10px;max-width:760px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:24px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.modal-title{font-size:20px;font-weight:800}
+.detail-section{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
+.detail-heading{font-weight:800;color:#2563eb;margin-bottom:8px}
+.detail-grid{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:14px}
+.detail-label{color:#6b7280;font-weight:700}
+@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.sub-tab{min-width:120px}.detail-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -67,75 +90,45 @@ textarea{min-height:100px;resize:vertical}
   </header>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="overview" type="button">概要</button>
-    <button class="tab" data-tab="register" type="button">商品登録</button>
-    <button class="tab" data-tab="products" type="button">商品一覧</button>
-    <button class="tab" data-tab="shipping" type="button">発送管理</button>
+    <button class="tab active" data-tab="members" type="button">メンバー一覧</button>
+    <button class="tab" data-tab="memberDetail" type="button">メンバー詳細</button>
   </nav>
 
-  <section class="section show" id="overview">
+  <section class="section show" id="members">
     <div class="grid">
       <div class="stat">
+        <div class="stat-label">メンバー</div>
+        <div class="stat-value" id="memberCount">0</div>
+      </div>
+      <div class="stat">
         <div class="stat-label">登録済み商品</div>
-        <div class="stat-value" id="productCount">0</div>
+        <div class="stat-value" id="registeredCount">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">待機中の発送</div>
-        <div class="stat-value" id="pendingCount">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">発送完了</div>
-        <div class="stat-value" id="completedCount">0</div>
+        <div class="stat-label">未発送</div>
+        <div class="stat-value" id="unshippedCount">0</div>
       </div>
     </div>
 
-    <h2>最近の商品</h2>
-    <div class="grid" id="recentProducts"></div>
+    <h2 style="margin-bottom:16px;">メンバー一覧</h2>
+    <div id="memberList"></div>
   </section>
 
-  <section class="section" id="register">
-    <div class="form">
-      <h2 style="margin-bottom:18px;">商品を登録する</h2>
-      <form id="productForm">
-        <div class="form-group">
-          <label for="productName">商品名 *</label>
-          <input id="productName" type="text" required placeholder="例：Canon EOS R5">
-        </div>
-
-        <div class="form-group">
-          <label for="productModel">型番</label>
-          <input id="productModel" type="text" placeholder="例：4147C001">
-        </div>
-
-        <div class="form-group">
-          <label for="productCondition">状態</label>
-          <select id="productCondition">
-            <option value="new">新品</option>
-            <option value="like-new">未使用品</option>
-            <option value="excellent">良好</option>
-            <option value="good">通常</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="productDescription">説明</label>
-          <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
-        </div>
-
-        <button type="submit" style="width:100%;">登録する</button>
-      </form>
+  <section class="section" id="memberDetail">
+    <div id="memberDetailContent" class="empty">
+      <h3>メンバー一覧から確認するメンバーを選択してください</h3>
     </div>
   </section>
+</div>
 
-  <section class="section" id="products">
-    <h2>登録済み商品</h2>
-    <div class="grid" id="productsList"></div>
-  </section>
-
-  <section class="section" id="shipping">
-    <h2>発送管理</h2>
-    <div class="grid" id="shippingList"></div>
-  </section>
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="secondary compact-btn" id="modalCloseBtn" type="button">閉じる</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -173,6 +166,9 @@ const database = getDatabase(
 );
 
 let currentUser = null;
+let membersCache = [];
+let selectedMemberUid = "";
+let detailView = "registered";
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -181,7 +177,12 @@ const logoutBtn = document.getElementById("logoutBtn");
 const userEmail = document.getElementById("userEmail");
 const loginError = document.getElementById("loginError");
 const errorMessage = document.getElementById("errorMessage");
-const productForm = document.getElementById("productForm");
+const memberList = document.getElementById("memberList");
+const memberDetailContent = document.getElementById("memberDetailContent");
+const modalBackdrop = document.getElementById("modalBackdrop");
+const modalTitle = document.getElementById("modalTitle");
+const modalBody = document.getElementById("modalBody");
+const modalCloseBtn = document.getElementById("modalCloseBtn");
 
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
@@ -249,111 +250,332 @@ document.querySelectorAll(".tab").forEach((btn) => {
   });
 });
 
-productForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  clearError();
-
-  if (!currentUser) {
-    showError("ログイン情報を確認できません。再度ログインしてください。");
-    return;
-  }
-
-  const name = document.getElementById("productName").value.trim();
-  const model = document.getElementById("productModel").value.trim();
-  const condition = document.getElementById("productCondition").value;
-  const description = document.getElementById("productDescription").value.trim();
-
-  if (!name) {
-    showError("商品名は必須です。");
-    return;
-  }
-
-  try {
-    const productId = Date.now().toString();
-
-    await set(ref(database, `products/${currentUser.uid}/${productId}`), {
-      id: productId,
-      ownerUid: currentUser.uid,
-      ownerEmail: currentUser.email || "",
-      name,
-      model,
-      condition,
-      description,
-      status: "registered",
-      createdAt: Date.now()
-    });
-
-    productForm.reset();
-    await loadData();
-    alert("商品を登録しました。");
-  } catch (error) {
-    console.error(error);
-    showError("商品の登録に失敗しました。Realtime Databaseのルールを確認してください。");
-  }
+modalCloseBtn.addEventListener("click", closeModal);
+modalBackdrop.addEventListener("click", (event) => {
+  if (event.target === modalBackdrop) closeModal();
 });
 
 async function loadData() {
   if (!currentUser) return;
 
   try {
-    const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
-    const shippingSnapshot = await get(ref(database, `shipping/${currentUser.uid}`));
+    const membersSnapshot = await get(ref(database, "members"));
+    const loginUsersSnapshot = await get(ref(database, "loginUsers"));
+    const productsSnapshot = await get(ref(database, "products"));
 
-    const products = productsSnapshot.exists()
-      ? Object.values(productsSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      : [];
+    const membersData = membersSnapshot.exists() ? membersSnapshot.val() : {};
+    const loginUsersData = loginUsersSnapshot.exists() ? loginUsersSnapshot.val() : {};
+    const productsData = productsSnapshot.exists() ? productsSnapshot.val() : {};
 
-    const shippings = shippingSnapshot.exists()
-      ? Object.values(shippingSnapshot.val()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      : [];
+    const memberUids = Object.keys(membersData).filter((uid) => membersData[uid] === true);
 
-    document.getElementById("productCount").textContent = products.length;
-    document.getElementById("pendingCount").textContent = shippings.filter((s) => s.status === "pending").length;
-    document.getElementById("completedCount").textContent = shippings.filter((s) => s.status === "completed").length;
+    membersCache = memberUids.map((uid) => {
+      const profile = loginUsersData[uid] || {};
+      const products = productsData[uid]
+        ? Object.values(productsData[uid]).sort((a, b) => {
+            const aNumber = String(a.numbering || "");
+            const bNumber = String(b.numbering || "");
+            return aNumber.localeCompare(bNumber, "ja", { numeric: true });
+          })
+        : [];
 
-    document.getElementById("recentProducts").innerHTML =
-      products.slice(0, 3).map(productCard).join("") || emptyHtml("商品が登録されていません");
+      const registeredProducts = products.filter((product) => !hasValue(product.shippingRequest) && !hasValue(product.shootingDate));
+      const storedProducts = products.filter((product) => !hasValue(product.shippingRequest) && hasValue(product.shootingDate));
+      const unshippedProducts = products.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped");
+      const shippedProducts = products.filter((product) => product.shippingStatus === "shipped");
 
-    document.getElementById("productsList").innerHTML =
-      products.map(productCard).join("") || emptyHtml("商品が登録されていません");
+      return {
+        uid,
+        name: profile.name || "",
+        email: profile.email || "",
+        role: profile.role || "member",
+        lastLoginAt: profile.lastLoginAt || "",
+        products,
+        registeredProducts,
+        storedProducts,
+        unshippedProducts,
+        shippedProducts
+      };
+    }).sort((a, b) => String(a.email || a.uid).localeCompare(String(b.email || b.uid), "ja"));
 
-    document.getElementById("shippingList").innerHTML =
-      shippings.map(shippingCard).join("") || emptyHtml("発送依頼がありません");
+    document.getElementById("memberCount").textContent = membersCache.length;
+    document.getElementById("registeredCount").textContent = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
+    document.getElementById("unshippedCount").textContent = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
+
+    renderMemberList();
+
+    if (selectedMemberUid) {
+      renderMemberDetail(selectedMemberUid);
+    }
   } catch (error) {
     console.error(error);
-    showError("データの読み込みに失敗しました。");
+    showError("データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
   }
 }
 
-window.requestShipping = async function(productId, productName) {
-  clearError();
-
-  if (!currentUser) {
-    showError("ログイン情報を確認できません。再度ログインしてください。");
+function renderMemberList() {
+  if (!membersCache.length) {
+    memberList.innerHTML = emptyHtml("メンバーが登録されていません");
     return;
   }
 
-  try {
-    const shippingId = Date.now().toString();
+  memberList.innerHTML = `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>メンバー</th>
+            <th>登録済み商品</th>
+            <th>保管商品</th>
+            <th>未発送</th>
+            <th>発送済み</th>
+            <th>最終ログイン</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${membersCache.map(memberRow).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
-    await set(ref(database, `shipping/${currentUser.uid}/${shippingId}`), {
-      id: shippingId,
-      ownerUid: currentUser.uid,
-      ownerEmail: currentUser.email || "",
-      productId,
-      productName,
-      status: "pending",
-      trackingNumber: "",
-      createdAt: Date.now()
-    });
+function memberRow(member) {
+  return `
+    <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
+      <td>
+        <div class="member-name">${escapeHtml(member.name || member.email || "メンバー")}</div>
+        <div class="member-meta">${escapeHtml(member.email || "")}</div>
+        <div class="member-meta">${escapeHtml(member.uid)}</div>
+      </td>
+      <td><span class="status-pill blue">${member.registeredProducts.length}</span></td>
+      <td><span class="status-pill green">${member.storedProducts.length}</span></td>
+      <td><span class="status-pill yellow">${member.unshippedProducts.length}</span></td>
+      <td><span class="status-pill gray">${member.shippedProducts.length}</span></td>
+      <td>${formatDateTime(member.lastLoginAt)}</td>
+    </tr>
+  `;
+}
 
-    await loadData();
-    alert("発送依頼を作成しました。");
-  } catch (error) {
-    console.error(error);
-    showError("発送依頼の作成に失敗しました。");
-  }
+window.selectMember = function(uid) {
+  selectedMemberUid = uid;
+  detailView = "registered";
+  renderMemberDetail(uid);
+  document.querySelector('[data-tab="memberDetail"]').click();
 };
+
+function renderMemberDetail(uid) {
+  const member = membersCache.find((item) => item.uid === uid);
+
+  if (!member) {
+    memberDetailContent.innerHTML = emptyHtml("メンバー情報が見つかりません");
+    return;
+  }
+
+  const products = detailView === "registered"
+    ? member.registeredProducts
+    : detailView === "stored"
+      ? member.storedProducts
+      : detailView === "unshipped"
+        ? member.unshippedProducts
+        : member.shippedProducts;
+
+  memberDetailContent.classList.remove("empty");
+  memberDetailContent.innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div class="detail-title">${escapeHtml(member.name || member.email || "メンバー詳細")}</div>
+        <div class="detail-sub">${escapeHtml(member.email || "")}</div>
+        <div class="detail-sub">${escapeHtml(member.uid)}</div>
+      </div>
+      <button class="secondary" type="button" onclick="refreshAdminData()">再読み込み</button>
+    </div>
+
+    <div class="grid">
+      <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value">${member.registeredProducts.length}</div></div>
+      <div class="stat"><div class="stat-label">保管商品</div><div class="stat-value">${member.storedProducts.length}</div></div>
+      <div class="stat"><div class="stat-label">未発送</div><div class="stat-value">${member.unshippedProducts.length}</div></div>
+      <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value">${member.shippedProducts.length}</div></div>
+    </div>
+
+    <div class="sub-tabs">
+      <button class="sub-tab ${detailView === "registered" ? "active" : ""}" type="button" onclick="changeDetailView('registered')">登録済み商品</button>
+      <button class="sub-tab ${detailView === "stored" ? "active" : ""}" type="button" onclick="changeDetailView('stored')">保管商品</button>
+      <button class="sub-tab ${detailView === "unshipped" ? "active" : ""}" type="button" onclick="changeDetailView('unshipped')">未発送</button>
+      <button class="sub-tab ${detailView === "shipped" ? "active" : ""}" type="button" onclick="changeDetailView('shipped')">発送済み</button>
+    </div>
+
+    ${products.length ? productTable(products) : emptyHtml("該当する商品はありません")}
+  `;
+}
+
+window.changeDetailView = function(view) {
+  detailView = view;
+  renderMemberDetail(selectedMemberUid);
+};
+
+window.refreshAdminData = async function() {
+  await loadData();
+};
+
+function productTable(products) {
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>発送</th>
+            <th>商品名</th>
+            <th>ナンバリング</th>
+            <th>作業依頼</th>
+            <th>情報</th>
+            <th>発送情報</th>
+            <th>撮影日</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${products.map(productRow).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function productRow(product) {
+  return `
+    <tr>
+      <td>${shippingPill(product.shippingRequest)}</td>
+      <td>${escapeHtml(product.name || "-")}</td>
+      <td>${escapeHtml(product.numbering || "-")}</td>
+      <td>${escapeHtml(product.workRequest || "-")}</td>
+      <td><button class="secondary compact-btn" type="button" onclick="showProductInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button></td>
+      <td>
+        ${
+          hasValue(product.shippingRequest)
+            ? `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button>`
+            : "-"
+        }
+      </td>
+      <td>${escapeHtml(product.shootingDate || "-")}</td>
+      <td>${shippingStatusText(product)}</td>
+    </tr>
+  `;
+}
+
+window.showProductInfo = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  openModal("商品情報", productDetailHtml(product));
+};
+
+window.showShippingInfo = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  openModal("発送情報", shippingDetailHtml(product));
+};
+
+function findProduct(ownerUid, productId) {
+  const member = membersCache.find((item) => item.uid === ownerUid);
+  if (!member) return null;
+  return member.products.find((product) => product.id === productId) || null;
+}
+
+function productDetailHtml(product) {
+  return `
+    <div class="detail-section">
+      <div class="detail-heading">会員記載情報</div>
+      <div class="detail-grid">
+        <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
+        <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
+        <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
+        <div class="detail-label">備考欄</div><div>${escapeHtml(product.note || "-")}</div>
+        <div class="detail-label">購入先URL</div><div>${product.purchaseUrl ? `<a href="${escapeAttr(product.purchaseUrl)}" target="_blank" rel="noopener">${escapeHtml(product.purchaseUrl)}</a>` : "-"}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">管理者記載情報</div>
+      <div class="detail-grid">
+        <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
+        <div class="detail-label">確認結果</div><div>${escapeHtml(product.confirmationResult || "-")}</div>
+        <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
+        <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
+        <div class="detail-label">保管場所</div><div>${escapeHtml(product.storageLocation || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function shippingDetailHtml(product) {
+  const destination = product.shippingDestination || {};
+  const origin = product.shippingOrigin || {};
+
+  return `
+    <div class="detail-section">
+      <div class="detail-heading">発送内容</div>
+      <div class="detail-grid">
+        <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
+        <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+        <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
+        <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
+        <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送先</div>
+      <div class="detail-grid">
+        <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送元</div>
+      <div class="detail-grid">
+        <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
+        <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function shippingPill(value) {
+  if (value === "国内発送") return `<span class="status-pill blue">国内発送</span>`;
+  if (value === "海外発送") return `<span class="status-pill green">海外発送</span>`;
+  if (value === "返品依頼") return `<span class="status-pill yellow">返品依頼</span>`;
+  return `<span class="status-pill gray">なし</span>`;
+}
+
+function shippingStatusText(product) {
+  if (!hasValue(product.shippingRequest)) return `<span class="status-pill gray">未依頼</span>`;
+  return product.shippingStatus === "shipped"
+    ? `<span class="status-pill blue">発送済み</span>`
+    : `<span class="status-pill yellow">未発送</span>`;
+}
+
+function openModal(title, body) {
+  modalTitle.textContent = title;
+  modalBody.innerHTML = body;
+  modalBackdrop.classList.add("show");
+}
+
+function closeModal() {
+  modalBackdrop.classList.remove("show");
+  modalBody.innerHTML = "";
+}
 
 function showLoginUI() {
   currentUser = null;
@@ -367,54 +589,8 @@ function showAppUI(user) {
   userEmail.textContent = user.email || user.displayName || user.uid;
 }
 
-function productCard(product) {
-  return `
-    <div class="card">
-      <div class="card-title">${escapeHtml(product.name)}</div>
-      <div class="card-meta">${product.model ? "型番: " + escapeHtml(product.model) + " | " : ""}状態: ${conditionLabel(product.condition)}</div>
-      <div class="card-content">${product.description ? escapeHtml(product.description) : "説明なし"}</div>
-      <div class="card-actions">
-        <button onclick="requestShipping('${escapeAttr(product.id)}','${escapeAttr(product.name)}')" type="button">発送依頼</button>
-      </div>
-    </div>
-  `;
-}
-
-function shippingCard(shipping) {
-  return `
-    <div class="card">
-      <div class="card-title">${escapeHtml(shipping.productName)}</div>
-      <div class="card-meta">状態: ${statusLabel(shipping.status)}</div>
-      <div class="card-content">依頼日: ${formatDate(shipping.createdAt)}${shipping.trackingNumber ? "<br>追跡番号: " + escapeHtml(shipping.trackingNumber) : ""}</div>
-    </div>
-  `;
-}
-
 function emptyHtml(message) {
   return `<div class="empty"><h3>${escapeHtml(message)}</h3></div>`;
-}
-
-function conditionLabel(value) {
-  return {
-    "new": "新品",
-    "like-new": "未使用品",
-    "excellent": "良好",
-    "good": "通常"
-  }[value] || value || "-";
-}
-
-function statusLabel(value) {
-  return {
-    "pending": "待機中",
-    "shipped": "発送済み",
-    "completed": "完了"
-  }[value] || value || "-";
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("ja-JP");
 }
 
 function showLoginError(message) {
@@ -435,6 +611,16 @@ function showError(message) {
 function clearError() {
   errorMessage.textContent = "";
   errorMessage.classList.remove("show");
+}
+
+function hasValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("ja-JP");
 }
 
 function escapeHtml(value) {
