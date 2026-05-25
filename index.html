@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お気楽便 - 発送管理システム</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #f59e0b;
+      --danger: #ef4444;
+      --success: #10b981;
+      --bg-light: #f3f4f6;
+      --bg-white: #ffffff;
+      --text-dark: #1f2937;
+      --text-gray: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: 'Yu Gothic', 'Hiragino Sans', 'Meiryo', sans-serif;
+      color: var(--text-dark);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    /* ==================== ログイン画面 ==================== */
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .login-panel {
+      background: var(--bg-white);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+    }
+
+    .login-panel h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .login-panel .subtitle {
+      font-size: 14px;
+      color: var(--text-gray);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .login-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .login-btn {
+      padding: 14px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .login-btn.member {
+      background: var(--primary);
+      color: white;
+    }
+
+    .login-btn.member:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+    }
+
+    .login-btn.admin {
+      background: var(--bg-light);
+      color: var(--text-dark);
+      border: 2px solid var(--border);
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    .login-btn.admin:hover {
+      background: var(--border);
+      border-color: var(--text-gray);
+    }
+
+    .btn-icon {
+      font-size: 18px;
+    }
+
+    .error-message {
+      display: none;
+      background: #fef3f2;
+      color: #b42318;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      border-left: 4px solid #b42318;
+    }
+
+    .error-message.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ==================== メイン画面 ==================== */
+    .main-app {
+      display: none;
+      min-height: 100vh;
+      background: var(--bg-light);
+    }
+
+    .main-app.show {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ヘッダー */
+    .app-header {
+      background: var(--bg-white);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .app-header h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .user-badge {
+      background: var(--primary);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .user-badge.admin {
+      background: var(--secondary);
+    }
+
+    .logout-btn {
+      padding: 10px 20px;
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .logout-btn:hover {
+      background: var(--border);
+    }
+
+    /* コンテンツ */
+    .app-content {
+      flex: 1;
+      padding: 30px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ナビゲーション */
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
+    }
+
+    .nav-tab {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-gray);
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+      font-size: 15px;
+    }
+
+    .nav-tab:hover {
+      color: var(--primary);
+    }
+
+    .nav-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* ページセクション */
+    .page-section {
+      display: none;
+    }
+
+    .page-section.show {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* カード */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: var(--bg-white);
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      transform: translateY(-4px);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-dark);
+    }
+
+    .card-meta {
+      font-size: 13px;
+      color: var(--text-gray);
+      margin-bottom: 12px;
+    }
+
+    .card-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-dark);
+      margin-bottom: 15px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: var(--bg-light);
+      color: var(--text-dark);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+    /* フォーム */
+    .form-section {
+      background: var(--bg-white);
+      border-radius: 10px;
+      padding: 30px;
+      border: 1px solid var(--border);
+      margin-top: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    /* ダッシュボード */
+    .dashboard-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--bg-white);
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-gray);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-gray);
+    }
+
+    .empty-state h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: var(--text-dark);
+    }
+
+    /* レスポンシブ */
+    @media (max-width: 768px) {
+      .login-panel {
+        padding: 30px 20px;
+      }
+
+      .app-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .nav-tabs {
+        flex-wrap: wrap;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ロード画面 -->
+  <div id="loadingScreen" class="login-container">
+    <div class="login-panel" style="text-align: center;">
+      <p style="color: #6b7280; font-size: 14px;">読み込み中...</p>
+    </div>
+  </div>
+
+  <!-- ログイン画面 -->
+  <div id="loginScreen" class="login-container hidden">
+    <div class="login-panel">
+      <h1>🚚 お気楽便</h1>
+      <p class="subtitle">カメラ発送代行サービス<br>発送管理システム</p>
+      
+      <div class="error-message" id="errorMessage"></div>
+
+      <div class="login-buttons">
+        <button class="login-btn member" id="memberLoginBtn" onclick="initiateLogin('member')">
+          <span class="btn-icon">👤</span>
+          会員としてログイン
+        </button>
+
+        <button class="login-btn admin" id="adminLoginBtn" onclick="initiateLogin('admin')">
+          <span class="btn-icon">⚙️</span>
+          管理者としてログイン
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインアプリ -->
+  <div id="mainApp" class="main-app">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <h1>🚚 お気楽便</h1>
+      <div class="user-info">
+        <span id="userEmail" style="color: var(--text-gray);"></span>
+        <span class="user-badge" id="roleLabel">メンバー</span>
+        <button class="logout-btn" id="logoutBtn" onclick="logout()">ログアウト</button>
+      </div>
+    </header>
+
+    <!-- コンテンツ -->
+    <div class="app-content">
+      <!-- エラーメッセージ -->
+      <div class="error-message" id="appErrorMessage"></div>
+
+      <!-- ========== 会員用ダッシュボード ========== -->
+      <div id="memberDashboard" class="page-section">
+        <!-- ナビゲーション -->
+        <div class="nav-tabs">
+          <button class="nav-tab active" onclick="switchTab('member', 'overview')">📊 概要</button>
+          <button class="nav-tab" onclick="switchTab('member', 'register')">➕ 商品登録</button>
+          <button class="nav-tab" onclick="switchTab('member', 'shipping')">📦 発送依頼</button>
+          <button class="nav-tab" onclick="switchTab('member', 'history')">📜 発送履歴</button>
+        </div>
+
+        <!-- 概要 -->
+        <div id="memberOverview" class="page-section show">
+          <div class="dashboard-stats">
+            <div class="stat-card">
+              <div class="stat-label">登録済み商品</div>
+              <div class="stat-value" id="totalProducts">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">待機中の発送</div>
+              <div class="stat-value" id="pendingShipments">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">発送完了</div>
+              <div class="stat-value" id="completedShipments">0</div>
+            </div>
+          </div>
+
+          <h2 style="font-size: 20px; margin-top: 30px; margin-bottom: 15px;">最近の商品</h2>
+          <div id="recentProductsList" class="cards-grid">
+            <div class="empty-state">
+              <h3>商品が登録されていません</h3>
+              <p>「商品登録」タブから新しい商品を登録してください。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 商品登録 -->
+        <div id="memberRegister" class="page-section">
+          <div class="form-section">
+            <h2 style="margin-bottom: 20px;">商品を登録する</h2>
+            <form id="productForm" onsubmit="registerProduct(event)">
+              <div class="form-group">
+                <label>商品名 *</label>
+                <input type="text" id="productName" placeholder="例：Canon EOS R5" required>
+              </div>
+
+              <div class="form-group">
+                <label>型番</label>
+                <input type="text" id="productModel" placeholder="例：4147C001">
+              </div>
+
+              <div class="form-group">
+                <label>状態</label>
+                <select id="productCondition">
+                  <option value="new">新品</option>
+                  <option value="like-new">未使用品</option>
+                  <option value="excellent">良好</option>
+                  <option value="good">通常</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>説明</label>
+                <textarea id="productDescription" placeholder="商品の詳細情報を入力してください"></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%;">登録する</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- 発送依頼 -->
+        <div id="memberShipping" class="page-section">
+          <h2 style="margin-bottom: 20px;">発送依頼</h2>
+          <div id="shippingList" class="cards-grid">
+            <div class="empty-state">
+              <h3>登録済み商品がありません</h3>
+              <p>「商品登録」タブから商品を登録してください。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 発送履歴 -->
+        <div id="memberHistory" class="page-section">
+          <h2 style="margin-bottom: 20px;">発送履歴</h2>
+          <div id="historyList" class="cards-grid">
+            <div class="empty-state">
+              <h3>まだ発送されていません</h3>
+              <p>商品の発送が完了すると、ここに表示されます。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 管理者用ダッシュボード ========== -->
+      <div id="adminDashboard" class="page-section">
+        <!-- ナビゲーション -->
+        <div class="nav-tabs">
+          <button class="nav-tab active" onclick="switchTab('admin', 'overview')">📊 概要</button>
+          <button class="nav-tab" onclick="switchTab('admin', 'members')">👥 メンバー管理</button>
+          <button class="nav-tab" onclick="switchTab('admin', 'products')">📦 全商品</button>
+          <button class="nav-tab" onclick="switchTab('admin', 'shipping')">🚚 発送管理</button>
+        </div>
+
+        <!-- 概要 -->
+        <div id="adminOverview" class="page-section show">
+          <div class="dashboard-stats">
+            <div class="stat-card">
+              <div class="stat-label">総メンバー数</div>
+              <div class="stat-value" id="totalMembers">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">管理中の商品</div>
+              <div class="stat-value" id="adminTotalProducts">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">待機中の発送</div>
+              <div class="stat-value" id="adminPendingShipments">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">完了した発送</div>
+              <div class="stat-value" id="adminCompletedShipments">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- メンバー管理 -->
+        <div id="adminMembers" class="page-section">
+          <h2 style="margin-bottom: 20px;">メンバー管理</h2>
+          <div id="membersList" class="cards-grid">
+            <div class="empty-state">
+              <h3>メンバーがいません</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- 全商品 -->
+        <div id="adminProducts" class="page-section">
+          <h2 style="margin-bottom: 20px;">全商品一覧</h2>
+          <div id="allProductsList" class="cards-grid">
+            <div class="empty-state">
+              <h3>商品が登録されていません</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- 発送管理 -->
+        <div id="adminShipping" class="page-section">
+          <h2 style="margin-bottom: 20px;">発送管理</h2>
+          <div id="allShippingList" class="cards-grid">
+            <div class="empty-state">
+              <h3>発送依頼がありません</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getDatabase, ref, set, get, child, remove, update } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    // ========== Firebase設定 ==========
+    // ⚠️ 以下を自分のFirebase設定に置き換えてください
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      databaseURL: "YOUR_DATABASE_URL",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+    const provider = new GoogleAuthProvider();
+
+    // グローバル状態
+    let currentUser = null;
+    let currentRole = null;
+    let loginMode = null;
+
+    // ========== UI制御 ==========
+    function showScreen(screenId) {
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('show');
+
+      if (screenId === 'login') {
+        document.getElementById('loginScreen').classList.remove('hidden');
+      } else if (screenId === 'app') {
+        document.getElementById('mainApp').classList.add('show');
+      }
+    }
+
+    function showError(message) {
+      const errorEl = document.getElementById('appErrorMessage');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      setTimeout(() => {
+        errorEl.classList.remove('show');
+      }, 5000);
+    }
+
+    // ========== ログイン処理 ==========
+    window.initiateLogin = async function(role) {
+      loginMode = role;
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        currentUser = user;
+        
+        // ユーザー情報をFirebaseに保存
+        await saveUserRole(user.uid, user.email, role);
+        
+      } catch (error) {
+        const errorMsg = getErrorMessage(error.code);
+        document.getElementById('errorMessage').textContent = errorMsg;
+        document.getElementById('errorMessage').classList.add('show');
+      }
+    };
+
+    // ========== ユーザー認証状態の監視 ==========
+    onAuthStateChanged(auth, async (user) => {
+      const loadingScreen = document.getElementById('loadingScreen');
+      
+      if (user) {
+        currentUser = user;
+        // ユーザーの役割を取得
+        const role = await getUserRole(user.uid);
+        currentRole = role;
+
+        // UI更新
+        document.getElementById('userEmail').textContent = user.email;
+        const roleLabel = document.getElementById('roleLabel');
+        
+        if (role === 'admin') {
+          roleLabel.textContent = '管理者';
+          roleLabel.classList.add('admin');
+          document.getElementById('memberDashboard').classList.remove('show');
+          document.getElementById('adminDashboard').classList.add('show');
+        } else {
+          roleLabel.textContent = 'メンバー';
+          document.getElementById('adminDashboard').classList.remove('show');
+          document.getElementById('memberDashboard').classList.add('show');
+        }
+
+        showScreen('app');
+        loadData();
+      } else {
+        currentUser = null;
+        currentRole = null;
+        showScreen('login');
+        loadingScreen.style.display = 'none';
+      }
+    });
+
+    // ========== ユーザー役割の管理 ==========
+    async function saveUserRole(uid, email, role) {
+      try {
+        await set(ref(database, `users/${uid}`), {
+          email: email,
+          role: role,
+          createdAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error saving user role:', error);
+      }
+    }
+
+    async function getUserRole(uid) {
+      try {
+        const snapshot = await get(child(ref(database), `users/${uid}/role`));
+        return snapshot.exists() ? snapshot.val() : 'member';
+      } catch (error) {
+        console.error('Error getting user role:', error);
+        return 'member';
+      }
+    }
+
+    // ========== ログアウト ==========
+    window.logout = async function() {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    };
+
+    // ========== タブ切り替え ==========
+    window.switchTab = function(dashboard, tabName) {
+      // すべてのセクションを非表示
+      const sections = document.querySelectorAll('.page-section');
+      sections.forEach(el => el.classList.remove('show'));
+
+      // すべてのタブを非アクティブ
+      const tabs = document.querySelectorAll('.nav-tab');
+      tabs.forEach(el => el.classList.remove('active'));
+
+      // 選択されたセクションとタブをアクティブに
+      const sectionId = `${dashboard === 'member' ? 'member' : 'admin'}${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.classList.add('show');
+      }
+
+      event.target.classList.add('active');
+    };
+
+    // ========== データ読み込み ==========
+    async function loadData() {
+      if (currentRole === 'member') {
+        loadMemberData();
+      } else if (currentRole === 'admin') {
+        loadAdminData();
+      }
+    }
+
+    async function loadMemberData() {
+      try {
+        const uid = currentUser.uid;
+        
+        // 商品数の取得
+        const productsSnapshot = await get(child(ref(database), `products/${uid}`));
+        const productCount = productsSnapshot.exists() ? Object.keys(productsSnapshot.val()).length : 0;
+        document.getElementById('totalProducts').textContent = productCount;
+
+        // 最近の商品を表示
+        if (productsSnapshot.exists()) {
+          const products = productsSnapshot.val();
+          const productsList = document.getElementById('recentProductsList');
+          productsList.innerHTML = Object.entries(products).slice(0, 3).map(([id, product]) => `
+            <div class="card">
+              <div class="card-title">${product.name}</div>
+              <div class="card-meta">${product.condition || '状態未指定'}</div>
+              <div class="card-content">${product.description || '詳細なし'}</div>
+              <div class="card-actions">
+                <button class="btn btn-primary" onclick="requestShipping('${id}')">発送依頼</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading member data:', error);
+      }
+    }
+
+    async function loadAdminData() {
+      try {
+        // すべてのユーザーとその商品を取得
+        const usersSnapshot = await get(child(ref(database), 'users'));
+        let totalProducts = 0;
+        const members = [];
+
+        if (usersSnapshot.exists()) {
+          const users = usersSnapshot.val();
+          for (const [uid, userData] of Object.entries(users)) {
+            if (userData.role === 'member') {
+              members.push({ uid, ...userData });
+            }
+          }
+        }
+
+        document.getElementById('totalMembers').textContent = members.length;
+
+        // メンバー一覧を表示
+        const membersList = document.getElementById('membersList');
+        if (members.length > 0) {
+          membersList.innerHTML = members.map(member => `
+            <div class="card">
+              <div class="card-title">${member.email}</div>
+              <div class="card-meta">メンバー</div>
+              <div class="card-content">
+                <p>参加日: ${new Date(member.createdAt).toLocaleDateString('ja-JP')}</p>
+              </div>
+              <div class="card-actions">
+                <button class="btn btn-primary" onclick="viewMemberProducts('${member.uid}')">商品を見る</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading admin data:', error);
+      }
+    }
+
+    // ========== 商品登録 ==========
+    window.registerProduct = async function(event) {
+      event.preventDefault();
+      try {
+        const uid = currentUser.uid;
+        const productId = Date.now().toString();
+        
+        const product = {
+          id: productId,
+          name: document.getElementById('productName').value,
+          model: document.getElementById('productModel').value,
+          condition: document.getElementById('productCondition').value,
+          description: document.getElementById('productDescription').value,
+          createdAt: new Date().toISOString(),
+          status: 'registered'
+        };
+
+        await set(ref(database, `products/${uid}/${productId}`), product);
+        
+        // フォームをリセット
+        document.getElementById('productForm').reset();
+        
+        // データを再読み込み
+        loadMemberData();
+        alert('商品が登録されました！');
+      } catch (error) {
+        showError('商品の登録に失敗しました：' + error.message);
+      }
+    };
+
+    // ========== 発送依頼 ==========
+    window.requestShipping = function(productId) {
+      alert(`商品ID: ${productId}の発送を依頼しました。\n管理者が対応するのをお待ちください。`);
+    };
+
+    // ========== メンバー商品表示 ==========
+    window.viewMemberProducts = async function(uid) {
+      alert(`メンバーID: ${uid}の商品管理画面`);
+    };
+
+    // ========== エラーメッセージ処理 ==========
+    function getErrorMessage(errorCode) {
+      const messages = {
+        'auth/unauthorized-domain': 'このドメインはFirebaseで承認されていません。',
+        'auth/popup-blocked': 'ポップアップがブロックされています。',
+        'auth/popup-closed-by-user': 'ログインがキャンセルされました。',
+        'auth/operation-not-allowed': 'Google ログインが有効になっていません。',
+        'auth/invalid-api-key': 'API キーが正しくありません。'
+      };
+      return messages[errorCode] || 'ログインに失敗しました。';
+    }
+  </script>
+</body>
+</html>
