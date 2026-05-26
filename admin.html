@@ -1282,7 +1282,11 @@
         domestic: ["国内発送", "domestic"],
         international: ["海外発送", "international"],
         return: ["返品依頼", "return"],
-        speedpak: ["SpeedPAK", "speedpak"]
+        speedpak: ["SpeedPAK", "speedpak"],
+        "国内発送": ["国内発送", "domestic"],
+        "海外発送": ["海外発送", "international"],
+        "返品依頼": ["返品依頼", "return"],
+        "SpeedPAK": ["SpeedPAK", "speedpak"]
       };
 
       if (!hasValue(value)) {
@@ -1381,6 +1385,9 @@
       const product = findProduct(uid, productId);
       if (!product) return;
 
+      const member = findMember(uid);
+      const managementNumber = member?.managementNumber || "-";
+
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
         <div class="info-box">
@@ -1412,7 +1419,10 @@
         </div>
 
         <div class="info-box">
-          <div class="info-box-title">発送元</div>
+          <div class="info-box-title">
+            <span>発送元</span>
+            <span class="management-pill">管理番号 ${escapeHtml(managementNumber)}</span>
+          </div>
           ${addressInfo(product.shippingOrigin)}
         </div>
       `;
@@ -1713,7 +1723,7 @@
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
 
     function shippingSizeOptions(current) {
-      const options = ["60", "80", "100", "120", "140"];
+      const options = ["60", "80", "100", "120", "140", "海外発送"];
       return options.map((option) => `
         <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
       `).join("");
