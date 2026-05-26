@@ -11,15 +11,21 @@
       --border: #d9dee8;
       --text: #0f172a;
       --muted: #64748b;
-      --bg: #f8fafc;
       --white: #ffffff;
       --danger: #dc2626;
       --danger-bg: #fee2e2;
       --yellow: #fff2b8;
+      --yellow-soft: #fff9d9;
       --yellow-text: #8a5a00;
       --gray-hi: #d7dce5;
       --gray-hi-text: #334155;
       --header: #6b7280;
+      --green-soft: #dcfce7;
+      --green-text: #15803d;
+      --orange-soft: #ffedd5;
+      --orange-text: #c2410c;
+      --red-soft: #fee2e2;
+      --red-text: #b91c1c;
     }
 
     * {
@@ -82,65 +88,54 @@
       line-height: 1.7;
     }
 
-    .primary-btn {
+    .primary-btn,
+    .secondary-btn,
+    .mini-btn,
+    .danger-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .primary-btn {
       gap: 8px;
       min-height: 42px;
       padding: 0 18px;
       border-radius: 8px;
       background: var(--blue);
       color: white;
-      font-weight: 700;
     }
 
     .secondary-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       min-height: 40px;
       padding: 0 16px;
       border-radius: 7px;
       background: #eef2f7;
       color: var(--text);
-      font-weight: 700;
     }
 
     .danger-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       min-height: 36px;
       padding: 0 12px;
       border-radius: 7px;
       background: var(--danger-bg);
       color: var(--danger);
-      font-weight: 700;
     }
 
     .mini-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       min-height: 34px;
       padding: 0 10px;
       border-radius: 7px;
       background: #eef2f7;
       color: var(--text);
       font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
     }
 
     .mini-btn.blue {
       background: var(--blue-soft);
       color: var(--blue);
-    }
-
-    .mini-btn.yellow {
-      background: var(--yellow);
-      color: var(--yellow-text);
     }
 
     .hidden {
@@ -236,6 +231,19 @@
       background: var(--white);
     }
 
+    .stat-card.clickable {
+      cursor: pointer;
+    }
+
+    .stat-card.clickable:hover {
+      border-color: #9bbcff;
+    }
+
+    .stat-card.active-view {
+      border-color: var(--blue);
+      box-shadow: inset 0 -3px 0 var(--blue);
+    }
+
     .stat-card.issue {
       border-color: #f6d672;
       background: #fff8d7;
@@ -268,11 +276,6 @@
       margin: 28px 0 16px;
       font-size: 24px;
       letter-spacing: 0;
-    }
-
-    h3 {
-      margin: 0 0 14px;
-      font-size: 18px;
     }
 
     .table-actions {
@@ -353,6 +356,12 @@
       word-break: break-all;
     }
 
+    .management-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .count-pill {
       display: inline-flex;
       align-items: center;
@@ -408,29 +417,6 @@
       font-weight: 700;
     }
 
-    .detail-tabs {
-      display: flex;
-      justify-content: center;
-      gap: 28px;
-      margin: 28px auto 20px;
-      border-bottom: 2px solid var(--border);
-      max-width: 780px;
-    }
-
-    .detail-tab {
-      min-width: 140px;
-      padding: 13px 8px;
-      background: transparent;
-      color: #8a93a3;
-      font-weight: 700;
-      border-bottom: 3px solid transparent;
-    }
-
-    .detail-tab.active {
-      color: var(--blue);
-      border-bottom-color: var(--blue);
-    }
-
     .ship-badge,
     .status-pill,
     .preference-pill {
@@ -451,18 +437,18 @@
     }
 
     .ship-badge.international {
-      background: #dcfce7;
-      color: #15803d;
+      background: var(--green-soft);
+      color: var(--green-text);
     }
 
     .ship-badge.return {
-      background: #fee2e2;
-      color: #b91c1c;
+      background: var(--red-soft);
+      color: var(--red-text);
     }
 
     .ship-badge.speedpak {
-      background: #ffedd5;
-      color: #c2410c;
+      background: var(--orange-soft);
+      color: var(--orange-text);
     }
 
     .ship-badge.none {
@@ -561,6 +547,11 @@
       margin-top: 12px;
     }
 
+    .info-box.highlight {
+      border-color: #f6d672;
+      background: var(--yellow-soft);
+    }
+
     .info-box-title {
       display: flex;
       align-items: center;
@@ -625,12 +616,6 @@
       margin-top: 18px;
     }
 
-    .two-col {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
     .link-cell {
       color: var(--blue);
       text-decoration: underline;
@@ -658,14 +643,8 @@
         grid-template-columns: 1fr;
       }
 
-      .tabs,
-      .detail-tabs {
+      .tabs {
         overflow-x: auto;
-        justify-content: flex-start;
-      }
-
-      .two-col {
-        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -747,32 +726,25 @@
         </div>
 
         <div class="stats four">
-          <div id="detailRegisteredCard" class="stat-card">
+          <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
             <div class="stat-label">登録済み商品</div>
             <div id="detailRegisteredCount" class="stat-value">0</div>
           </div>
-          <div id="detailStoredCard" class="stat-card">
+          <div id="detailStoredCard" class="stat-card clickable" onclick="setDetailView('stored')">
             <div class="stat-label">保管商品</div>
             <div id="detailStoredCount" class="stat-value">0</div>
           </div>
-          <div id="detailUnshippedCard" class="stat-card">
+          <div id="detailUnshippedCard" class="stat-card clickable" onclick="setDetailView('unshipped')">
             <div class="stat-label">未発送</div>
             <div id="detailUnshippedCount" class="stat-value">0</div>
           </div>
-          <div id="detailShippedCard" class="stat-card">
+          <div id="detailShippedCard" class="stat-card clickable" onclick="setDetailView('shipped')">
             <div class="stat-label">発送済み</div>
             <div id="detailShippedCount" class="stat-value">0</div>
           </div>
         </div>
 
-        <nav class="detail-tabs">
-          <button class="detail-tab active" data-detail-view="registered">登録済み商品</button>
-          <button class="detail-tab" data-detail-view="stored">保管商品</button>
-          <button class="detail-tab" data-detail-view="unshipped">未発送</button>
-          <button class="detail-tab" data-detail-view="shipped">発送済み</button>
-        </nav>
-
-        <div id="detailTableArea"></div>
+        <div id="detailTableArea" class="section"></div>
       </div>
     </section>
   </main>
@@ -902,13 +874,6 @@
       });
     });
 
-    document.querySelectorAll("[data-detail-view]").forEach((button) => {
-      button.addEventListener("click", () => {
-        detailView = button.dataset.detailView;
-        renderMemberDetail();
-      });
-    });
-
     editModalCloseBtn.addEventListener("click", closeEditModal);
 
     onAuthStateChanged(auth, async (user) => {
@@ -982,6 +947,7 @@
               uid,
               name: user.name || user.email || "未設定",
               email: user.email || "-",
+              managementNumber: user.managementNumber || "",
               lastLoginAt: user.lastLoginAt || null,
               products,
               registeredProducts: products.filter(isRegisteredProduct),
@@ -1053,7 +1019,10 @@
             <div class="member-meta">${escapeHtml(member.uid)}</div>
           </td>
           <td onclick="event.stopPropagation();">
-            ${managementListCell(member)}
+            <div class="management-cell">
+              <strong>${escapeHtml(member.managementNumber || "-")}</strong>
+              <button class="mini-btn" onclick="openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
+            </div>
           </td>
           <td>${countPill(member.registeredProducts.length, "issue")}</td>
           <td>${countPill(member.storedProducts.length, "neutral-hi")}</td>
@@ -1061,17 +1030,6 @@
           <td>${countPill(member.shippedProducts.length, "neutral-hi")}</td>
           <td>${formatDateTime(member.lastLoginAt)}</td>
         </tr>
-      `).join("");
-    }
-
-    function managementListCell(member) {
-      if (!member.products.length) return `<span class="member-meta">-</span>`;
-
-      return member.products.map((product) => `
-        <div style="display:flex; align-items:center; gap:8px; margin:4px 0;">
-          <strong>${escapeHtml(product.managementNumber || "-")}</strong>
-          <button class="mini-btn" onclick="openManagementEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">編集</button>
-        </div>
       `).join("");
     }
 
@@ -1096,6 +1054,11 @@
       detailSection.classList.toggle("hidden", tabName !== "detail");
     }
 
+    function setDetailView(view) {
+      detailView = view;
+      renderMemberDetail();
+    }
+
     function renderMemberDetail() {
       const member = membersCache.find((item) => item.uid === selectedMemberUid);
 
@@ -1111,42 +1074,28 @@
       detailMemberName.textContent = member.name;
       detailMemberEmail.textContent = member.email;
       detailMemberUid.textContent = member.uid;
-      detailManagementHeader.innerHTML = managementHeaderList(member.products);
+      detailManagementHeader.innerHTML = `<span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>`;
 
-      setStatCard(detailRegisteredCard, member.registeredProducts.length, "issue");
-      setStatCard(detailStoredCard, member.storedProducts.length, "neutral-hi");
-      setStatCard(detailUnshippedCard, member.unshippedProducts.length, "issue");
-      setStatCard(detailShippedCard, member.shippedProducts.length, "neutral-hi");
+      setStatCard(detailRegisteredCard, member.registeredProducts.length, "issue", detailView === "registered");
+      setStatCard(detailStoredCard, member.storedProducts.length, "neutral-hi", detailView === "stored");
+      setStatCard(detailUnshippedCard, member.unshippedProducts.length, "issue", detailView === "unshipped");
+      setStatCard(detailShippedCard, member.shippedProducts.length, "neutral-hi", detailView === "shipped");
 
       detailRegisteredCount.textContent = member.registeredProducts.length;
       detailStoredCount.textContent = member.storedProducts.length;
       detailUnshippedCount.textContent = member.unshippedProducts.length;
       detailShippedCount.textContent = member.shippedProducts.length;
 
-      document.querySelectorAll("[data-detail-view]").forEach((button) => {
-        button.classList.toggle("active", button.dataset.detailView === detailView);
-      });
-
-      const products = getDetailProducts(member);
-      renderDetailTable(products);
+      renderDetailTable(getDetailProducts(member));
     }
 
-    function managementHeaderList(products) {
-      const values = products
-        .map((product) => product.managementNumber)
-        .filter(hasValue);
-
-      if (!values.length) {
-        return `<span class="management-pill">管理番号なし</span>`;
-      }
-
-      return values.map((value) => `<span class="management-pill">管理番号 ${escapeHtml(value)}</span>`).join("");
-    }
-
-    function setStatCard(card, value, type) {
-      card.classList.remove("issue", "neutral-hi");
+    function setStatCard(card, value, type, active) {
+      card.classList.remove("issue", "neutral-hi", "active-view");
       if (value > 0) {
         card.classList.add(type);
+      }
+      if (active) {
+        card.classList.add("active-view");
       }
     }
 
@@ -1158,18 +1107,86 @@
     }
 
     function renderDetailTable(products) {
-      const isShippingView = detailView === "unshipped" || detailView === "shipped";
-      const isStoredView = detailView === "stored";
-      const customHeader = isShippingView ? "発送情報" : "こだわり欄";
-      const statusHeader = isStoredView ? "写真撮影日" : "状態";
-
       if (!products.length) {
         detailTableArea.innerHTML = `${exportControls()}<div class="empty">表示できる商品がありません。</div>`;
         return;
       }
 
+      if (detailView === "stored") {
+        detailTableArea.innerHTML = `
+          ${exportControls()}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>こだわり欄</th>
+                  <th>写真撮影日</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map(storedProductRow).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "unshipped") {
+        detailTableArea.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>発送情報</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map(unshippedProductRow).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "shipped") {
+        detailTableArea.innerHTML = `
+          ${exportControls()}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>発送情報</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map(shippedProductRow).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
       detailTableArea.innerHTML = `
-        ${exportControls()}
         <div class="table-wrap">
           <table>
             <thead>
@@ -1179,12 +1196,12 @@
                 <th>ナンバリング</th>
                 <th>作業依頼</th>
                 <th>情報</th>
-                <th>${customHeader}</th>
-                <th>${statusHeader}</th>
+                <th>こだわり欄</th>
+                <th>状態</th>
               </tr>
             </thead>
             <tbody>
-              ${products.map((product) => productRow(product, isShippingView, isStoredView)).join("")}
+              ${products.map(registeredProductRow).join("")}
             </tbody>
           </table>
         </div>
@@ -1206,18 +1223,58 @@
       `;
     }
 
-    function productRow(product, isShippingView, isStoredView) {
+    function registeredProductRow(product) {
       return `
         <tr>
           <td>${shippingBadge(product.shippingRequest)}</td>
           <td>${escapeHtml(product.name || "-")}</td>
           <td>${escapeHtml(product.numbering || "-")}</td>
           <td>${escapeHtml(product.workRequest || "-")}</td>
-          <td>
-            <button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button>
-          </td>
-          <td>${isShippingView ? shippingInfoCell(product) : preferenceCell(product)}</td>
-          <td>${isStoredView ? escapeHtml(product.shootingDate || "-") : `${shippingStatusText(product)} <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">編集</button>`}</td>
+          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+          <td>${preferenceCell(product)}</td>
+          <td>${shippingStatusText(product)} <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">編集</button></td>
+        </tr>
+      `;
+    }
+
+    function storedProductRow(product) {
+      return `
+        <tr>
+          <td>${shippingBadge(product.shippingRequest)}</td>
+          <td>${escapeHtml(product.name || "-")}</td>
+          <td>${escapeHtml(product.numbering || "-")}</td>
+          <td>${escapeHtml(product.workRequest || "-")}</td>
+          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+          <td>${preferenceCell(product)}</td>
+          <td>${escapeHtml(product.shootingDate || "-")}</td>
+        </tr>
+      `;
+    }
+
+    function unshippedProductRow(product) {
+      return `
+        <tr>
+          <td>${shippingBadge(product.shippingRequest)}</td>
+          <td>${escapeHtml(product.name || "-")}</td>
+          <td>${escapeHtml(product.numbering || "-")}</td>
+          <td>${escapeHtml(product.workRequest || "-")}</td>
+          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+          <td>${shippingInfoCell(product)}</td>
+          <td>${shippingStatusText(product)}</td>
+        </tr>
+      `;
+    }
+
+    function shippedProductRow(product) {
+      return `
+        <tr>
+          <td>${shippingBadge(product.shippingRequest)}</td>
+          <td>${escapeHtml(product.name || "-")}</td>
+          <td>${escapeHtml(product.numbering || "-")}</td>
+          <td>${escapeHtml(product.workRequest || "-")}</td>
+          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+          <td>${shippingInfoCell(product)}</td>
+          <td>${shippingStatusText(product)}</td>
         </tr>
       `;
     }
@@ -1271,6 +1328,10 @@
       return member.products.find((product) => product.id === productId) || null;
     }
 
+    function findMember(uid) {
+      return membersCache.find((member) => member.uid === uid) || null;
+    }
+
     function openInfoModal(uid, productId) {
       const product = findProduct(uid, productId);
       if (!product) return;
@@ -1278,22 +1339,7 @@
       infoModalTitle.textContent = "商品情報";
       infoModalBody.innerHTML = `
         <div class="info-box">
-          <div class="info-box-title">管理番号情報</div>
-          <div class="info-grid">
-            <div class="info-label">管理番号</div>
-            <div class="info-value">${escapeHtml(product.managementNumber || "-")}</div>
-            <div class="info-label">こだわり</div>
-            <div class="info-value">${product.preferenceEnabled === true ? "あり" : "なし"}</div>
-            <div class="info-label">こだわり内容</div>
-            <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
-          </div>
-        </div>
-
-        <div class="info-box">
-          <div class="info-box-title">
-            <span>会員記載情報</span>
-            <button class="mini-btn" onclick="openMemberFieldsEdit('${escapeAttr(uid)}','${escapeAttr(productId)}')">編集</button>
-          </div>
+          <div class="info-box-title">会員記載情報</div>
           <div class="info-grid">
             <div class="info-label">商品名</div>
             <div class="info-value">${escapeHtml(product.name || "-")}</div>
@@ -1344,6 +1390,15 @@
           <div class="info-grid">
             <div class="info-label">発送種別</div>
             <div class="info-value">${shippingBadge(product.shippingRequest)}</div>
+          </div>
+        </div>
+
+        <div class="info-box highlight">
+          <div class="info-box-title">
+            <span>発送状態</span>
+            <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(uid)}','${escapeAttr(productId)}')">編集</button>
+          </div>
+          <div class="info-grid">
             <div class="info-label">状態</div>
             <div class="info-value">${shippingStatusText(product)}</div>
             <div class="info-label">発送サイズ</div>
@@ -1353,7 +1408,7 @@
           </div>
         </div>
 
-        <div class="info-box">
+        <div class="info-box highlight">
           <div class="info-box-title">発送先</div>
           ${addressInfo(product.shippingDestination)}
         </div>
@@ -1375,8 +1430,6 @@
       infoModalBody.innerHTML = `
         <div class="info-box">
           <div class="info-grid">
-            <div class="info-label">管理番号</div>
-            <div class="info-value">${escapeHtml(product.managementNumber || "-")}</div>
             <div class="info-label">内容</div>
             <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
           </div>
@@ -1415,74 +1468,17 @@
 
     window.closeInfoModal = closeInfoModal;
 
-    function openManagementEdit(uid, productId) {
-      const product = findProduct(uid, productId);
-      if (!product) return;
+    function openMemberManagementEdit(uid) {
+      const member = findMember(uid);
+      if (!member) return;
 
-      activeEdit = { uid, productId, type: "management" };
+      activeEdit = { uid, type: "memberManagement" };
       editModalTitle.textContent = "管理番号を編集";
       editForm.innerHTML = `
         <div class="form-grid">
           <label>
             管理番号
-            <input name="managementNumber" value="${escapeAttr(product.managementNumber || "")}" />
-          </label>
-
-          <label>
-            こだわりポイント
-            <select name="preferenceEnabled">
-              <option value="false" ${product.preferenceEnabled === true ? "" : "selected"}>なし</option>
-              <option value="true" ${product.preferenceEnabled === true ? "selected" : ""}>あり</option>
-            </select>
-          </label>
-
-          <label>
-            こだわりコメント
-            <textarea name="preferenceComment">${escapeHtml(product.preferenceComment || "")}</textarea>
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="secondary-btn" onclick="closeEditModal()">キャンセル</button>
-          <button type="submit" class="primary-btn">保存する</button>
-        </div>
-      `;
-      editModalBackdrop.classList.add("show");
-    }
-
-    function openMemberFieldsEdit(uid, productId) {
-      const product = findProduct(uid, productId);
-      if (!product) return;
-
-      activeEdit = { uid, productId, type: "memberFields" };
-      editModalTitle.textContent = "会員記載情報を編集";
-      editForm.innerHTML = `
-        <div class="form-grid">
-          <label>
-            商品名
-            <input name="name" value="${escapeAttr(product.name || "")}" />
-          </label>
-
-          <label>
-            ナンバリング
-            <input name="numbering" value="${escapeAttr(product.numbering || "")}" />
-          </label>
-
-          <label>
-            作業依頼
-            <select name="workRequest">
-              ${workRequestOptions(product.workRequest)}
-            </select>
-          </label>
-
-          <label>
-            備考欄
-            <textarea name="note">${escapeHtml(product.note || "")}</textarea>
-          </label>
-
-          <label>
-            購入先URL
-            <input name="purchaseUrl" value="${escapeAttr(product.purchaseUrl || "")}" />
+            <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
           </label>
         </div>
 
@@ -1580,32 +1576,20 @@
 
       const formData = new FormData(editForm);
       const editTarget = { ...activeEdit };
-      const path = `products/${editTarget.uid}/${editTarget.productId}`;
       const now = Date.now();
 
+      let path = "";
       let payload = { updatedAt: now };
 
-      if (editTarget.type === "management") {
+      if (editTarget.type === "memberManagement") {
+        path = `loginUsers/${editTarget.uid}`;
         payload = {
-          ...payload,
-          managementNumber: getFormValue(formData, "managementNumber"),
-          preferenceEnabled: getFormValue(formData, "preferenceEnabled") === "true",
-          preferenceComment: getFormValue(formData, "preferenceComment")
-        };
-      }
-
-      if (editTarget.type === "memberFields") {
-        payload = {
-          ...payload,
-          name: getFormValue(formData, "name"),
-          numbering: getFormValue(formData, "numbering"),
-          workRequest: getFormValue(formData, "workRequest"),
-          note: getFormValue(formData, "note"),
-          purchaseUrl: getFormValue(formData, "purchaseUrl")
+          managementNumber: getFormValue(formData, "managementNumber")
         };
       }
 
       if (editTarget.type === "adminFields") {
+        path = `products/${editTarget.uid}/${editTarget.productId}`;
         const confirmationDate = getFormValue(formData, "confirmationDate");
         payload = {
           ...payload,
@@ -1619,6 +1603,7 @@
       }
 
       if (editTarget.type === "status") {
+        path = `products/${editTarget.uid}/${editTarget.productId}`;
         const status = getFormValue(formData, "shippingStatus");
         payload = {
           ...payload,
@@ -1632,7 +1617,7 @@
       try {
         await update(ref(db, path), payload);
         closeEditModal();
-        selectedMemberUid = editTarget.uid;
+        selectedMemberUid = editTarget.uid || selectedMemberUid;
         await loadAllData();
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -1651,7 +1636,6 @@
 
       const monthInput = document.getElementById("exportMonth");
       const selectedMonth = monthInput ? monthInput.value : "";
-
       let products = getDetailProducts(member);
 
       if (detailView === "stored") {
@@ -1716,21 +1700,14 @@
 
     window.closeEditModal = closeEditModal;
     window.selectMember = selectMember;
+    window.setDetailView = setDetailView;
     window.openInfoModal = openInfoModal;
     window.openShippingInfo = openShippingInfo;
     window.openPreferenceModal = openPreferenceModal;
-    window.openManagementEdit = openManagementEdit;
-    window.openMemberFieldsEdit = openMemberFieldsEdit;
+    window.openMemberManagementEdit = openMemberManagementEdit;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
-
-    function workRequestOptions(current) {
-      const options = ["検品+写真", "写真のみ", "検品のみ", "保管のみ"];
-      return options.map((option) => `
-        <option value="${escapeAttr(option)}" ${current === option ? "selected" : ""}>${escapeHtml(option)}</option>
-      `).join("");
-    }
 
     function shippingSizeOptions(current) {
       const options = ["60", "80", "100", "120", "140"];
