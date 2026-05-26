@@ -948,6 +948,7 @@
               name: user.name || user.email || "未設定",
               email: user.email || "-",
               managementNumber: user.managementNumber || "",
+              driveBaseUrl: user.driveBaseUrl || "",
               lastLoginAt: user.lastLoginAt || null,
               products,
               registeredProducts: products.filter(isRegisteredProduct),
@@ -1074,7 +1075,10 @@
       detailMemberName.textContent = member.name;
       detailMemberEmail.textContent = member.email;
       detailMemberUid.textContent = member.uid;
-      detailManagementHeader.innerHTML = `<span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>`;
+      detailManagementHeader.innerHTML = `
+        <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
+        <span class="management-pill">Drive ${member.driveBaseUrl ? "設定済み" : "未設定"}</span>
+      `;
 
       setStatCard(detailRegisteredCard, member.registeredProducts.length, "issue", detailView === "registered");
       setStatCard(detailStoredCard, member.storedProducts.length, "neutral-hi", detailView === "stored");
@@ -1371,9 +1375,13 @@
             <div class="info-label">予想サイズ</div>
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
             <div class="info-label">保管場所</div>
-            <div class="info-value">${escapeHtml(product.storageLocation || "-")}</div>
+            <div class="info-value">${linkOrDash(product.storageLocation || product.folderUrl)}</div>
             <div class="info-label">写真撮影日</div>
             <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
+            <div class="info-label">フォルダ状態</div>
+            <div class="info-value">${folderStatusText(product)}</div>
+            <div class="info-label">作成予定名</div>
+            <div class="info-value">${escapeHtml(product.folderName || "-")}</div>
           </div>
         </div>
       `;
@@ -1488,6 +1496,11 @@
             管理番号
             <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
           </label>
+
+          <label>
+            Google Drive URL置き場
+            <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" placeholder="親フォルダのURLまたはID" />
+          </label>
         </div>
 
         <div class="modal-actions">
@@ -1528,7 +1541,7 @@
 
           <label>
             保管場所
-            <input name="storageLocation" value="${escapeAttr(product.storageLocation || "")}" />
+            <input name="storageLocation" value="${escapeAttr(product.storageLocation || product.folderUrl || "")}" placeholder="Drive作成後は自動でURLが入ります" />
           </label>
         </div>
 
@@ -1593,13 +1606,20 @@
       if (editTarget.type === "memberManagement") {
         path = `loginUsers/${editTarget.uid}`;
         payload = {
-          managementNumber: getFormValue(formData, "managementNumber")
+          managementNumber: getFormValue(formData, "managementNumber"),
+          driveBaseUrl: getFormValue(formData, "driveBaseUrl")
         };
       }
 
       if (editTarget.type === "adminFields") {
         path = `products/${editTarget.uid}/${editTarget.productId}`;
+
+        const product = findProduct(editTarget.uid, editTarget.productId);
+        const member = findMember(editTarget.uid);
         const confirmationDate = getFormValue(formData, "confirmationDate");
+        const folderName = makeFolderName(product?.numbering, product?.name);
+        const storageLocation = getFormValue(formData, "storageLocation");
+
         payload = {
           ...payload,
           confirmationDate,
@@ -1607,8 +1627,20 @@
           confirmationResult: getFormValue(formData, "confirmationResult"),
           photoUrl: getFormValue(formData, "photoUrl"),
           expectedSize: getFormValue(formData, "expectedSize"),
-          storageLocation: getFormValue(formData, "storageLocation")
+          storageLocation
         };
+
+        if (folderName && hasValue(member?.driveBaseUrl) && !hasValue(storageLocation)) {
+          payload = {
+            ...payload,
+            driveBaseUrl: member.driveBaseUrl,
+            folderName,
+            folderRequest: true,
+            folderStatus: "pending",
+            folderRequestedAt: now,
+            folderError: ""
+          };
+        }
       }
 
       if (editTarget.type === "status") {
@@ -1727,6 +1759,33 @@
       return options.map((option) => `
         <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
       `).join("");
+    }
+
+    function folderStatusText(product) {
+      const status = product.folderStatus || "";
+      if (status === "created") {
+        return "作成済み";
+      }
+      if (status === "pending") {
+        return "作成依頼中";
+      }
+      if (status === "error") {
+        return `作成失敗 ${product.folderError ? "：" + product.folderError : ""}`;
+      }
+      return "-";
+    }
+
+    function makeFolderName(numbering, name) {
+      const raw = `${numbering || ""}_${name || ""}`;
+      return sanitizeName(raw);
+    }
+
+    function sanitizeName(value) {
+      return String(value || "")
+        .trim()
+        .replace(/[\/\\<>:"|?*\u0000-\u001F]/g, "_")
+        .replace(/\s{2,}/g, " ")
+        .slice(0, 180);
     }
 
     function getFormValue(formData, key) {
