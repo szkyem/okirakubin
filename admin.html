@@ -34,7 +34,7 @@ button.secondary:hover{background:#dfe7f1}
 .stat.highlight{border-color:#bfdbfe;background:#eff6ff}
 .stat.highlight .stat-value{color:#2563eb}
 .table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:20px}
-.data-table{width:100%;border-collapse:collapse;min-width:860px}
+.data-table{width:100%;border-collapse:collapse;min-width:980px}
 .data-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
 .data-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
 .data-table tr:nth-child(even){background:#fafafa}
@@ -47,7 +47,10 @@ button.secondary:hover{background:#dfe7f1}
 .status-pill.green{background:#dcfce7;color:#15803d}
 .status-pill.yellow{background:#fef3c7;color:#b45309}
 .status-pill.gray{background:#f3f4f6;color:#6b7280}
+.status-pill.red{background:#fee2e2;color:#b91c1c}
 .shipped-date{margin-left:8px;color:#6b7280;font-size:12px;white-space:nowrap}
+.management-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.management-number{font-weight:800;color:#1f2937}
 .detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 .detail-title{font-size:22px;font-weight:800}
 .detail-sub{font-size:13px;color:#6b7280;margin-top:4px;word-break:break-all}
@@ -296,6 +299,15 @@ editForm.addEventListener("submit", async (event) => {
   const { ownerUid, productId, type } = activeEdit;
 
   try {
+    if (type === "management") {
+      await update(ref(database, `products/${ownerUid}/${productId}`), {
+        managementNumber: document.getElementById("editManagementNumber").value.trim(),
+        preferenceEnabled: document.getElementById("editPreferenceEnabled").value === "true",
+        preferenceComment: document.getElementById("editPreferenceComment").value.trim(),
+        updatedAt: Date.now()
+      });
+    }
+
     if (type === "member") {
       await update(ref(database, `products/${ownerUid}/${productId}`), {
         name: document.getElementById("editName").value.trim(),
@@ -359,8 +371,8 @@ async function loadData() {
       const profile = loginUsersData[uid] || {};
       const products = productsData[uid]
         ? Object.values(productsData[uid]).sort((a, b) => {
-            const aNumber = String(a.numbering || "");
-            const bNumber = String(b.numbering || "");
+            const aNumber = String(a.managementNumber || a.numbering || "");
+            const bNumber = String(b.managementNumber || b.numbering || "");
             return aNumber.localeCompare(bNumber, "ja", { numeric: true });
           })
         : [];
@@ -526,12 +538,13 @@ function productTable(products) {
       <table class="data-table">
         <thead>
           <tr>
+            <th>管理番号</th>
             <th>発送</th>
             <th>商品名</th>
             <th>ナンバリング</th>
             <th>作業依頼</th>
             <th>情報</th>
-            <th>発送情報</th>
+            <th>こだわり欄</th>
             <th>状態</th>
           </tr>
         </thead>
@@ -546,18 +559,18 @@ function productTable(products) {
 function productRow(product) {
   return `
     <tr>
+      <td>
+        <div class="management-cell">
+          <span class="management-number">${escapeHtml(product.managementNumber || "-")}</span>
+          <button class="secondary compact-btn" type="button" onclick="openManagementEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
+        </div>
+      </td>
       <td>${shippingPill(product.shippingRequest)}</td>
       <td>${escapeHtml(product.name || "-")}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
       <td>${escapeHtml(product.workRequest || "-")}</td>
       <td><button class="secondary compact-btn" type="button" onclick="showProductInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button></td>
-      <td>
-        ${
-          hasValue(product.shippingRequest)
-            ? `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button>`
-            : "-"
-        }
-      </td>
+      <td>${preferenceCell(product)}</td>
       <td>
         ${shippingStatusText(product)}
         ${hasValue(product.shippingRequest) ? `<button class="secondary compact-btn" style="margin-left:6px;" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>` : ""}
@@ -566,18 +579,35 @@ function productRow(product) {
   `;
 }
 
+function preferenceCell(product) {
+  if (product.preferenceEnabled === true) {
+    return `<button class="secondary compact-btn" type="button" onclick="showPreference('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">あり</button>`;
+  }
+
+  return `<span class="status-pill gray">なし</span>`;
+}
+
+window.showPreference = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product || product.preferenceEnabled !== true) return;
+
+  openModal("こだわり内容", `
+    <div class="detail-section">
+      <div class="detail-heading">管理番号</div>
+      <div>${escapeHtml(product.managementNumber || "-")}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-heading">こだわりコメント</div>
+      <div style="white-space:pre-wrap;">${escapeHtml(product.preferenceComment || "内容が登録されていません。")}</div>
+    </div>
+  `);
+};
+
 window.showProductInfo = function(ownerUid, productId) {
   const product = findProduct(ownerUid, productId);
   if (!product) return;
 
   openModal("商品情報", productDetailHtml(product));
-};
-
-window.showShippingInfo = function(ownerUid, productId) {
-  const product = findProduct(ownerUid, productId);
-  if (!product) return;
-
-  openModal("発送情報", shippingDetailHtml(product));
 };
 
 function findProduct(ownerUid, productId) {
@@ -588,6 +618,18 @@ function findProduct(ownerUid, productId) {
 
 function productDetailHtml(product) {
   return `
+    <div class="detail-section">
+      <div class="detail-heading-row">
+        <div class="detail-heading">管理番号情報</div>
+        <button class="secondary compact-btn" type="button" onclick="openManagementEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-label">管理番号</div><div>${escapeHtml(product.managementNumber || "-")}</div>
+        <div class="detail-label">こだわり</div><div>${product.preferenceEnabled === true ? "あり" : "なし"}</div>
+        <div class="detail-label">コメント</div><div style="white-space:pre-wrap;">${escapeHtml(product.preferenceComment || "-")}</div>
+      </div>
+    </div>
+
     <div class="detail-section">
       <div class="detail-heading-row">
         <div class="detail-heading">会員記載情報</div>
@@ -618,52 +660,37 @@ function productDetailHtml(product) {
   `;
 }
 
-function shippingDetailHtml(product) {
-  const destination = product.shippingDestination || {};
-  const origin = product.shippingOrigin || {};
+window.openManagementEdit = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
 
-  return `
-    <div class="detail-section">
-      <div class="detail-heading-row">
-        <div class="detail-heading">発送内容</div>
-        <button class="secondary compact-btn" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">状態を編集</button>
+  activeEdit = { ownerUid, productId, type: "management" };
+  editModalTitle.textContent = "管理番号・こだわりを編集";
+  editForm.innerHTML = `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>管理番号</label>
+        <input id="editManagementNumber" type="text" value="${escapeAttr(product.managementNumber || "")}">
       </div>
-      <div class="detail-grid">
-        <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
-        <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
-        <div class="detail-label">発送日</div><div>${escapeHtml(product.shippedDate || "-")}</div>
-        <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
-        <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
-        <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
+      <div class="form-group">
+        <label>こだわりポイント</label>
+        <select id="editPreferenceEnabled">
+          <option value="false" ${product.preferenceEnabled === true ? "" : "selected"}>なし</option>
+          <option value="true" ${product.preferenceEnabled === true ? "selected" : ""}>あり</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>こだわりコメント</label>
+        <textarea id="editPreferenceComment" placeholder="その人なりのこだわりや注意点を記入">${escapeHtml(product.preferenceComment || "")}</textarea>
       </div>
     </div>
-
-    <div class="detail-section">
-      <div class="detail-heading">発送先</div>
-      <div class="detail-grid">
-        <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
-        <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
-        <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
-        <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
-        <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
-        <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
-      </div>
-    </div>
-
-    <div class="detail-section">
-      <div class="detail-heading">発送元</div>
-      <div class="detail-grid">
-        <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
-        <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
-        <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
-        <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
-        <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
-        <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
-        <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
-      </div>
+    <div class="modal-actions">
+      <button class="secondary" type="button" onclick="closeEditModal()">キャンセル</button>
+      <button type="submit">保存する</button>
     </div>
   `;
-}
+  editModalBackdrop.classList.add("show");
+};
 
 window.openMemberFieldsEdit = function(ownerUid, productId) {
   const product = findProduct(ownerUid, productId);
