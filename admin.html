@@ -1382,6 +1382,8 @@
             <div class="info-value">${folderStatusText(product)}</div>
             <div class="info-label">作成予定名</div>
             <div class="info-value">${escapeHtml(product.folderName || "-")}</div>
+            <div class="info-label">ジョブID</div>
+            <div class="info-value">${escapeHtml(product.folderJobId || "-")}</div>
           </div>
         </div>
       `;
@@ -1600,63 +1602,75 @@
       const wasShippingInfoOpen = infoModalBackdrop.classList.contains("show");
       const now = Date.now();
 
-      let path = "";
-      let payload = { updatedAt: now };
-
-      if (editTarget.type === "memberManagement") {
-        path = `loginUsers/${editTarget.uid}`;
-        payload = {
-          managementNumber: getFormValue(formData, "managementNumber"),
-          driveBaseUrl: getFormValue(formData, "driveBaseUrl")
-        };
-      }
-
-      if (editTarget.type === "adminFields") {
-        path = `products/${editTarget.uid}/${editTarget.productId}`;
-
-        const product = findProduct(editTarget.uid, editTarget.productId);
-        const member = findMember(editTarget.uid);
-        const confirmationDate = getFormValue(formData, "confirmationDate");
-        const folderName = makeFolderName(product?.numbering, product?.name);
-        const storageLocation = getFormValue(formData, "storageLocation");
-
-        payload = {
-          ...payload,
-          confirmationDate,
-          shootingDate: confirmationDate,
-          confirmationResult: getFormValue(formData, "confirmationResult"),
-          photoUrl: getFormValue(formData, "photoUrl"),
-          expectedSize: getFormValue(formData, "expectedSize"),
-          storageLocation
-        };
-
-        if (folderName && hasValue(member?.driveBaseUrl) && !hasValue(storageLocation)) {
-          payload = {
-            ...payload,
-            driveBaseUrl: member.driveBaseUrl,
-            folderName,
-            folderRequest: true,
-            folderStatus: "pending",
-            folderRequestedAt: now,
-            folderError: ""
-          };
-        }
-      }
-
-      if (editTarget.type === "status") {
-        path = `products/${editTarget.uid}/${editTarget.productId}`;
-        const status = getFormValue(formData, "shippingStatus");
-        payload = {
-          ...payload,
-          shippingStatus: status,
-          shippedDate: status === "shipped" ? todayString() : "",
-          shippingSize: getFormValue(formData, "shippingSize"),
-          shippingPrice: getFormValue(formData, "shippingPrice")
-        };
-      }
-
       try {
-        await update(ref(db, path), payload);
+        if (editTarget.type === "memberManagement") {
+          await update(ref(db, `loginUsers/${editTarget.uid}`), {
+            managementNumber: getFormValue(formData, "managementNumber"),
+            driveBaseUrl: getFormValue(formData, "driveBaseUrl")
+          });
+        }
+
+        if (editTarget.type === "adminFields") {
+          const product = findProduct(editTarget.uid, editTarget.productId);
+          const member = findMember(editTarget.uid);
+          const confirmationDate = getFormValue(formData, "confirmationDate");
+          const storageLocation = getFormValue(formData, "storageLocation");
+          const folderName = makeFolderName(product?.numbering, product?.name);
+          const baseProductPath = `products/${editTarget.uid}/${editTarget.productId}`;
+
+          const productPayload = {
+            updatedAt: now,
+            confirmationDate,
+            shootingDate: confirmationDate,
+            confirmationResult: getFormValue(formData, "confirmationResult"),
+            photoUrl: getFormValue(formData, "photoUrl"),
+            expectedSize: getFormValue(formData, "expectedSize"),
+            storageLocation
+          };
+
+          const updates = {};
+          Object.entries(productPayload).forEach(([key, value]) => {
+            updates[`${baseProductPath}/${key}`] = value;
+          });
+
+          if (folderName && hasValue(member?.driveBaseUrl) && !hasValue(storageLocation) && product?.folderJobStatus !== "pending") {
+            const jobId = makeFolderJobId(editTarget.uid, editTarget.productId, now);
+
+            updates[`${baseProductPath}/driveBaseUrl`] = member.driveBaseUrl;
+            updates[`${baseProductPath}/folderName`] = folderName;
+            updates[`${baseProductPath}/folderJobId`] = jobId;
+            updates[`${baseProductPath}/folderJobStatus`] = "pending";
+            updates[`${baseProductPath}/folderRequestedAt`] = now;
+            updates[`${baseProductPath}/folderError`] = "";
+
+            updates[`folderJobs/${jobId}`] = {
+              uid: editTarget.uid,
+              productId: editTarget.productId,
+              driveBaseUrl: member.driveBaseUrl,
+              folderName,
+              status: "pending",
+              requestedBy: currentUser?.uid || "",
+              requestedByEmail: currentUser?.email || "",
+              requestedAt: now,
+              productName: product?.name || "",
+              numbering: product?.numbering || ""
+            };
+          }
+
+          await update(ref(db), updates);
+        }
+
+        if (editTarget.type === "status") {
+          const status = getFormValue(formData, "shippingStatus");
+          await update(ref(db, `products/${editTarget.uid}/${editTarget.productId}`), {
+            updatedAt: now,
+            shippingStatus: status,
+            shippedDate: status === "shipped" ? todayString() : "",
+            shippingSize: getFormValue(formData, "shippingSize"),
+            shippingPrice: getFormValue(formData, "shippingPrice")
+          });
+        }
+
         closeEditModal();
         selectedMemberUid = editTarget.uid || selectedMemberUid;
         await loadAllData();
@@ -1762,7 +1776,7 @@
     }
 
     function folderStatusText(product) {
-      const status = product.folderStatus || "";
+      const status = product.folderJobStatus || product.folderStatus || "";
       if (status === "created") {
         return "作成済み";
       }
@@ -1780,12 +1794,22 @@
       return sanitizeName(raw);
     }
 
+    function makeFolderJobId(uid, productId, timestamp) {
+      return sanitizeKey(`${uid}_${productId}_${timestamp}`);
+    }
+
     function sanitizeName(value) {
       return String(value || "")
         .trim()
         .replace(/[\/\\<>:"|?*\u0000-\u001F]/g, "_")
         .replace(/\s{2,}/g, " ")
         .slice(0, 180);
+    }
+
+    function sanitizeKey(value) {
+      return String(value || "")
+        .replace(/[.#$\[\]\/]/g, "_")
+        .replace(/\s+/g, "_");
     }
 
     function getFormValue(formData, key) {
