@@ -28,11 +28,13 @@ button.secondary:hover{background:#dfe7f1}
 .section{display:none}
 .section.show{display:block}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
-.stat,.panel{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.stat{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
 .stat-value{font-size:32px;font-weight:800;color:#9ca3af}
-.stat.highlight{border-color:#bfdbfe;background:#eff6ff}
-.stat.highlight .stat-value{color:#2563eb}
+.stat.issue{border-color:#fde68a;background:#fffbeb}
+.stat.issue .stat-value{color:#d97706}
+.stat.neutral{border-color:#cbd5e1;background:#f8fafc}
+.stat.neutral .stat-value{color:#64748b}
 .table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:20px}
 .data-table{width:100%;border-collapse:collapse;min-width:980px}
 .data-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
@@ -42,18 +44,20 @@ button.secondary:hover{background:#dfe7f1}
 .member-row:hover{background:#eff6ff}
 .member-name{font-weight:800;color:#1f2937}
 .member-meta{font-size:12px;color:#6b7280;margin-top:4px;word-break:break-all}
+.management-list{display:flex;gap:6px;flex-wrap:wrap}
+.management-item{display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:6px}
+.management-number{font-weight:800;color:#1f2937}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.blue{background:#dbeafe;color:#1d4ed8}
 .status-pill.green{background:#dcfce7;color:#15803d}
 .status-pill.yellow{background:#fef3c7;color:#b45309}
 .status-pill.gray{background:#f3f4f6;color:#6b7280}
-.status-pill.red{background:#fee2e2;color:#b91c1c}
+.status-pill.darkgray{background:#e2e8f0;color:#475569}
 .shipped-date{margin-left:8px;color:#6b7280;font-size:12px;white-space:nowrap}
-.management-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.management-number{font-weight:800;color:#1f2937}
 .detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 .detail-title{font-size:22px;font-weight:800}
 .detail-sub{font-size:13px;color:#6b7280;margin-top:4px;word-break:break-all}
+.detail-management{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
 .sub-tabs{display:flex;gap:0;justify-content:center;margin-bottom:18px}
 .sub-tab{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
 .sub-tab.active{color:#2563eb;border-bottom-color:#2563eb}
@@ -400,9 +404,9 @@ async function loadData() {
     const registeredCount = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
     const unshippedCount = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
 
-    setStat("memberCount", "memberCountCard", memberCount);
-    setStat("registeredCount", "registeredCountCard", registeredCount);
-    setStat("unshippedCount", "unshippedCountCard", unshippedCount);
+    setStat("memberCount", "memberCountCard", memberCount, "neutral");
+    setStat("registeredCount", "registeredCountCard", registeredCount, "issue");
+    setStat("unshippedCount", "unshippedCountCard", unshippedCount, "issue");
 
     renderMemberList();
 
@@ -427,6 +431,7 @@ function renderMemberList() {
         <thead>
           <tr>
             <th>メンバー</th>
+            <th>管理番号</th>
             <th>登録済み商品</th>
             <th>保管商品</th>
             <th>未発送</th>
@@ -450,12 +455,28 @@ function memberRow(member) {
         <div class="member-meta">${escapeHtml(member.email || "")}</div>
         <div class="member-meta">${escapeHtml(member.uid)}</div>
       </td>
-      <td>${countPill(member.registeredProducts.length, "blue")}</td>
-      <td>${countPill(member.storedProducts.length, "green")}</td>
-      <td>${countPill(member.unshippedProducts.length, "yellow")}</td>
-      <td>${countPill(member.shippedProducts.length, "blue")}</td>
+      <td onclick="event.stopPropagation();">${managementList(member.products)}</td>
+      <td>${countPill(member.registeredProducts.length, "issue")}</td>
+      <td>${countPill(member.storedProducts.length, "neutral")}</td>
+      <td>${countPill(member.unshippedProducts.length, "issue")}</td>
+      <td>${countPill(member.shippedProducts.length, "neutral")}</td>
       <td>${formatDateTime(member.lastLoginAt)}</td>
     </tr>
+  `;
+}
+
+function managementList(products) {
+  if (!products.length) return `<span class="status-pill gray">なし</span>`;
+
+  return `
+    <div class="management-list">
+      ${products.map((product) => `
+        <span class="management-item">
+          <span class="management-number">${escapeHtml(product.managementNumber || "-")}</span>
+          <button class="secondary compact-btn" type="button" onclick="openManagementEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
+        </span>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -489,24 +510,25 @@ function renderMemberDetail(uid) {
         <div class="detail-title">${escapeHtml(member.name || member.email || "メンバー詳細")}</div>
         <div class="detail-sub">${escapeHtml(member.email || "")}</div>
         <div class="detail-sub">${escapeHtml(member.uid)}</div>
+        <div class="detail-management">${managementHeaderList(member.products)}</div>
       </div>
       <button class="secondary" type="button" onclick="refreshAdminData()">再読み込み</button>
     </div>
 
     <div class="grid">
-      <div class="${statClass(member.registeredProducts.length)}">
+      <div class="${statClass(member.registeredProducts.length, "issue")}">
         <div class="stat-label">登録済み商品</div>
         <div class="stat-value">${member.registeredProducts.length}</div>
       </div>
-      <div class="${statClass(member.storedProducts.length)}">
+      <div class="${statClass(member.storedProducts.length, "neutral")}">
         <div class="stat-label">保管商品</div>
         <div class="stat-value">${member.storedProducts.length}</div>
       </div>
-      <div class="${statClass(member.unshippedProducts.length)}">
+      <div class="${statClass(member.unshippedProducts.length, "issue")}">
         <div class="stat-label">未発送</div>
         <div class="stat-value">${member.unshippedProducts.length}</div>
       </div>
-      <div class="${statClass(member.shippedProducts.length)}">
+      <div class="${statClass(member.shippedProducts.length, "neutral")}">
         <div class="stat-label">発送済み</div>
         <div class="stat-value">${member.shippedProducts.length}</div>
       </div>
@@ -523,6 +545,12 @@ function renderMemberDetail(uid) {
   `;
 }
 
+function managementHeaderList(products) {
+  const numbers = products.map((product) => product.managementNumber).filter((value) => hasValue(value));
+  if (!numbers.length) return `<span class="status-pill gray">管理番号なし</span>`;
+  return numbers.map((number) => `<span class="status-pill darkgray">${escapeHtml(number)}</span>`).join("");
+}
+
 window.changeDetailView = function(view) {
   detailView = view;
   renderMemberDetail(selectedMemberUid);
@@ -533,50 +561,56 @@ window.refreshAdminData = async function() {
 };
 
 function productTable(products) {
+  const isShippingView = detailView === "unshipped" || detailView === "shipped";
+
   return `
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>管理番号</th>
             <th>発送</th>
             <th>商品名</th>
             <th>ナンバリング</th>
             <th>作業依頼</th>
             <th>情報</th>
-            <th>こだわり欄</th>
+            <th>${isShippingView ? "発送情報" : "こだわり欄"}</th>
             <th>状態</th>
           </tr>
         </thead>
         <tbody>
-          ${products.map(productRow).join("")}
+          ${products.map((product) => productRow(product, isShippingView)).join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function productRow(product) {
+function productRow(product, isShippingView) {
   return `
     <tr>
-      <td>
-        <div class="management-cell">
-          <span class="management-number">${escapeHtml(product.managementNumber || "-")}</span>
-          <button class="secondary compact-btn" type="button" onclick="openManagementEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
-        </div>
-      </td>
       <td>${shippingPill(product.shippingRequest)}</td>
       <td>${escapeHtml(product.name || "-")}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
       <td>${escapeHtml(product.workRequest || "-")}</td>
       <td><button class="secondary compact-btn" type="button" onclick="showProductInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button></td>
-      <td>${preferenceCell(product)}</td>
+      <td>
+        ${
+          isShippingView
+            ? shippingInfoCell(product)
+            : preferenceCell(product)
+        }
+      </td>
       <td>
         ${shippingStatusText(product)}
         ${hasValue(product.shippingRequest) ? `<button class="secondary compact-btn" style="margin-left:6px;" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>` : ""}
       </td>
     </tr>
   `;
+}
+
+function shippingInfoCell(product) {
+  if (!hasValue(product.shippingRequest)) return "-";
+  return `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">詳細</button>`;
 }
 
 function preferenceCell(product) {
@@ -610,6 +644,13 @@ window.showProductInfo = function(ownerUid, productId) {
   openModal("商品情報", productDetailHtml(product));
 };
 
+window.showShippingInfo = function(ownerUid, productId) {
+  const product = findProduct(ownerUid, productId);
+  if (!product) return;
+
+  openModal("発送情報", shippingDetailHtml(product));
+};
+
 function findProduct(ownerUid, productId) {
   const member = membersCache.find((item) => item.uid === ownerUid);
   if (!member) return null;
@@ -619,10 +660,7 @@ function findProduct(ownerUid, productId) {
 function productDetailHtml(product) {
   return `
     <div class="detail-section">
-      <div class="detail-heading-row">
-        <div class="detail-heading">管理番号情報</div>
-        <button class="secondary compact-btn" type="button" onclick="openManagementEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">編集</button>
-      </div>
+      <div class="detail-heading">管理番号情報</div>
       <div class="detail-grid">
         <div class="detail-label">管理番号</div><div>${escapeHtml(product.managementNumber || "-")}</div>
         <div class="detail-label">こだわり</div><div>${product.preferenceEnabled === true ? "あり" : "なし"}</div>
@@ -655,6 +693,53 @@ function productDetailHtml(product) {
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
         <div class="detail-label">保管場所</div><div>${escapeHtml(product.storageLocation || "-")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function shippingDetailHtml(product) {
+  const destination = product.shippingDestination || {};
+  const origin = product.shippingOrigin || {};
+
+  return `
+    <div class="detail-section">
+      <div class="detail-heading-row">
+        <div class="detail-heading">発送内容</div>
+        <button class="secondary compact-btn" type="button" onclick="openShippingStatusEdit('${escapeAttr(product.ownerUid || "")}','${escapeAttr(product.id)}')">状態を編集</button>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
+        <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+        <div class="detail-label">発送日</div><div>${escapeHtml(product.shippedDate || "-")}</div>
+        <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
+        <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
+        <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送先</div>
+      <div class="detail-grid">
+        <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">発送元</div>
+      <div class="detail-grid">
+        <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
+        <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
+        <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
+        <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
+        <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
+        <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
+        <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
       </div>
     </div>
   `;
@@ -872,18 +957,20 @@ function hasValue(value) {
   return value !== undefined && value !== null && String(value).trim() !== "";
 }
 
-function statClass(value) {
-  return Number(value) > 0 ? "stat highlight" : "stat";
+function statClass(value, type) {
+  if (Number(value) <= 0) return "stat";
+  return type === "issue" ? "stat issue" : "stat neutral";
 }
 
-function setStat(valueId, cardId, value) {
+function setStat(valueId, cardId, value, type) {
   document.getElementById(valueId).textContent = value;
-  document.getElementById(cardId).className = statClass(value);
+  document.getElementById(cardId).className = statClass(value, type);
 }
 
-function countPill(value, color) {
+function countPill(value, type) {
   if (Number(value) <= 0) return `<span class="status-pill gray">0</span>`;
-  return `<span class="status-pill ${color}">${value}</span>`;
+  if (type === "issue") return `<span class="status-pill yellow">${value}</span>`;
+  return `<span class="status-pill darkgray">${value}</span>`;
 }
 
 function todayString() {
