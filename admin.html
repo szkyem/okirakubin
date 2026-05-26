@@ -275,6 +275,30 @@
       font-size: 18px;
     }
 
+    .table-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin: 0 0 12px;
+      flex-wrap: wrap;
+    }
+
+    .table-actions label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #475569;
+      font-weight: 800;
+    }
+
+    .table-actions input {
+      width: 150px;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
+
     .table-wrap {
       width: 100%;
       overflow-x: auto;
@@ -786,7 +810,6 @@
       getDatabase,
       ref,
       get,
-      set,
       update
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
@@ -914,6 +937,7 @@
         userEmail.textContent = user.email || "";
         loginView.classList.add("hidden");
         appView.classList.remove("hidden");
+
         await update(ref(db, `loginUsers/${user.uid}`), {
           email: user.email || "",
           name: user.displayName || "",
@@ -921,6 +945,7 @@
           role: "admin",
           lastLoginAt: Date.now()
         });
+
         await loadAllData();
       } catch (error) {
         showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
@@ -1134,14 +1159,17 @@
 
     function renderDetailTable(products) {
       const isShippingView = detailView === "unshipped" || detailView === "shipped";
+      const isStoredView = detailView === "stored";
       const customHeader = isShippingView ? "発送情報" : "こだわり欄";
+      const statusHeader = isStoredView ? "写真撮影日" : "状態";
 
       if (!products.length) {
-        detailTableArea.innerHTML = `<div class="empty">表示できる商品がありません。</div>`;
+        detailTableArea.innerHTML = `${exportControls()}<div class="empty">表示できる商品がありません。</div>`;
         return;
       }
 
       detailTableArea.innerHTML = `
+        ${exportControls()}
         <div class="table-wrap">
           <table>
             <thead>
@@ -1152,18 +1180,33 @@
                 <th>作業依頼</th>
                 <th>情報</th>
                 <th>${customHeader}</th>
-                <th>状態</th>
+                <th>${statusHeader}</th>
               </tr>
             </thead>
             <tbody>
-              ${products.map((product) => productRow(product, isShippingView)).join("")}
+              ${products.map((product) => productRow(product, isShippingView, isStoredView)).join("")}
             </tbody>
           </table>
         </div>
       `;
     }
 
-    function productRow(product, isShippingView) {
+    function exportControls() {
+      if (detailView !== "stored" && detailView !== "shipped") return "";
+
+      const label = detailView === "stored" ? "保管商品をExcel出力" : "発送済みをExcel出力";
+      return `
+        <div class="table-actions">
+          <label>
+            対象月
+            <input id="exportMonth" type="month" />
+          </label>
+          <button class="primary-btn" onclick="exportCurrentDetailCsv()">${label}</button>
+        </div>
+      `;
+    }
+
+    function productRow(product, isShippingView, isStoredView) {
       return `
         <tr>
           <td>${shippingBadge(product.shippingRequest)}</td>
@@ -1174,10 +1217,7 @@
             <button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button>
           </td>
           <td>${isShippingView ? shippingInfoCell(product) : preferenceCell(product)}</td>
-          <td>
-            ${shippingStatusText(product)}
-            <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">編集</button>
-          </td>
+          <td>${isStoredView ? escapeHtml(product.shootingDate || "-") : `${shippingStatusText(product)} <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">編集</button>`}</td>
         </tr>
       `;
     }
@@ -1284,6 +1324,8 @@
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
             <div class="info-label">保管場所</div>
             <div class="info-value">${escapeHtml(product.storageLocation || "-")}</div>
+            <div class="info-label">写真撮影日</div>
+            <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
           </div>
         </div>
       `;
@@ -1304,6 +1346,10 @@
             <div class="info-value">${shippingBadge(product.shippingRequest)}</div>
             <div class="info-label">状態</div>
             <div class="info-value">${shippingStatusText(product)}</div>
+            <div class="info-label">発送サイズ</div>
+            <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
+            <div class="info-label">値段</div>
+            <div class="info-value">${escapeHtml(product.shippingPrice || "-")}</div>
           </div>
         </div>
 
@@ -1505,6 +1551,19 @@
               <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
             </select>
           </label>
+
+          <label>
+            発送サイズ
+            <select name="shippingSize">
+              <option value="">未設定</option>
+              ${shippingSizeOptions(product.shippingSize)}
+            </select>
+          </label>
+
+          <label>
+            値段
+            <input type="number" min="0" step="1" name="shippingPrice" value="${escapeAttr(product.shippingPrice || "")}" />
+          </label>
         </div>
 
         <div class="modal-actions">
@@ -1520,12 +1579,13 @@
       if (!activeEdit) return;
 
       const formData = new FormData(editForm);
-      const path = `products/${activeEdit.uid}/${activeEdit.productId}`;
+      const editTarget = { ...activeEdit };
+      const path = `products/${editTarget.uid}/${editTarget.productId}`;
       const now = Date.now();
 
       let payload = { updatedAt: now };
 
-      if (activeEdit.type === "management") {
+      if (editTarget.type === "management") {
         payload = {
           ...payload,
           managementNumber: getFormValue(formData, "managementNumber"),
@@ -1534,7 +1594,7 @@
         };
       }
 
-      if (activeEdit.type === "memberFields") {
+      if (editTarget.type === "memberFields") {
         payload = {
           ...payload,
           name: getFormValue(formData, "name"),
@@ -1545,7 +1605,7 @@
         };
       }
 
-      if (activeEdit.type === "adminFields") {
+      if (editTarget.type === "adminFields") {
         const confirmationDate = getFormValue(formData, "confirmationDate");
         payload = {
           ...payload,
@@ -1558,22 +1618,22 @@
         };
       }
 
-      if (activeEdit.type === "status") {
+      if (editTarget.type === "status") {
         const status = getFormValue(formData, "shippingStatus");
         payload = {
           ...payload,
           shippingStatus: status,
-          shippedDate: status === "shipped" ? todayString() : ""
+          shippedDate: status === "shipped" ? todayString() : "",
+          shippingSize: getFormValue(formData, "shippingSize"),
+          shippingPrice: getFormValue(formData, "shippingPrice")
         };
       }
 
       try {
         await update(ref(db, path), payload);
         closeEditModal();
+        selectedMemberUid = editTarget.uid;
         await loadAllData();
-        if (activeEdit?.uid) {
-          selectedMemberUid = activeEdit.uid;
-        }
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -1585,6 +1645,75 @@
       activeEdit = null;
     }
 
+    function exportCurrentDetailCsv() {
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+      if (!member) return;
+
+      const monthInput = document.getElementById("exportMonth");
+      const selectedMonth = monthInput ? monthInput.value : "";
+
+      let products = getDetailProducts(member);
+
+      if (detailView === "stored") {
+        products = products
+          .filter((product) => matchesMonth(product.shootingDate, selectedMonth))
+          .sort((a, b) => String(a.shootingDate || "").localeCompare(String(b.shootingDate || "")));
+
+        const rows = [
+          ["商品名", "ナンバリング", "作業依頼"],
+          ...products.map((product) => [
+            product.name || "",
+            product.numbering || "",
+            product.workRequest || ""
+          ])
+        ];
+
+        downloadCsv(rows, `${member.name}_保管商品_${selectedMonth || "全期間"}.csv`);
+        return;
+      }
+
+      if (detailView === "shipped") {
+        products = products
+          .filter((product) => matchesMonth(product.shippedDate, selectedMonth))
+          .sort((a, b) => String(a.shippedDate || "").localeCompare(String(b.shippedDate || "")));
+
+        const rows = [
+          ["商品名", "ナンバリング", "発送サイズ", "値段"],
+          ...products.map((product) => [
+            product.name || "",
+            product.numbering || "",
+            product.shippingSize || "",
+            product.shippingPrice || ""
+          ])
+        ];
+
+        downloadCsv(rows, `${member.name}_発送済み_${selectedMonth || "全期間"}.csv`);
+      }
+    }
+
+    function matchesMonth(dateValue, selectedMonth) {
+      if (!selectedMonth) return true;
+      if (!hasValue(dateValue)) return false;
+      return String(dateValue).startsWith(selectedMonth);
+    }
+
+    function downloadCsv(rows, filename) {
+      const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function csvCell(value) {
+      return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    }
+
     window.closeEditModal = closeEditModal;
     window.selectMember = selectMember;
     window.openInfoModal = openInfoModal;
@@ -1594,11 +1723,19 @@
     window.openMemberFieldsEdit = openMemberFieldsEdit;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
+    window.exportCurrentDetailCsv = exportCurrentDetailCsv;
 
     function workRequestOptions(current) {
       const options = ["検品+写真", "写真のみ", "検品のみ", "保管のみ"];
       return options.map((option) => `
         <option value="${escapeAttr(option)}" ${current === option ? "selected" : ""}>${escapeHtml(option)}</option>
+      `).join("");
+    }
+
+    function shippingSizeOptions(current) {
+      const options = ["60", "80", "100", "120", "140"];
+      return options.map((option) => `
+        <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
       `).join("");
     }
 
