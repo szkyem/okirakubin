@@ -472,8 +472,8 @@
     }
 
     .preference-pill.active {
-      background: #eef2ff;
-      color: #3730a3;
+      background: var(--yellow);
+      color: var(--yellow-text);
       cursor: pointer;
     }
 
@@ -697,8 +697,8 @@
         <table>
           <thead>
             <tr>
-              <th>メンバー</th>
               <th>管理番号</th>
+              <th>メンバー</th>
               <th>登録済み商品</th>
               <th>保管商品</th>
               <th>未発送</th>
@@ -1013,16 +1013,16 @@
 
       memberListBody.innerHTML = membersCache.map((member) => `
         <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
-          <td>
-            <div class="member-name">${escapeHtml(member.name)}</div>
-            <div class="member-meta">${escapeHtml(member.email)}</div>
-            <div class="member-meta">${escapeHtml(member.uid)}</div>
-          </td>
           <td onclick="event.stopPropagation();">
             <div class="management-cell">
               <strong>${escapeHtml(member.managementNumber || "-")}</strong>
               <button class="mini-btn" onclick="openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
             </div>
+          </td>
+          <td>
+            <div class="member-name">${escapeHtml(member.name)}</div>
+            <div class="member-meta">${escapeHtml(member.email)}</div>
+            <div class="member-meta">${escapeHtml(member.uid)}</div>
           </td>
           <td>${countPill(member.registeredProducts.length, "issue")}</td>
           <td>${countPill(member.storedProducts.length, "neutral-hi")}</td>
@@ -1168,7 +1168,6 @@
             <table>
               <thead>
                 <tr>
-                  <th>発送</th>
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
@@ -1268,7 +1267,6 @@
     function shippedProductRow(product) {
       return `
         <tr>
-          <td>${shippingBadge(product.shippingRequest)}</td>
           <td>${escapeHtml(product.name || "-")}</td>
           <td>${escapeHtml(product.numbering || "-")}</td>
           <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -1428,7 +1426,7 @@
 
       infoModalTitle.textContent = "こだわり欄";
       infoModalBody.innerHTML = `
-        <div class="info-box">
+        <div class="info-box highlight">
           <div class="info-grid">
             <div class="info-label">内容</div>
             <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
@@ -1576,6 +1574,7 @@
 
       const formData = new FormData(editForm);
       const editTarget = { ...activeEdit };
+      const wasShippingInfoOpen = infoModalBackdrop.classList.contains("show");
       const now = Date.now();
 
       let path = "";
@@ -1619,6 +1618,10 @@
         closeEditModal();
         selectedMemberUid = editTarget.uid || selectedMemberUid;
         await loadAllData();
+
+        if (editTarget.type === "status" && wasShippingInfoOpen) {
+          openShippingInfo(editTarget.uid, editTarget.productId);
+        }
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
       }
