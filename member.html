@@ -95,7 +95,7 @@ textarea{min-height:88px;resize:vertical}
 .announcement-message{font-weight:700;line-height:1.7;white-space:pre-wrap}
 .inline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .inquiry-box{display:flex;align-items:center;gap:8px;white-space:nowrap}
-@media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}}
+@media(max-width:700px){body{padding:12px;overflow-x:auto}.container{min-width:1120px;padding:28px}.login-container{padding:24px}.header{align-items:center;flex-direction:row}.logout{width:auto}.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ship-filter-btn{min-width:160px}.bulk-action-bar{grid-template-columns:repeat(3,1fr)}.detail-grid{grid-template-columns:130px 1fr}.modal{min-width:720px}}
 </style>
 </head>
 <body>
@@ -963,9 +963,13 @@ function canEditProduct(product) {
 
 function optionSummary(product) {
   const options = [];
-  if (product.optionVideo === true) options.push("動画撮影");
-  if (product.optionThanksCard === true) options.push("Thanksカード同梱");
+  if (isOptionEnabled(product.optionVideo)) options.push("動画撮影");
+  if (isOptionEnabled(product.optionThanksCard)) options.push("Thanksカード同梱");
   return options.length ? options.join("、") : "-";
+}
+
+function isOptionEnabled(value) {
+  return value === true || value === "true" || value === "on" || value === 1 || value === "1";
 }
 
 function linkOrDash(value) {
@@ -1088,8 +1092,8 @@ window.openProductEdit = function(productId) {
 
         <div class="form-group full">
           <label>オプション</label>
-          <label><input class="shipping-check" type="checkbox" name="optionVideo" ${product.optionVideo === true ? "checked" : ""}> 動画撮影</label>
-          <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${product.optionThanksCard === true ? "checked" : ""}> Thanksカード同梱</label>
+          <label><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}> 動画撮影</label>
+          <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}> Thanksカード同梱</label>
         </div>
 
         <div class="form-group full">
