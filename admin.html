@@ -1208,6 +1208,7 @@
       detailManagementHeader.innerHTML = `
         <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
         <span class="management-pill">${member.driveBaseUrl ? "Drive 設定済み" : "Drive 未設定"}</span>
+        <span class="management-pill">プラン ${escapeHtml(planTypeLabel(member.planType))}</span>
       `;
 
       detailRegisteredCount.textContent = groups.registered.length;
@@ -2341,6 +2342,16 @@ function buildInvoiceItems(member, month) {
       return options.map((option) => `
         <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
       `).join("");
+    }
+
+    function planTypeLabel(value) {
+      const labels = {
+        standard: "スタンダード",
+        premium: "プレミアム",
+        consulting: "コンサル生"
+      };
+
+      return labels[value] || "-";
     }
 
     function folderStatusText(product) {
