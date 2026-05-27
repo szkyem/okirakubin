@@ -266,7 +266,7 @@
       font-weight: 800;
     }
 
-.table-actions input, .invoice-actions input, .detail-invoice-input {
+    .table-actions input, .invoice-actions input, .detail-invoice-input {
       width: 150px;
       min-height: 36px;
       padding: 6px 10px;
@@ -317,10 +317,11 @@
       word-break: break-all;
     }
 
-    .management-cell {
+    .management-cell, .detail-actions {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .count-pill {
@@ -580,6 +581,8 @@
       .user-area { justify-content: flex-start; }
       .stats, .stats.four, .invoice-summary { grid-template-columns: 1fr; }
       .tabs { overflow-x: auto; }
+      .detail-actions { align-items: stretch; }
+      .detail-invoice-input { width: 100%; }
     }
   </style>
 </head>
@@ -650,15 +653,19 @@
       <div id="detailEmpty" class="empty">メンバー一覧からメンバーを選択してください。</div>
 
       <div id="detailContent" class="hidden">
-<div class="detail-header">
-  <div>
-    <h2 id="detailMemberName" class="detail-name"></h2>
-    <div id="detailMemberEmail" class="member-meta"></div>
-    <div id="detailMemberUid" class="member-meta"></div>
-    <div id="detailManagementHeader" class="management-header"></div>
-  </div>
-  <button id="reloadBtn" class="secondary-btn">再読み込み</button>
-</div>
+        <div class="detail-header">
+          <div>
+            <h2 id="detailMemberName" class="detail-name"></h2>
+            <div id="detailMemberEmail" class="member-meta"></div>
+            <div id="detailMemberUid" class="member-meta"></div>
+            <div id="detailManagementHeader" class="management-header"></div>
+          </div>
+          <div class="detail-actions">
+            <input id="detailInvoiceMonthInput" class="detail-invoice-input" type="month" />
+            <button class="primary-btn" onclick="createInvoiceForSelectedMember()">このメンバーの請求書作成</button>
+            <button id="reloadBtn" class="secondary-btn">再読み込み</button>
+          </div>
+        </div>
 
         <div class="stats four">
           <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
@@ -691,7 +698,7 @@
           対象月
           <input id="invoiceMonthInput" type="month" />
         </label>
-        <button class="primary-btn" onclick="createInvoicesForMonth()">請求書作成</button>
+        <button class="primary-btn" onclick="createInvoicesForMonth()">全メンバーの請求書作成</button>
       </div>
 
       <div class="invoice-summary">
@@ -763,13 +770,13 @@
       onAuthStateChanged,
       signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
-  getDatabase,
-  ref,
-  get,
-  update,
-  remove
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+    import {
+      getDatabase,
+      ref,
+      get,
+      update,
+      remove
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
@@ -799,23 +806,22 @@ import {
 
     const loginView = document.getElementById("loginView");
     const appView = document.getElementById("appView");
-    const loginError = document.getElementById("loginError");
-    const appError = document.getElementById("appError");
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+    const loginError = document.getElementById("loginError");
+    const appError = document.getElementById("appError");
     const userEmail = document.getElementById("userEmail");
-    const reloadBtn = document.getElementById("reloadBtn");
 
     const membersSection = document.getElementById("membersSection");
     const detailSection = document.getElementById("detailSection");
     const invoicesSection = document.getElementById("invoicesSection");
     const detailEmpty = document.getElementById("detailEmpty");
     const detailContent = document.getElementById("detailContent");
-    const memberListBody = document.getElementById("memberListBody");
 
     const totalMembers = document.getElementById("totalMembers");
     const totalRegistered = document.getElementById("totalRegistered");
     const totalUnshipped = document.getElementById("totalUnshipped");
+    const memberListBody = document.getElementById("memberListBody");
 
     const detailMemberName = document.getElementById("detailMemberName");
     const detailMemberEmail = document.getElementById("detailMemberEmail");
@@ -834,6 +840,7 @@ import {
     const detailTableArea = document.getElementById("detailTableArea");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
+    const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
     const invoiceListBody = document.getElementById("invoiceListBody");
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
     const invoiceCount = document.getElementById("invoiceCount");
@@ -869,10 +876,6 @@ import {
       await signOut(auth);
     });
 
-    reloadBtn.addEventListener("click", async () => {
-      await loadAllData();
-    });
-
     document.querySelectorAll("[data-main-tab]").forEach((button) => {
       button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
     });
@@ -897,16 +900,23 @@ import {
 
       try {
         const adminSnap = await get(ref(db, `admins/${user.uid}`));
+
         if (adminSnap.val() !== true) {
           await signOut(auth);
           showError(loginError, "このアカウントは管理者として登録されていません。");
           return;
         }
+      } catch (error) {
+        await signOut(auth);
+        showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
+        return;
+      }
 
-        userEmail.textContent = user.email || "";
-        loginView.classList.add("hidden");
-        appView.classList.remove("hidden");
+      userEmail.textContent = user.email || "";
+      loginView.classList.add("hidden");
+      appView.classList.remove("hidden");
 
+      try {
         await update(ref(db, `loginUsers/${user.uid}`), {
           email: user.email || "",
           name: user.displayName || "",
@@ -914,13 +924,11 @@ import {
           role: "admin",
           lastLoginAt: Date.now()
         });
-
-        setDefaultMonths();
-        await loadAllData();
       } catch (error) {
-        showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
-        await signOut(auth);
+        showError(appError, "ログイン履歴の更新に失敗しました。Realtime Database のルールを確認してください。");
       }
+
+      await loadAllData();
     });
 
     async function loadAllData() {
@@ -946,29 +954,27 @@ import {
             const productMap = productsRaw[uid] || {};
             const products = Object.entries(productMap).map(([id, value]) => ({
               id,
-              uid,
-              ...(value || {})
-            })).sort(sortProducts);
+              ...value
+            }));
 
             return {
               uid,
-              name: user.name || user.email || "未設定",
-              email: user.email || "-",
+              name: user.name || user.email || uid,
+              email: user.email || "",
+              role: user.role || "member",
+              lastLoginAt: user.lastLoginAt || "",
               managementNumber: user.managementNumber || "",
               driveBaseUrl: user.driveBaseUrl || "",
-              lastLoginAt: user.lastLoginAt || null,
-              products,
-              registeredProducts: products.filter(isRegisteredProduct),
-              storedProducts: products.filter(isStoredProduct),
-              unshippedProducts: products.filter(isUnshippedProduct),
-              shippedProducts: products.filter(isShippedProduct)
+              products
             };
-          }).sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+          })
+          .sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
 
-        if (selectedMemberUid && !membersCache.some((member) => member.uid === selectedMemberUid)) {
-          selectedMemberUid = null;
+        if (!selectedMemberUid && membersCache.length) {
+          selectedMemberUid = membersCache[0].uid;
         }
 
+        setDefaultMonths();
         renderMembers();
         renderMemberDetail();
         renderInvoices();
@@ -977,76 +983,297 @@ import {
       }
     }
 
-function setDefaultMonths() {
-  const month = todayString().slice(0, 7);
-  invoiceMonthInput.value = month;
-  if (detailInvoiceMonthInput) {
-    detailInvoiceMonthInput.value = month;
-  }
-}
-
-    function sortProducts(a, b) {
-      const numberCompare = String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
-      if (numberCompare !== 0) return numberCompare;
-      return Number(a.createdAt || 0) - Number(b.createdAt || 0);
-    }
-
-    function isRegisteredProduct(product) {
-      return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate);
-    }
-
-    function isStoredProduct(product) {
-      return !hasValue(product.shippingRequest) && hasValue(product.shootingDate);
-    }
-
-    function isUnshippedProduct(product) {
-      return hasValue(product.shippingRequest) && product.shippingStatus !== "shipped";
-    }
-
-    function isShippedProduct(product) {
-      return product.shippingStatus === "shipped";
+    function setDefaultMonths() {
+      const month = todayString().slice(0, 7);
+      if (invoiceMonthInput) invoiceMonthInput.value = month;
+      if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
     }
 
     function renderMembers() {
+      const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
+      const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
+
       totalMembers.textContent = membersCache.length;
-      totalRegistered.textContent = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
-      totalUnshipped.textContent = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
+      totalRegistered.textContent = totalRegisteredCount;
+      totalUnshipped.textContent = totalUnshippedCount;
 
       if (!membersCache.length) {
         memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">メンバーが登録されていません。</div></td></tr>`;
         return;
       }
 
-      memberListBody.innerHTML = membersCache.map((member) => `
-        <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
-          <td onclick="event.stopPropagation();">
-            <div class="management-cell">
-              <strong>${escapeHtml(member.managementNumber || "-")}</strong>
-              <button class="mini-btn" onclick="openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
-            </div>
-          </td>
-          <td>
-            <div class="member-name">${escapeHtml(member.name)}</div>
-            <div class="member-meta">${escapeHtml(member.email)}</div>
-            <div class="member-meta">${escapeHtml(member.uid)}</div>
-          </td>
-          <td>${countPill(member.registeredProducts.length, "issue")}</td>
-          <td>${countPill(member.storedProducts.length, "neutral-hi")}</td>
-          <td>${countPill(member.unshippedProducts.length, "issue")}</td>
-          <td>${countPill(member.shippedProducts.length, "neutral-hi")}</td>
-          <td>${formatDateTime(member.lastLoginAt)}</td>
-        </tr>
-      `).join("");
+      memberListBody.innerHTML = membersCache.map((member) => {
+        const groups = getProductGroups(member);
+
+        return `
+          <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
+            <td>
+              <div class="management-cell">
+                <strong>${escapeHtml(member.managementNumber || "-")}</strong>
+                <button class="mini-btn" onclick="event.stopPropagation(); openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
+              </div>
+            </td>
+            <td>
+              <div class="member-name">${escapeHtml(member.name || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.uid)}</div>
+            </td>
+            <td>${countPill(groups.registered.length, "issue")}</td>
+            <td>${countPill(groups.stored.length, "neutral-hi")}</td>
+            <td>${countPill(groups.unshipped.length, "issue")}</td>
+            <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
+            <td>${formatDateTime(member.lastLoginAt)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderMemberDetail() {
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+
+      if (!member) {
+        detailEmpty.classList.remove("hidden");
+        detailContent.classList.add("hidden");
+        return;
+      }
+
+      const groups = getProductGroups(member);
+
+      detailEmpty.classList.add("hidden");
+      detailContent.classList.remove("hidden");
+
+      detailMemberName.textContent = member.name || "-";
+      detailMemberEmail.textContent = member.email || "-";
+      detailMemberUid.textContent = member.uid;
+
+      detailManagementHeader.innerHTML = `
+        <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
+        <span class="management-pill">${member.driveBaseUrl ? "Drive 設定済み" : "Drive 未設定"}</span>
+      `;
+
+      detailRegisteredCount.textContent = groups.registered.length;
+      detailStoredCount.textContent = groups.stored.length;
+      detailUnshippedCount.textContent = groups.unshipped.length;
+      detailShippedCount.textContent = groups.shipped.length;
+
+      setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
+      setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
+      setStatCard(detailUnshippedCard, groups.unshipped.length, "issue", detailView === "unshipped");
+      setStatCard(detailShippedCard, groups.shipped.length, "neutral-hi", detailView === "shipped");
+
+      renderDetailTable(member, groups);
+    }
+
+    function renderDetailTable(member, groups) {
+      const products = getDetailProducts(member);
+
+      if (!products.length) {
+        detailTableArea.innerHTML = `<div class="empty">表示する商品がありません。</div>`;
+        return;
+      }
+
+      if (detailView === "registered") {
+        detailTableArea.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>こだわり欄</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td>${preferenceButton(member.uid, product)}</td>
+                    <td><span class="status-pill gray">未依頼</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "stored") {
+        detailTableArea.innerHTML = `
+          <div class="table-actions">
+            <label>
+              対象月
+              <input id="exportMonth" type="month" />
+            </label>
+            <button class="primary-btn" onclick="exportCurrentDetailCsv()">保管商品をExcel出力</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>こだわり欄</th>
+                  <th>写真撮影日</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td>${preferenceButton(member.uid, product)}</td>
+                    <td>${escapeHtml(product.shootingDate || "-")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "unshipped") {
+        detailTableArea.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>発送情報</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td><span class="status-pill yellow">未発送</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      detailTableArea.innerHTML = `
+        <div class="table-actions">
+          <label>
+            対象月
+            <input id="exportMonth" type="month" />
+          </label>
+          <button class="primary-btn" onclick="exportCurrentDetailCsv()">発送済みをExcel出力</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品名</th>
+                <th>ナンバリング</th>
+                <th>作業依頼</th>
+                <th>情報</th>
+                <th>発送情報</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${products.map((product) => `
+                <tr>
+                  <td>${escapeHtml(product.name || "-")}</td>
+                  <td>${escapeHtml(product.numbering || "-")}</td>
+                  <td>${escapeHtml(product.workRequest || "-")}</td>
+                  <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                  <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                  <td><span class="status-pill blue">発送済み</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function getProductGroups(member) {
+      const registered = [];
+      const stored = [];
+      const unshipped = [];
+      const shipped = [];
+
+      member.products.forEach((product) => {
+        const hasShippingRequest = hasValue(product.shippingRequest);
+        const hasShootingDate = hasValue(product.shootingDate);
+        const isShipped = product.shippingStatus === "shipped";
+
+        if (isShipped) {
+          shipped.push(product);
+        } else if (hasShippingRequest) {
+          unshipped.push(product);
+        } else if (hasShootingDate) {
+          stored.push(product);
+        } else {
+          registered.push(product);
+        }
+      });
+
+      const sorter = (a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+
+      return {
+        registered: registered.sort(sorter),
+        stored: stored.sort(sorter),
+        unshipped: unshipped.sort(sorter),
+        shipped: shipped.sort(sorter)
+      };
+    }
+
+    function getDetailProducts(member) {
+      return getProductGroups(member)[detailView] || [];
+    }
+
+    function setStatCard(card, value, type, active) {
+      card.classList.remove("issue", "neutral-hi", "active-view");
+      if (value > 0) card.classList.add(type);
+      if (active) card.classList.add("active-view");
     }
 
     function countPill(value, type) {
-      return `<span class="count-pill ${value > 0 ? type : ""}">${value}</span>`;
+      const className = value > 0 ? `count-pill ${type}` : "count-pill";
+      return `<span class="${className}">${value}</span>`;
     }
 
     function selectMember(uid) {
       selectedMemberUid = uid;
       detailView = "registered";
+      renderMemberDetail();
       setMainTab("detail");
+    }
+
+    function setDetailView(view) {
+      detailView = view;
       renderMemberDetail();
     }
 
@@ -1060,247 +1287,73 @@ function setDefaultMonths() {
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
     }
 
-    function setDetailView(view) {
-      detailView = view;
-      renderMemberDetail();
-    }
-
-    function renderMemberDetail() {
-      const member = membersCache.find((item) => item.uid === selectedMemberUid);
-
-      if (!member) {
-        detailEmpty.classList.remove("hidden");
-        detailContent.classList.add("hidden");
-        return;
-      }
-
-      detailEmpty.classList.add("hidden");
-      detailContent.classList.remove("hidden");
-
-      detailMemberName.textContent = member.name;
-      detailMemberEmail.textContent = member.email;
-      detailMemberUid.textContent = member.uid;
-      detailManagementHeader.innerHTML = `
-        <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
-        <span class="management-pill">Drive ${member.driveBaseUrl ? "設定済み" : "未設定"}</span>
-      `;
-
-      setStatCard(detailRegisteredCard, member.registeredProducts.length, "issue", detailView === "registered");
-      setStatCard(detailStoredCard, member.storedProducts.length, "neutral-hi", detailView === "stored");
-      setStatCard(detailUnshippedCard, member.unshippedProducts.length, "issue", detailView === "unshipped");
-      setStatCard(detailShippedCard, member.shippedProducts.length, "neutral-hi", detailView === "shipped");
-
-      detailRegisteredCount.textContent = member.registeredProducts.length;
-      detailStoredCount.textContent = member.storedProducts.length;
-      detailUnshippedCount.textContent = member.unshippedProducts.length;
-      detailShippedCount.textContent = member.shippedProducts.length;
-
-      renderDetailTable(getDetailProducts(member));
-    }
-
-    function setStatCard(card, value, type, active) {
-      card.classList.remove("issue", "neutral-hi", "active-view");
-      if (value > 0) card.classList.add(type);
-      if (active) card.classList.add("active-view");
-    }
-
-    function getDetailProducts(member) {
-      if (detailView === "stored") return member.storedProducts;
-      if (detailView === "unshipped") return member.unshippedProducts;
-      if (detailView === "shipped") return member.shippedProducts;
-      return member.registeredProducts;
-    }
-
-    function renderDetailTable(products) {
-      if (!products.length) {
-        detailTableArea.innerHTML = `${exportControls()}<div class="empty">表示できる商品がありません。</div>`;
-        return;
-      }
-
-      if (detailView === "stored") {
-        detailTableArea.innerHTML = `
-          ${exportControls()}
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>こだわり欄</th><th>写真撮影日</th></tr></thead>
-              <tbody>${products.map(storedProductRow).join("")}</tbody>
-            </table>
-          </div>
-        `;
-        return;
-      }
-
-      if (detailView === "unshipped") {
-        detailTableArea.innerHTML = `
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>発送情報</th><th>状態</th></tr></thead>
-              <tbody>${products.map(unshippedProductRow).join("")}</tbody>
-            </table>
-          </div>
-        `;
-        return;
-      }
-
-      if (detailView === "shipped") {
-        detailTableArea.innerHTML = `
-          ${exportControls()}
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>発送情報</th><th>状態</th></tr></thead>
-              <tbody>${products.map(shippedProductRow).join("")}</tbody>
-            </table>
-          </div>
-        `;
-        return;
-      }
-
-      detailTableArea.innerHTML = `
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>こだわり欄</th><th>状態</th></tr></thead>
-            <tbody>${products.map(registeredProductRow).join("")}</tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function exportControls() {
-      if (detailView !== "stored" && detailView !== "shipped") return "";
-
-      const label = detailView === "stored" ? "保管商品Excel出力" : "発送済Excel出力";
-      return `
-        <div class="table-actions">
-          <label>対象月 <input id="exportMonth" type="month" /></label>
-          <button class="primary-btn" onclick="exportCurrentDetailCsv()">${label}</button>
-        </div>
-      `;
-    }
-
-    function registeredProductRow(product) {
-      return `
-        <tr>
-          <td>${shippingBadge(product.shippingRequest)}</td>
-          <td>${escapeHtml(product.name || "-")}</td>
-          <td>${escapeHtml(product.numbering || "-")}</td>
-          <td>${escapeHtml(product.workRequest || "-")}</td>
-          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-          <td>${preferenceCell(product)}</td>
-          <td>${shippingStatusText(product)} <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">編集</button></td>
-        </tr>
-      `;
-    }
-
-    function storedProductRow(product) {
-      return `
-        <tr>
-          <td>${shippingBadge(product.shippingRequest)}</td>
-          <td>${escapeHtml(product.name || "-")}</td>
-          <td>${escapeHtml(product.numbering || "-")}</td>
-          <td>${escapeHtml(product.workRequest || "-")}</td>
-          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-          <td>${preferenceCell(product)}</td>
-          <td>${escapeHtml(product.shootingDate || "-")}</td>
-        </tr>
-      `;
-    }
-
-    function unshippedProductRow(product) {
-      return `
-        <tr>
-          <td>${shippingBadge(product.shippingRequest)}</td>
-          <td>${escapeHtml(product.name || "-")}</td>
-          <td>${escapeHtml(product.numbering || "-")}</td>
-          <td>${escapeHtml(product.workRequest || "-")}</td>
-          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-          <td>${shippingInfoCell(product)}</td>
-          <td>${shippingStatusText(product)}</td>
-        </tr>
-      `;
-    }
-
-    function shippedProductRow(product) {
-      return `
-        <tr>
-          <td>${escapeHtml(product.name || "-")}</td>
-          <td>${escapeHtml(product.numbering || "-")}</td>
-          <td>${escapeHtml(product.workRequest || "-")}</td>
-          <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-          <td>${shippingInfoCell(product)}</td>
-          <td>${shippingStatusText(product)}</td>
-        </tr>
-      `;
-    }
-
     function shippingBadge(value) {
-      const map = {
-        domestic: ["国内発送", "domestic"],
-        international: ["海外発送", "international"],
-        return: ["返品依頼", "return"],
-        speedpak: ["SpeedPAK", "speedpak"],
-        "国内発送": ["国内発送", "domestic"],
-        "海外発送": ["海外発送", "international"],
-        "返品依頼": ["返品依頼", "return"],
-        "SpeedPAK": ["SpeedPAK", "speedpak"]
+      const key = shippingKey(value);
+      const textMap = {
+        domestic: "国内発送",
+        international: "海外発送",
+        return: "返品依頼",
+        speedpak: "SpeedPAK",
+        none: "なし"
       };
 
-      if (!hasValue(value)) return `<span class="ship-badge none">なし</span>`;
-
-      const [label, className] = map[value] || [value, "none"];
-      return `<span class="ship-badge ${className}">${escapeHtml(label)}</span>`;
+      return `<span class="ship-badge ${key}">${textMap[key] || "なし"}</span>`;
     }
 
-    function shippingInfoCell(product) {
-      if (!hasValue(product.shippingRequest)) return "-";
-      return `<button class="mini-btn" onclick="openShippingInfo('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">詳細</button>`;
+    function shippingKey(value) {
+      const text = String(value || "").trim();
+
+      if (text === "domestic" || text === "国内発送") return "domestic";
+      if (text === "international" || text === "海外発送") return "international";
+      if (text === "return" || text === "返品依頼") return "return";
+      if (text === "speedpak" || text === "SpeedPAK") return "speedpak";
+
+      return "none";
     }
 
-    function preferenceCell(product) {
-      if (product.preferenceEnabled === true) {
-        return `<button class="preference-pill active" onclick="openPreferenceModal('${escapeAttr(product.uid)}','${escapeAttr(product.id)}')">あり</button>`;
-      }
-      return `<span class="preference-pill inactive">なし</span>`;
-    }
+    function preferenceButton(uid, product) {
+      const enabled = product.preferenceEnabled === true || product.preferenceEnabled === "true";
 
-    function shippingStatusText(product) {
-      if (product.shippingStatus === "shipped") {
-        return `<span class="status-pill blue">発送済み</span><span class="shipped-date">${escapeHtml(product.shippedDate || "-")}</span>`;
+      if (!enabled) {
+        return `<span class="preference-pill inactive">なし</span>`;
       }
 
-      if (hasValue(product.shippingRequest)) {
-        return `<span class="status-pill yellow">未発送</span>`;
-      }
-
-      return `<span class="status-pill gray">未依頼</span>`;
-    }
-
-    function findProduct(uid, productId) {
-      const member = membersCache.find((item) => item.uid === uid);
-      if (!member) return null;
-      return member.products.find((product) => product.id === productId) || null;
+      return `<button class="preference-pill active" onclick="openPreferenceModal('${escapeAttr(uid)}','${escapeAttr(product.id)}')">あり</button>`;
     }
 
     function findMember(uid) {
-      return membersCache.find((member) => member.uid === uid) || null;
+      return membersCache.find((member) => member.uid === uid);
+    }
+
+    function findProduct(uid, productId) {
+      return findMember(uid)?.products.find((product) => product.id === productId);
     }
 
     function openInfoModal(uid, productId) {
       const product = findProduct(uid, productId);
-      if (!product) return;
+      const member = findMember(uid);
+
+      if (!product || !member) return;
 
       infoModalTitle.textContent = "商品情報";
       infoModalBody.innerHTML = `
         <div class="info-box">
-          <div class="info-box-title">会員記載情報</div>
+          <div class="info-box-title">
+            <span>会員記載情報</span>
+          </div>
           <div class="info-grid">
             <div class="info-label">商品名</div>
             <div class="info-value">${escapeHtml(product.name || "-")}</div>
+
             <div class="info-label">ナンバリング</div>
             <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
+
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
+
             <div class="info-label">備考欄</div>
             <div class="info-value">${escapeHtml(product.note || "-")}</div>
+
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
           </div>
@@ -1314,24 +1367,32 @@ function setDefaultMonths() {
           <div class="info-grid">
             <div class="info-label">確認日</div>
             <div class="info-value">${escapeHtml(product.confirmationDate || "-")}</div>
+
             <div class="info-label">確認結果</div>
             <div class="info-value">${escapeHtml(product.confirmationResult || "-")}</div>
+
             <div class="info-label">写真URL</div>
             <div class="info-value">${linkOrDash(product.photoUrl)}</div>
+
             <div class="info-label">予想サイズ</div>
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
+
             <div class="info-label">保管場所</div>
-            <div class="info-value">${linkOrDash(product.storageLocation || product.folderUrl)}</div>
-            <div class="info-label"></div>
             <div class="info-value">
-              <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+              ${linkOrDash(product.storageLocation || product.folderUrl)}
+              <div style="margin-top:10px;">
+                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+              </div>
             </div>
+
             <div class="info-label">写真撮影日</div>
             <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
+
             <div class="info-label">フォルダ状態</div>
-            <div class="info-value">${folderStatusText(product)}</div>
+            <div class="info-value">${escapeHtml(folderStatusText(product))}</div>
+
             <div class="info-label">作成予定名</div>
-            <div class="info-value">${escapeHtml(product.folderName || "-")}</div>
+            <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
           </div>
         </div>
       `;
@@ -1341,21 +1402,12 @@ function setDefaultMonths() {
 
     function openShippingInfo(uid, productId) {
       const product = findProduct(uid, productId);
-      if (!product) return;
-
       const member = findMember(uid);
-      const managementNumber = member?.managementNumber || "-";
+
+      if (!product || !member) return;
 
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
-        <div class="info-box">
-          <div class="info-box-title">発送依頼</div>
-          <div class="info-grid">
-            <div class="info-label">発送種別</div>
-            <div class="info-value">${shippingBadge(product.shippingRequest)}</div>
-          </div>
-        </div>
-
         <div class="info-box highlight">
           <div class="info-box-title">
             <span>発送状態</span>
@@ -1363,25 +1415,32 @@ function setDefaultMonths() {
           </div>
           <div class="info-grid">
             <div class="info-label">状態</div>
-            <div class="info-value">${shippingStatusText(product)}</div>
+            <div class="info-value">${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+
             <div class="info-label">発送サイズ</div>
             <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
+
             <div class="info-label">値段</div>
             <div class="info-value">${escapeHtml(product.shippingPrice || "-")}</div>
+
+            <div class="info-label">発送日</div>
+            <div class="info-value">${escapeHtml(product.shippedDate || "-")}</div>
           </div>
         </div>
 
         <div class="info-box highlight">
-          <div class="info-box-title">発送先</div>
-          ${addressInfo(product.shippingDestination)}
+          <div class="info-box-title">
+            <span>発送先</span>
+          </div>
+          <div class="info-value">${escapeHtml(product.shippingDestination || "-")}</div>
         </div>
 
         <div class="info-box">
           <div class="info-box-title">
             <span>発送元</span>
-            <span class="management-pill">管理番号 ${escapeHtml(managementNumber)}</span>
+            <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
           </div>
-          ${addressInfo(product.shippingOrigin)}
+          <div class="info-value">${escapeHtml(product.shippingOrigin || "-")}</div>
         </div>
       `;
 
@@ -1390,41 +1449,15 @@ function setDefaultMonths() {
 
     function openPreferenceModal(uid, productId) {
       const product = findProduct(uid, productId);
-      if (!product || product.preferenceEnabled !== true) return;
+      if (!product || !(product.preferenceEnabled === true || product.preferenceEnabled === "true")) return;
 
       infoModalTitle.textContent = "こだわり欄";
       infoModalBody.innerHTML = `
         <div class="info-box highlight">
-          <div class="info-grid">
-            <div class="info-label">内容</div>
-            <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
-          </div>
+          <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
         </div>
       `;
-
       infoModalBackdrop.classList.add("show");
-    }
-
-    function addressInfo(address) {
-      const data = address || {};
-      return `
-        <div class="info-grid">
-          <div class="info-label">宛名</div>
-          <div class="info-value">${escapeHtml(data.name || "-")}</div>
-          <div class="info-label">郵便番号</div>
-          <div class="info-value">${escapeHtml(data.zip || "-")}</div>
-          <div class="info-label">都道府県</div>
-          <div class="info-value">${escapeHtml(data.prefecture || "-")}</div>
-          <div class="info-label">住所</div>
-          <div class="info-value">${escapeHtml(data.address || "-")}</div>
-          <div class="info-label">建物名など</div>
-          <div class="info-value">${escapeHtml(data.building || "-")}</div>
-          <div class="info-label">電話番号</div>
-          <div class="info-value">${escapeHtml(data.phone || "-")}</div>
-          <div class="info-label">備考</div>
-          <div class="info-value">${escapeHtml(data.note || "-")}</div>
-        </div>
-      `;
     }
 
     function closeInfoModal() {
@@ -1436,7 +1469,8 @@ function setDefaultMonths() {
       const member = findMember(uid);
       if (!member) return;
 
-      activeEdit = { uid, type: "memberManagement" };
+      activeEdit = { type: "memberManagement", uid };
+
       editModalTitle.textContent = "管理番号を編集";
       editForm.innerHTML = `
         <div class="form-grid">
@@ -1447,15 +1481,16 @@ function setDefaultMonths() {
 
           <label>
             Google Drive URL置き場
-            <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" placeholder="親フォルダのURLまたはID" />
+            <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
           </label>
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="secondary-btn" onclick="closeEditModal()">キャンセル</button>
-          <button type="submit" class="primary-btn">保存する</button>
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
         </div>
       `;
+
       editModalBackdrop.classList.add("show");
     }
 
@@ -1463,13 +1498,14 @@ function setDefaultMonths() {
       const product = findProduct(uid, productId);
       if (!product) return;
 
-      activeEdit = { uid, productId, type: "adminFields" };
+      activeEdit = { type: "adminFields", uid, productId };
+
       editModalTitle.textContent = "管理者記載情報を編集";
       editForm.innerHTML = `
         <div class="form-grid">
           <label>
             確認日
-            <input type="date" name="confirmationDate" value="${escapeAttr(product.confirmationDate || "")}" />
+            <input name="confirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}" />
           </label>
 
           <label>
@@ -1489,15 +1525,16 @@ function setDefaultMonths() {
 
           <label>
             保管場所
-            <input name="storageLocation" value="${escapeAttr(product.storageLocation || product.folderUrl || "")}" placeholder="空欄ならDriveフォルダ作成URLを自動保存" />
+            <input name="storageLocation" value="${escapeAttr(product.storageLocation || product.folderUrl || "")}" />
           </label>
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="secondary-btn" onclick="closeEditModal()">キャンセル</button>
-          <button type="submit" class="primary-btn">保存する</button>
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
         </div>
       `;
+
       editModalBackdrop.classList.add("show");
     }
 
@@ -1505,14 +1542,15 @@ function setDefaultMonths() {
       const product = findProduct(uid, productId);
       if (!product) return;
 
-      activeEdit = { uid, productId, type: "status" };
+      activeEdit = { type: "status", uid, productId };
+
       editModalTitle.textContent = "発送状態を編集";
       editForm.innerHTML = `
         <div class="form-grid">
           <label>
             状態
             <select name="shippingStatus">
-              <option value="unshipped" ${product.shippingStatus === "shipped" ? "" : "selected"}>未発送</option>
+              <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
               <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
             </select>
           </label>
@@ -1520,22 +1558,22 @@ function setDefaultMonths() {
           <label>
             発送サイズ
             <select name="shippingSize">
-              <option value="">未設定</option>
               ${shippingSizeOptions(product.shippingSize)}
             </select>
           </label>
 
           <label>
             値段
-            <input type="number" min="0" step="1" name="shippingPrice" value="${escapeAttr(product.shippingPrice || "")}" />
+            <input name="shippingPrice" type="number" min="0" value="${escapeAttr(product.shippingPrice || "")}" />
           </label>
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="secondary-btn" onclick="closeEditModal()">キャンセル</button>
-          <button type="submit" class="primary-btn">保存する</button>
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
         </div>
       `;
+
       editModalBackdrop.classList.add("show");
     }
 
@@ -1543,68 +1581,42 @@ function setDefaultMonths() {
       event.preventDefault();
       if (!activeEdit) return;
 
+      hideError(appError);
+
       const formData = new FormData(editForm);
-      const editTarget = { ...activeEdit };
-      const wasShippingInfoOpen = infoModalBackdrop.classList.contains("show");
       const now = Date.now();
 
       try {
-        if (editTarget.type === "memberManagement") {
-          await update(ref(db, `loginUsers/${editTarget.uid}`), {
+        if (activeEdit.type === "memberManagement") {
+          await update(ref(db, `loginUsers/${activeEdit.uid}`), {
             managementNumber: getFormValue(formData, "managementNumber"),
-            driveBaseUrl: getFormValue(formData, "driveBaseUrl")
+            driveBaseUrl: getFormValue(formData, "driveBaseUrl"),
+            updatedAt: now
           });
         }
 
-        if (editTarget.type === "adminFields") {
-          const product = findProduct(editTarget.uid, editTarget.productId);
-          const member = findMember(editTarget.uid);
+        if (activeEdit.type === "adminFields") {
           const confirmationDate = getFormValue(formData, "confirmationDate");
-          let storageLocation = getFormValue(formData, "storageLocation");
-          let folderUrl = product?.folderUrl || "";
-          let folderStatus = product?.folderJobStatus || product?.folderStatus || "";
-          let folderError = "";
-          const folderName = makeFolderName(product?.numbering, product?.name);
+          const product = findProduct(activeEdit.uid, activeEdit.productId);
+          const member = findMember(activeEdit.uid);
 
-          const shouldCreateFolder =
-            folderName &&
-            hasValue(member?.driveBaseUrl) &&
-            !hasValue(storageLocation) &&
-            !hasValue(folderUrl);
-
-          if (shouldCreateFolder) {
-            try {
-              folderStatus = "processing";
-              const gasResult = await createDriveFolderWithGas(member.driveBaseUrl, folderName);
-              folderUrl = gasResult.folderUrl || "";
-              storageLocation = folderUrl;
-              folderStatus = "created";
-            } catch (error) {
-              folderStatus = "error";
-              folderError = error && error.message ? error.message : String(error);
-            }
-          }
-
-          await update(ref(db, `products/${editTarget.uid}/${editTarget.productId}`), {
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
             updatedAt: now,
             confirmationDate,
             shootingDate: confirmationDate,
             confirmationResult: getFormValue(formData, "confirmationResult"),
             photoUrl: getFormValue(formData, "photoUrl"),
             expectedSize: getFormValue(formData, "expectedSize"),
-            storageLocation,
-            folderUrl,
+            storageLocation: getFormValue(formData, "storageLocation"),
+            folderUrl: getFormValue(formData, "storageLocation"),
             driveBaseUrl: member?.driveBaseUrl || "",
-            folderName,
-            folderJobStatus: folderStatus,
-            folderCreatedAt: folderStatus === "created" ? now : product?.folderCreatedAt || "",
-            folderError
+            folderName: makeFolderName(product?.numbering, product?.name)
           });
         }
 
-        if (editTarget.type === "status") {
+        if (activeEdit.type === "status") {
           const status = getFormValue(formData, "shippingStatus");
-          await update(ref(db, `products/${editTarget.uid}/${editTarget.productId}`), {
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
             updatedAt: now,
             shippingStatus: status,
             shippedDate: status === "shipped" ? todayString() : "",
@@ -1614,14 +1626,9 @@ function setDefaultMonths() {
         }
 
         closeEditModal();
-        selectedMemberUid = editTarget.uid || selectedMemberUid;
         await loadAllData();
-
-        if (editTarget.type === "status" && wasShippingInfoOpen) {
-          openShippingInfo(editTarget.uid, editTarget.productId);
-        }
       } catch (error) {
-        showError(appError, "保存に失敗しました。Realtime Databaseのルール、またはApps Scriptの設定を確認してください。");
+        showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
       }
     });
 
@@ -1636,11 +1643,6 @@ function setDefaultMonths() {
 
       if (!hasValue(member.driveBaseUrl)) {
         showError(appError, "Google Drive URL置き場が未設定です。メンバー一覧の管理番号編集から設定してください。");
-        return;
-      }
-
-      if (!folderName) {
-        showError(appError, "商品名またはナンバリングが不足しているため、フォルダ名を作成できません。");
         return;
       }
 
@@ -1752,156 +1754,100 @@ function setDefaultMonths() {
         `).join("");
     }
 
-async function createInvoicesForMonth() {
-  hideError(appError);
+    async function createInvoicesForMonth() {
+      hideError(appError);
 
-  const month = invoiceMonthInput.value;
+      const month = invoiceMonthInput.value;
 
-  if (!month) {
-    showError(appError, "対象月を選択してください。");
-    return;
-  }
-
-  try {
-    let createdCount = 0;
-
-    for (const member of membersCache) {
-      const created = await createInvoiceForMember(member, month, false);
-      if (created) createdCount++;
-    }
-
-    if (createdCount === 0) {
-      showError(appError, "対象月に請求対象の商品がありません。");
-      return;
-    }
-
-    await loadAllData();
-    setMainTab("invoices");
-  } catch (error) {
-    showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
-  }
-}
-
-async function createInvoicesForMonth() {
-  // 既存の全メンバー請求書作成処理
-}
-
-/* ここに追加 */
-async function createInvoiceForSelectedMember() {
-  hideError(appError);
-
-  const member = membersCache.find((item) => item.uid === selectedMemberUid);
-  const month = detailInvoiceMonthInput?.value || invoiceMonthInput.value;
-
-  if (!member) {
-    showError(appError, "メンバーを選択してください。");
-    return;
-  }
-
-  if (!month) {
-    showError(appError, "対象月を選択してください。");
-    return;
-  }
-
-  try {
-    const created = await createInvoiceForMember(member, month, true);
-    if (!created) return;
-
-    invoiceMonthInput.value = month;
-    await loadAllData();
-    setMainTab("invoices");
-  } catch (error) {
-    showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
-  }
-}
-
-async function createInvoiceForMember(member, month, showNoTargetError = true) {
-  const items = buildInvoiceItems(member, month);
-
-  if (!items.length) {
-    if (showNoTargetError) {
-      showError(appError, "対象月に請求対象の商品がありません。");
-    }
-    return false;
-  }
-
-  const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
-  const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
-  const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-  const itemMap = {};
-  items.forEach((item) => {
-    itemMap[item.productId] = item;
-  });
-
-  await update(ref(db, `invoices/${member.uid}/${month}`), {
-    uid: member.uid,
-    memberName: member.name || "",
-    email: member.email || "",
-    managementNumber: member.managementNumber || "",
-    month,
-    status: "created",
-    createdAt: Date.now(),
-    createdBy: currentUser?.uid || "",
-    createdByEmail: currentUser?.email || "",
-    totalInspectionFee,
-    totalShippingFee,
-    grandTotal,
-    items: itemMap
-  });
-
-  return true;
-}
-
-function buildInvoiceItems(member, month) {
-  // 既存の処理
-}
-
-      const updates = {};
-      const now = Date.now();
-
-      membersCache.forEach((member) => {
-        const items = buildInvoiceItems(member, month);
-        if (!items.length) return;
-
-        const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
-        const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
-        const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-        const itemMap = {};
-        items.forEach((item) => {
-          itemMap[item.productId] = item;
-        });
-
-        updates[`invoices/${member.uid}/${month}`] = {
-          uid: member.uid,
-          memberName: member.name,
-          email: member.email,
-          managementNumber: member.managementNumber || "",
-          month,
-          status: "created",
-          createdAt: now,
-          createdBy: currentUser?.uid || "",
-          createdByEmail: currentUser?.email || "",
-          totalInspectionFee,
-          totalShippingFee,
-          grandTotal,
-          items: itemMap
-        };
-      });
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
 
       try {
-        if (!Object.keys(updates).length) {
+        let createdCount = 0;
+
+        for (const member of membersCache) {
+          const created = await createInvoiceForMember(member, month, false);
+          if (created) createdCount++;
+        }
+
+        if (createdCount === 0) {
           showError(appError, "対象月に請求対象の商品がありません。");
           return;
         }
 
-        await update(ref(db), updates);
         await loadAllData();
         setMainTab("invoices");
       } catch (error) {
         showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
       }
+    }
+
+    async function createInvoiceForSelectedMember() {
+      hideError(appError);
+
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+      const month = detailInvoiceMonthInput?.value || invoiceMonthInput.value;
+
+      if (!member) {
+        showError(appError, "メンバーを選択してください。");
+        return;
+      }
+
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
+
+      try {
+        const created = await createInvoiceForMember(member, month, true);
+        if (!created) return;
+
+        invoiceMonthInput.value = month;
+        await loadAllData();
+        setMainTab("invoices");
+      } catch (error) {
+        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    async function createInvoiceForMember(member, month, showNoTargetError = true) {
+      const items = buildInvoiceItems(member, month);
+
+      if (!items.length) {
+        if (showNoTargetError) {
+          showError(appError, "対象月に請求対象の商品がありません。");
+        }
+        return false;
+      }
+
+      const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+      const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+      const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+      const itemMap = {};
+      items.forEach((item) => {
+        itemMap[item.productId] = item;
+      });
+
+      await update(ref(db, `invoices/${member.uid}/${month}`), {
+        uid: member.uid,
+        memberName: member.name || "",
+        email: member.email || "",
+        managementNumber: member.managementNumber || "",
+        month,
+        status: "created",
+        createdAt: Date.now(),
+        createdBy: currentUser?.uid || "",
+        createdByEmail: currentUser?.email || "",
+        totalInspectionFee,
+        totalShippingFee,
+        grandTotal,
+        items: itemMap
+      });
+
+      return true;
     }
 
     function buildInvoiceItems(member, month) {
@@ -1971,19 +1917,19 @@ function buildInvoiceItems(member, month) {
       downloadCsv(rows, `${invoice.memberName || uid}_${month}_ご利用明細.csv`);
     }
 
-async function deleteInvoice(uid, month) {
-  hideError(appError);
+    async function deleteInvoice(uid, month) {
+      hideError(appError);
 
-  if (!confirm(`${month} の請求書を削除しますか？`)) return;
+      if (!confirm(`${month} の請求書を削除しますか？`)) return;
 
-  try {
-    await remove(ref(db, `invoices/${uid}/${month}`));
-    await loadAllData();
-    renderInvoices();
-  } catch (error) {
-    showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
-  }
-}
+      try {
+        await remove(ref(db, `invoices/${uid}/${month}`));
+        await loadAllData();
+        renderInvoices();
+      } catch (error) {
+        showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
 
     function closeEditModal() {
       editModalBackdrop.classList.remove("show");
@@ -2059,6 +2005,7 @@ async function deleteInvoice(uid, month) {
       return `"${String(value ?? "").replaceAll('"', '""')}"`;
     }
 
+    window.closeInfoModal = closeInfoModal;
     window.closeEditModal = closeEditModal;
     window.selectMember = selectMember;
     window.setDetailView = setDetailView;
@@ -2071,7 +2018,7 @@ async function deleteInvoice(uid, month) {
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
-window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
+    window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.deleteInvoice = deleteInvoice;
 
