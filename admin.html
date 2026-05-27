@@ -763,13 +763,14 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      onAuthStateChanged,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  get,
+  update,
+  remove,
+  set
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
     import {
       getDatabase,
       ref,
@@ -1812,70 +1813,94 @@
       }
     }
 
-    async function createInvoiceForMember(member, month, showNoTargetError = true) {
-      const items = buildInvoiceItems(member, month);
+async function createInvoiceForMember(member, month, showNoTargetError = true) {
+  const items = buildInvoiceItems(member, month);
 
-      if (!items.length) {
-        if (showNoTargetError) {
-          showError(appError, "対象月に請求対象の商品がありません。");
-        }
-        return false;
-      }
-
-      const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
-      const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
-      const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-      const itemMap = {};
-      items.forEach((item) => {
-        itemMap[item.productId] = item;
-      });
-
-      await update(ref(db, `invoices/${member.uid}/${month}`), {
-        uid: member.uid,
-        memberName: member.name || "",
-        email: member.email || "",
-        managementNumber: member.managementNumber || "",
-        month,
-        status: "created",
-        createdAt: Date.now(),
-        createdBy: currentUser?.uid || "",
-        createdByEmail: currentUser?.email || "",
-        totalInspectionFee,
-        totalShippingFee,
-        grandTotal,
-        items: itemMap
-      });
-
-      return true;
+  if (!items.length) {
+    if (showNoTargetError) {
+      showError(appError, "対象月に請求対象の商品がありません。");
     }
+    return false;
+  }
 
-    function buildInvoiceItems(member, month) {
-      return member.products
-        .map((product) => {
-          const inspectionInMonth = matchesMonth(product.shootingDate, month);
-          const shippingInMonth = matchesMonth(product.shippedDate, month);
+  const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+  const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+  const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
 
-          if (!inspectionInMonth && !shippingInMonth) return null;
+  const itemMap = {};
+  items.forEach((item) => {
+    itemMap[item.productId] = cleanForFirebase(item);
+  });
 
-          const inspectionFee = inspectionInMonth ? inspectionFeeFor(product.workRequest) : 0;
-          const shippingFee = shippingInMonth ? numberValue(product.shippingPrice) : 0;
+  const invoiceData = cleanForFirebase({
+    uid: member.uid,
+    memberName: member.name || "",
+    email: member.email || "",
+    managementNumber: member.managementNumber || "",
+    month,
+    status: "created",
+    createdAt: Date.now(),
+    createdBy: currentUser ? currentUser.uid : "",
+    createdByEmail: currentUser ? currentUser.email || "" : "",
+    totalInspectionFee,
+    totalShippingFee,
+    grandTotal,
+    items: itemMap
+  });
 
-          return {
-            productId: product.id,
-            name: product.name || "",
-            numbering: product.numbering || "",
-            workRequest: product.workRequest || "",
-            inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
-            inspectionFee: inspectionInMonth ? inspectionFee : "-",
-            shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
-            shippingFee: shippingInMonth ? shippingFee : "-",
-            total: inspectionFee + shippingFee
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
-    }
+  await set(ref(db, `invoices/${member.uid}/${month}`), invoiceData);
+
+  return true;
+}
+
+function cleanForFirebase(value) {
+  if (value === undefined) return "";
+
+  if (value === null) return null;
+
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanForFirebase(item));
+  }
+
+  if (typeof value === "object") {
+    const cleaned = {};
+
+    Object.entries(value).forEach(([key, item]) => {
+      cleaned[key] = cleanForFirebase(item);
+    });
+
+    return cleaned;
+  }
+
+  return value;
+}
+
+function buildInvoiceItems(member, month) {
+  return member.products
+    .map((product) => {
+      const inspectionInMonth = matchesMonth(product.shootingDate, month);
+      const shippingInMonth = matchesMonth(product.shippedDate, month);
+
+      if (!inspectionInMonth && !shippingInMonth) return null;
+
+      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product.workRequest) : 0;
+      const shippingFee = shippingInMonth ? numberValue(product.shippingPrice) : 0;
+
+      return {
+        productId: product.id,
+        name: product.name || "",
+        numbering: product.numbering || "",
+        workRequest: product.workRequest || "",
+        inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
+        inspectionFee: inspectionInMonth ? inspectionFee : "-",
+        shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
+        shippingFee: shippingInMonth ? shippingFee : "-",
+        total: inspectionFee + shippingFee
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+}
 
     function inspectionFeeFor(workRequest) {
       return Number(INSPECTION_PRICE_MAP[workRequest] ?? 0);
