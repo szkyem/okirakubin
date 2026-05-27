@@ -648,6 +648,37 @@
       word-break: break-word;
     }
 
+    .price-section {
+      display: grid;
+      gap: 22px;
+    }
+
+    .price-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+    }
+
+    .price-table th {
+      background: #4b5563;
+      color: white;
+    }
+
+    .price-table th, .price-table td {
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+      vertical-align: middle;
+    }
+
+    .price-table .group-cell {
+      width: 110px;
+      text-align: center;
+      font-weight: 800;
+      color: #0f766e;
+      background: #f8fafc;
+    }
+
     .announcement-head {
       display: flex;
       align-items: center;
@@ -727,6 +758,7 @@
       <button class="tab active" data-main-tab="members">会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
+      <button class="tab" data-main-tab="prices">価格表</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
     </nav>
 
@@ -859,6 +891,82 @@
       </div>
     </section>
 
+    <section id="pricesSection" class="section hidden">
+      <h2>価格表</h2>
+      <div class="price-section">
+        <div class="table-wrap">
+          <table class="price-table">
+            <tbody>
+              <tr>
+                <td class="group-cell" rowspan="2">作業料</td>
+                <td>検品代</td>
+                <td>1,300円</td>
+                <td>ボディまたはレンズ1点目を含む基本料金</td>
+              </tr>
+              <tr>
+                <td>レンズキット検品追加料金</td>
+                <td>1個あたり300円</td>
+                <td>ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円</td>
+              </tr>
+              <tr>
+                <td class="group-cell" rowspan="2">送料</td>
+                <td>国内送料</td>
+                <td>1,000円〜</td>
+                <td>運賃表による。発送情報の値段を請求へ反映</td>
+              </tr>
+              <tr>
+                <td>海外送料（作業代）</td>
+                <td>500円</td>
+                <td>お客様によるラベル発行。発送情報の値段に作業代500円を加算</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>区分</th>
+                <th>価格</th>
+                <th>備考</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
+              <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
+              <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
+              <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
+              <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>サイズ</th>
+                <th>静岡</th>
+                <th>関東・信越・北陸・東海・近畿</th>
+                <th>東北・中国・四国</th>
+                <th>九州</th>
+                <th>沖縄</th>
+                <th>北海道</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>60</td><td>1,000円</td><td>1,050円</td><td>1,150円</td><td>1,250円</td><td>1,450円</td><td>1,550円</td></tr>
+              <tr><td>80</td><td>1,250円</td><td>1,300円</td><td>1,350円</td><td>1,450円</td><td>1,750円</td><td>1,780円</td></tr>
+              <tr><td>100</td><td>1,550円</td><td>1,600円</td><td>1,700円</td><td>1,800円</td><td>2,150円</td><td>2,200円</td></tr>
+              <tr><td>120</td><td>1,900円</td><td>1,950円</td><td>2,000円</td><td>2,100円</td><td>2,650円</td><td>2,650円</td></tr>
+              <tr><td>140以上</td><td>2,750円</td><td>2,800円</td><td>3,300円</td><td>3,400円</td><td>4,400円</td><td>4,950円</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section id="announcementsSection" class="section hidden">
       <h2>お知らせ</h2>
 
@@ -928,11 +1036,15 @@
     const GAS_WEB_APP_URL = "ここにApps ScriptのウェブアプリURLを入れてください";
     const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
 
-    const INSPECTION_PRICE_MAP = {
-      "検品+写真": 300,
-      "写真のみ": 200,
-      "検品のみ": 150,
-      "保管のみ": 0
+    const PRICE_TABLE = {
+      inspectionBase: 1300,
+      additionalKitItem: 300,
+      photoOnly: 500,
+      returnHandling: 700,
+      reshoot: 500,
+      video: 500,
+      thanksCard: 0,
+      overseasHandling: 500
     };
 
     const app = initializeApp(firebaseConfig);
@@ -951,6 +1063,7 @@
     const membersSection = document.getElementById("membersSection");
     const detailSection = document.getElementById("detailSection");
     const invoicesSection = document.getElementById("invoicesSection");
+    const pricesSection = document.getElementById("pricesSection");
     const announcementsSection = document.getElementById("announcementsSection");
     const detailEmpty = document.getElementById("detailEmpty");
     const detailContent = document.getElementById("detailContent");
@@ -1446,6 +1559,7 @@
       membersSection.classList.toggle("hidden", tabName !== "members");
       detailSection.classList.toggle("hidden", tabName !== "detail");
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
+      pricesSection.classList.toggle("hidden", tabName !== "prices");
       announcementsSection.classList.toggle("hidden", tabName !== "announcements");
     }
 
@@ -2115,14 +2229,17 @@ function buildInvoiceItems(member, month) {
 
       if (!inspectionInMonth && !shippingInMonth) return null;
 
-      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product.workRequest) : 0;
-      const shippingFee = shippingInMonth ? numberValue(product.shippingPrice) : 0;
+      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product) : 0;
+      const shippingFee = shippingInMonth ? shippingFeeFor(product) : 0;
 
       return {
         productId: product.id,
         name: product.name || "",
         numbering: product.numbering || "",
         workRequest: product.workRequest || "",
+        bodyCount: product.bodyCount || "",
+        lensCount: product.lensCount || "",
+        options: optionSummary(product),
         inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
@@ -2134,8 +2251,28 @@ function buildInvoiceItems(member, month) {
     .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
 }
 
-    function inspectionFeeFor(workRequest) {
-      return Number(INSPECTION_PRICE_MAP[workRequest] ?? 0);
+    function inspectionFeeFor(product) {
+      if (product.workRequest === "保管のみ") return 0;
+
+      let fee = product.workRequest === "写真のみ"
+        ? PRICE_TABLE.photoOnly
+        : PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
+
+      if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
+        fee += PRICE_TABLE.video;
+      }
+
+      if (product.workRequest === "返品対応" || product.shippingRequest === "返品依頼") {
+        fee += PRICE_TABLE.returnHandling;
+      }
+
+      return fee;
+    }
+
+    function shippingFeeFor(product) {
+      const baseFee = numberValue(product.shippingPrice);
+      const overseasHandling = shippingKey(product.shippingRequest) === "international" ? PRICE_TABLE.overseasHandling : 0;
+      return baseFee + overseasHandling;
     }
 
     function numberValue(value) {
@@ -2154,11 +2291,14 @@ function buildInvoiceItems(member, month) {
         ["会員", invoice.memberName || ""],
         ["管理番号", invoice.managementNumber || ""],
         [],
-        ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+        ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "合計"],
         ...items.map((item) => [
           item.name || "",
           item.numbering || "",
           item.workRequest || "",
+          item.bodyCount || "",
+          item.lensCount || "",
+          item.options || "",
           item.inspectionDate || "-",
           item.inspectionFee ?? "-",
           item.shippingDate || "-",
@@ -2183,6 +2323,9 @@ function buildInvoiceItems(member, month) {
         <tr>
           <td>${escapeHtml(item.name || "")}</td>
           <td>${escapeHtml(item.numbering || "")}</td>
+          <td>${escapeHtml(item.bodyCount || "")}</td>
+          <td>${escapeHtml(item.lensCount || "")}</td>
+          <td>${escapeHtml(item.options || "")}</td>
           <td>${escapeHtml(item.inspectionDate || "-")}</td>
           <td>${escapeHtml(item.inspectionFee ?? "-")}</td>
           <td>${escapeHtml(item.shippingDate || "-")}</td>
@@ -2219,6 +2362,9 @@ function buildInvoiceItems(member, month) {
               <tr>
                 <th>商品名</th>
                 <th>ナンバリング</th>
+                <th>ボディ本数</th>
+                <th>レンズ本数</th>
+                <th>オプション</th>
                 <th>検品日</th>
                 <th>検品料金</th>
                 <th>発送日</th>
