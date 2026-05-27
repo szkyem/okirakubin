@@ -567,6 +567,80 @@
       color: var(--blue);
     }
 
+    .announcement-form {
+      display: grid;
+      gap: 12px;
+      margin: 18px 0 24px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #f8fafc;
+    }
+
+    .announcement-form textarea {
+      min-height: 120px;
+      background: white;
+    }
+
+    .announcement-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .announcement-list {
+      position: relative;
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+      padding-left: 28px;
+    }
+
+    .announcement-list::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #d1d5db;
+    }
+
+    .announcement-card {
+      position: relative;
+      padding: 16px 18px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .announcement-card::before {
+      content: "";
+      position: absolute;
+      left: -27px;
+      top: 18px;
+      width: 16px;
+      height: 16px;
+      border: 4px solid white;
+      border-radius: 999px;
+      background: #111827;
+      box-shadow: 0 0 0 2px #d1d5db;
+    }
+
+    .announcement-date {
+      color: #475569;
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .announcement-message {
+      color: var(--text);
+      font-weight: 700;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     @media (max-width: 760px) {
       .page {
         width: calc(100% - 20px);
@@ -612,6 +686,7 @@
       <button class="tab active" data-main-tab="members">メンバー一覧</button>
       <button class="tab" data-main-tab="detail">メンバー詳細</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
+      <button class="tab" data-main-tab="announcements">お知らせ</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -739,6 +814,23 @@
         </table>
       </div>
     </section>
+
+    <section id="announcementsSection" class="section hidden">
+      <h2>お知らせ</h2>
+
+      <div class="announcement-form">
+        <label>
+          アナウンス内容
+          <textarea id="announcementInput" placeholder="会員全員に知らせる内容を入力してください"></textarea>
+        </label>
+        <div class="announcement-actions">
+          <button class="primary-btn" onclick="publishAnnouncement()">発信</button>
+        </div>
+      </div>
+
+      <h2>アナウンス欄</h2>
+      <div id="announcementList" class="announcement-list"></div>
+    </section>
   </main>
 
   <div id="infoModalBackdrop" class="modal-backdrop">
@@ -815,6 +907,7 @@
     const membersSection = document.getElementById("membersSection");
     const detailSection = document.getElementById("detailSection");
     const invoicesSection = document.getElementById("invoicesSection");
+    const announcementsSection = document.getElementById("announcementsSection");
     const detailEmpty = document.getElementById("detailEmpty");
     const detailContent = document.getElementById("detailContent");
 
@@ -846,6 +939,8 @@
     const invoiceCount = document.getElementById("invoiceCount");
     const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
+    const announcementInput = document.getElementById("announcementInput");
+    const announcementList = document.getElementById("announcementList");
 
     const infoModalBackdrop = document.getElementById("infoModalBackdrop");
     const infoModalBody = document.getElementById("infoModalBody");
@@ -859,6 +954,8 @@
     let currentUser = null;
     let membersCache = [];
     let invoicesCache = {};
+    let announcementsCache = {};
+    let memberSettingsCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -890,6 +987,8 @@
         currentUser = null;
         membersCache = [];
         invoicesCache = {};
+        announcementsCache = {};
+        memberSettingsCache = {};
         selectedMemberUid = null;
         loginView.classList.remove("hidden");
         appView.classList.add("hidden");
@@ -935,22 +1034,27 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
-          get(ref(db, "invoices"))
+          get(ref(db, "invoices")),
+          get(ref(db, "announcements")),
+          get(ref(db, "memberSettings"))
         ]);
 
         const membersRaw = membersSnap.val() || {};
         const usersRaw = usersSnap.val() || {};
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
+        announcementsCache = announcementsSnap.val() || {};
+        memberSettingsCache = memberSettingsSnap.val() || {};
 
         membersCache = Object.keys(membersRaw)
           .filter((uid) => membersRaw[uid] === true)
           .map((uid) => {
             const user = usersRaw[uid] || {};
+            const memberSettings = memberSettingsCache[uid] || {};
             const productMap = productsRaw[uid] || {};
             const products = Object.entries(productMap).map(([id, value]) => ({
               id,
@@ -963,8 +1067,8 @@
               email: user.email || "",
               role: user.role || "member",
               lastLoginAt: user.lastLoginAt || "",
-              managementNumber: user.managementNumber || "",
-              driveBaseUrl: user.driveBaseUrl || "",
+              managementNumber: memberSettings.managementNumber || user.managementNumber || "",
+              driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
               products
             };
           })
@@ -978,6 +1082,7 @@
         renderMembers();
         renderMemberDetail();
         renderInvoices();
+        renderAnnouncements();
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -1083,7 +1188,6 @@
                   <th>作業依頼</th>
                   <th>情報</th>
                   <th>こだわり欄</th>
-                  <th>状態</th>
                 </tr>
               </thead>
               <tbody>
@@ -1094,7 +1198,6 @@
                     <td>${escapeHtml(product.workRequest || "-")}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
-                    <td><span class="status-pill gray">未依頼</span></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -1281,6 +1384,7 @@
       membersSection.classList.toggle("hidden", tabName !== "members");
       detailSection.classList.toggle("hidden", tabName !== "detail");
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
+      announcementsSection.classList.toggle("hidden", tabName !== "announcements");
     }
 
     function shippingBadge(value) {
@@ -1373,11 +1477,11 @@
             <div class="info-label">予想サイズ</div>
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
 
-            <div class="info-label">保管場所</div>
+            <div class="info-label"></div>
             <div class="info-value">
               ${linkOrDash(product.storageLocation || product.folderUrl)}
               <div style="margin-top:10px;">
-                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">作成</button>
+                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
               </div>
             </div>
 
@@ -1584,9 +1688,19 @@
 
       try {
         if (activeEdit.type === "memberManagement") {
+          const managementNumber = getFormValue(formData, "managementNumber");
+          const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
+
+          await update(ref(db, `memberSettings/${activeEdit.uid}`), {
+            managementNumber,
+            driveBaseUrl,
+            updatedAt: now,
+            updatedBy: currentUser?.uid || ""
+          });
+
           await update(ref(db, `loginUsers/${activeEdit.uid}`), {
-            managementNumber: getFormValue(formData, "managementNumber"),
-            driveBaseUrl: getFormValue(formData, "driveBaseUrl"),
+            managementNumber,
+            driveBaseUrl,
             updatedAt: now
           });
         }
@@ -1621,8 +1735,17 @@
           });
         }
 
+        const finishedEdit = { ...activeEdit };
         closeEditModal();
         await loadAllData();
+
+        if (finishedEdit.type === "adminFields") {
+          openInfoModal(finishedEdit.uid, finishedEdit.productId);
+        }
+
+        if (finishedEdit.type === "status") {
+          openShippingInfo(finishedEdit.uid, finishedEdit.productId);
+        }
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -1965,6 +2088,57 @@ function buildInvoiceItems(member, month) {
       }
     }
 
+    function renderAnnouncements() {
+      const announcements = Object.entries(announcementsCache || {})
+        .map(([id, value]) => ({
+          id,
+          ...value
+        }))
+        .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+      if (!announcements.length) {
+        announcementList.innerHTML = `<div class="empty">お知らせはまだありません。</div>`;
+        return;
+      }
+
+      announcementList.innerHTML = announcements.map((item) => `
+        <article class="announcement-card">
+          <div class="announcement-date">${escapeHtml(formatDateOnly(item.createdAt))}</div>
+          <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
+        </article>
+      `).join("");
+    }
+
+    async function publishAnnouncement() {
+      hideError(appError);
+
+      const message = String(announcementInput.value || "").trim();
+
+      if (!message) {
+        showError(appError, "アナウンス内容を入力してください。");
+        return;
+      }
+
+      const now = Date.now();
+      const id = `${now}_${currentUser?.uid || "admin"}`;
+
+      try {
+        await set(ref(db, `announcements/${id}`), cleanForFirebase({
+          id,
+          message,
+          createdAt: now,
+          createdBy: currentUser?.uid || "",
+          createdByEmail: currentUser?.email || ""
+        }));
+
+        announcementInput.value = "";
+        await loadAllData();
+        setMainTab("announcements");
+      } catch (error) {
+        showError(appError, `お知らせの発信に失敗しました。${error && error.message ? error.message : error}`);
+      }
+    }
+
     function closeEditModal() {
       editModalBackdrop.classList.remove("show");
       editForm.innerHTML = "";
@@ -2055,6 +2229,7 @@ function buildInvoiceItems(member, month) {
     window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.deleteInvoice = deleteInvoice;
+    window.publishAnnouncement = publishAnnouncement;
 
     invoiceMonthInput.addEventListener("change", renderInvoices);
 
@@ -2166,6 +2341,16 @@ function buildInvoiceItems(member, month) {
         minute: "2-digit",
         second: "2-digit"
       });
+    }
+
+    function formatDateOnly(value) {
+      if (!value) return "-";
+      const date = new Date(Number(value));
+      if (Number.isNaN(date.getTime())) return "-";
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}/${month}/${day}`;
     }
 
     function escapeHtml(value) {
