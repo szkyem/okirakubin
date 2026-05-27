@@ -1109,6 +1109,7 @@
               lastLoginAt: user.lastLoginAt || "",
               managementNumber: memberSettings.managementNumber || user.managementNumber || "",
               driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
+              planType: memberSettings.planType || user.planType || "",
               products
             };
           })
@@ -1631,6 +1632,16 @@
             Google Drive URL置き場
             <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
           </label>
+
+          <label>
+            プラン
+            <select name="planType">
+              <option value="">選択してください</option>
+              <option value="standard" ${member.planType === "standard" ? "selected" : ""}>スタンダード</option>
+              <option value="premium" ${member.planType === "premium" ? "selected" : ""}>プレミアム</option>
+              <option value="consulting" ${member.planType === "consulting" ? "selected" : ""}>コンサル生</option>
+            </select>
+          </label>
         </div>
 
         <div class="modal-actions">
@@ -1738,10 +1749,12 @@
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
+          const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
             driveBaseUrl,
+            planType,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
           });
@@ -1749,6 +1762,7 @@
           await update(ref(db, `loginUsers/${activeEdit.uid}`), {
             managementNumber,
             driveBaseUrl,
+            planType,
             updatedAt: now
           });
         }
