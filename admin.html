@@ -248,7 +248,7 @@
       font-size: 24px;
     }
 
-    .table-actions {
+    .table-actions, .invoice-actions {
       display: flex;
       align-items: center;
       justify-content: flex-end;
@@ -257,7 +257,7 @@
       flex-wrap: wrap;
     }
 
-    .table-actions label {
+    .table-actions label, .invoice-actions label {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -266,7 +266,7 @@
       font-weight: 800;
     }
 
-    .table-actions input {
+    .table-actions input, .invoice-actions input {
       width: 150px;
       min-height: 36px;
       padding: 6px 10px;
@@ -545,6 +545,27 @@
       word-break: break-all;
     }
 
+    .invoice-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .invoice-summary-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .invoice-summary-item strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 22px;
+      color: var(--blue);
+    }
+
     @media (max-width: 760px) {
       .page {
         width: calc(100% - 20px);
@@ -557,7 +578,7 @@
       }
 
       .user-area { justify-content: flex-start; }
-      .stats, .stats.four { grid-template-columns: 1fr; }
+      .stats, .stats.four, .invoice-summary { grid-template-columns: 1fr; }
       .tabs { overflow-x: auto; }
     }
   </style>
@@ -587,6 +608,7 @@
     <nav class="tabs">
       <button class="tab active" data-main-tab="members">メンバー一覧</button>
       <button class="tab" data-main-tab="detail">メンバー詳細</button>
+      <button class="tab" data-main-tab="invoices">請求書</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -660,6 +682,56 @@
         <div id="detailTableArea" class="section"></div>
       </div>
     </section>
+
+    <section id="invoicesSection" class="section hidden">
+      <h2>請求書</h2>
+
+      <div class="invoice-actions">
+        <label>
+          対象月
+          <input id="invoiceMonthInput" type="month" />
+        </label>
+        <button class="primary-btn" onclick="createInvoicesForMonth()">請求書作成</button>
+      </div>
+
+      <div class="invoice-summary">
+        <div class="invoice-summary-item">
+          メンバー
+          <strong id="invoiceMemberCount">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          請求書
+          <strong id="invoiceCount">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          検品料金
+          <strong id="invoiceInspectionTotal">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          合計
+          <strong id="invoiceGrandTotal">0</strong>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>対象月</th>
+              <th>管理番号</th>
+              <th>メンバー</th>
+              <th>件数</th>
+              <th>検品料金</th>
+              <th>発送料金</th>
+              <th>合計</th>
+              <th>明細</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceListBody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <div id="infoModalBackdrop" class="modal-backdrop">
@@ -712,6 +784,13 @@
     const GAS_WEB_APP_URL = "ここにApps ScriptのウェブアプリURLを入れてください";
     const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
 
+    const INSPECTION_PRICE_MAP = {
+      "検品+写真": 300,
+      "写真のみ": 200,
+      "検品のみ": 150,
+      "保管のみ": 0
+    };
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
@@ -728,6 +807,7 @@
 
     const membersSection = document.getElementById("membersSection");
     const detailSection = document.getElementById("detailSection");
+    const invoicesSection = document.getElementById("invoicesSection");
     const detailEmpty = document.getElementById("detailEmpty");
     const detailContent = document.getElementById("detailContent");
     const memberListBody = document.getElementById("memberListBody");
@@ -752,6 +832,13 @@
     const detailShippedCount = document.getElementById("detailShippedCount");
     const detailTableArea = document.getElementById("detailTableArea");
 
+    const invoiceMonthInput = document.getElementById("invoiceMonthInput");
+    const invoiceListBody = document.getElementById("invoiceListBody");
+    const invoiceMemberCount = document.getElementById("invoiceMemberCount");
+    const invoiceCount = document.getElementById("invoiceCount");
+    const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
+    const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
+
     const infoModalBackdrop = document.getElementById("infoModalBackdrop");
     const infoModalBody = document.getElementById("infoModalBody");
     const infoModalTitle = document.getElementById("infoModalTitle");
@@ -763,6 +850,7 @@
 
     let currentUser = null;
     let membersCache = [];
+    let invoicesCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -797,6 +885,7 @@
       if (!user) {
         currentUser = null;
         membersCache = [];
+        invoicesCache = {};
         selectedMemberUid = null;
         loginView.classList.remove("hidden");
         appView.classList.add("hidden");
@@ -825,6 +914,7 @@
           lastLoginAt: Date.now()
         });
 
+        setDefaultMonths();
         await loadAllData();
       } catch (error) {
         showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
@@ -836,15 +926,17 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
-          get(ref(db, "products"))
+          get(ref(db, "products")),
+          get(ref(db, "invoices"))
         ]);
 
         const membersRaw = membersSnap.val() || {};
         const usersRaw = usersSnap.val() || {};
         const productsRaw = productsSnap.val() || {};
+        invoicesCache = invoicesSnap.val() || {};
 
         membersCache = Object.keys(membersRaw)
           .filter((uid) => membersRaw[uid] === true)
@@ -878,9 +970,15 @@
 
         renderMembers();
         renderMemberDetail();
+        renderInvoices();
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
       }
+    }
+
+    function setDefaultMonths() {
+      const month = todayString().slice(0, 7);
+      invoiceMonthInput.value = month;
     }
 
     function sortProducts(a, b) {
@@ -955,6 +1053,7 @@
 
       membersSection.classList.toggle("hidden", tabName !== "members");
       detailSection.classList.toggle("hidden", tabName !== "detail");
+      invoicesSection.classList.toggle("hidden", tabName !== "invoices");
     }
 
     function setDetailView(view) {
@@ -1065,7 +1164,7 @@
     function exportControls() {
       if (detailView !== "stored" && detailView !== "shipped") return "";
 
-      const label = detailView === "stored" ? "保管商品をExcel出力" : "発送済みをExcel出力";
+      const label = detailView === "stored" ? "保管商品Excel出力" : "発送済Excel出力";
       return `
         <div class="table-actions">
           <label>対象月 <input id="exportMonth" type="month" /></label>
@@ -1610,6 +1709,183 @@
       return result;
     }
 
+    function renderInvoices() {
+      const month = invoiceMonthInput.value || todayString().slice(0, 7);
+      const invoices = [];
+
+      Object.entries(invoicesCache || {}).forEach(([uid, monthMap]) => {
+        const invoice = monthMap && monthMap[month];
+        if (invoice) invoices.push(invoice);
+      });
+
+      invoiceMemberCount.textContent = membersCache.length;
+      invoiceCount.textContent = invoices.length;
+      invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
+      invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
+
+      if (!invoices.length) {
+        invoiceListBody.innerHTML = `<tr><td colspan="9"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
+        return;
+      }
+
+      invoiceListBody.innerHTML = invoices
+        .sort((a, b) => String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja"))
+        .map((invoice) => `
+          <tr>
+            <td>${escapeHtml(invoice.month || "-")}</td>
+            <td>${escapeHtml(invoice.managementNumber || "-")}</td>
+            <td>
+              <div class="member-name">${escapeHtml(invoice.memberName || "-")}</div>
+              <div class="member-meta">${escapeHtml(invoice.email || "-")}</div>
+            </td>
+            <td>${Object.keys(invoice.items || {}).length}</td>
+            <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
+            <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
+            <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
+            <td><button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV(明細)</button></td>
+            <td><button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button></td>
+          </tr>
+        `).join("");
+    }
+
+    async function createInvoicesForMonth() {
+      hideError(appError);
+      const month = invoiceMonthInput.value;
+
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
+
+      const updates = {};
+      const now = Date.now();
+
+      membersCache.forEach((member) => {
+        const items = buildInvoiceItems(member, month);
+        if (!items.length) return;
+
+        const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+        const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+        const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+        const itemMap = {};
+        items.forEach((item) => {
+          itemMap[item.productId] = item;
+        });
+
+        updates[`invoices/${member.uid}/${month}`] = {
+          uid: member.uid,
+          memberName: member.name,
+          email: member.email,
+          managementNumber: member.managementNumber || "",
+          month,
+          status: "created",
+          createdAt: now,
+          createdBy: currentUser?.uid || "",
+          createdByEmail: currentUser?.email || "",
+          totalInspectionFee,
+          totalShippingFee,
+          grandTotal,
+          items: itemMap
+        };
+      });
+
+      try {
+        if (!Object.keys(updates).length) {
+          showError(appError, "対象月に請求対象の商品がありません。");
+          return;
+        }
+
+        await update(ref(db), updates);
+        await loadAllData();
+        setMainTab("invoices");
+      } catch (error) {
+        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    function buildInvoiceItems(member, month) {
+      return member.products
+        .map((product) => {
+          const inspectionInMonth = matchesMonth(product.shootingDate, month);
+          const shippingInMonth = matchesMonth(product.shippedDate, month);
+
+          if (!inspectionInMonth && !shippingInMonth) return null;
+
+          const inspectionFee = inspectionInMonth ? inspectionFeeFor(product.workRequest) : 0;
+          const shippingFee = shippingInMonth ? numberValue(product.shippingPrice) : 0;
+
+          return {
+            productId: product.id,
+            name: product.name || "",
+            numbering: product.numbering || "",
+            workRequest: product.workRequest || "",
+            inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
+            inspectionFee: inspectionInMonth ? inspectionFee : "-",
+            shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
+            shippingFee: shippingInMonth ? shippingFee : "-",
+            total: inspectionFee + shippingFee
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+    }
+
+    function inspectionFeeFor(workRequest) {
+      return Number(INSPECTION_PRICE_MAP[workRequest] ?? 0);
+    }
+
+    function numberValue(value) {
+      if (typeof value === "number") return value;
+      const cleaned = String(value || "").replace(/[^\d.-]/g, "");
+      return Number(cleaned || 0);
+    }
+
+    function downloadInvoiceCsv(uid, month) {
+      const invoice = invoicesCache?.[uid]?.[month];
+      if (!invoice) return;
+
+      const items = Object.values(invoice.items || {});
+      const rows = [
+        ["請求月", invoice.month || ""],
+        ["メンバー", invoice.memberName || ""],
+        ["管理番号", invoice.managementNumber || ""],
+        [],
+        ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+        ...items.map((item) => [
+          item.name || "",
+          item.numbering || "",
+          item.workRequest || "",
+          item.inspectionDate || "-",
+          item.inspectionFee ?? "-",
+          item.shippingDate || "-",
+          item.shippingFee ?? "-",
+          item.total || 0
+        ]),
+        [],
+        ["検品料金合計", invoice.totalInspectionFee || 0],
+        ["発送料金合計", invoice.totalShippingFee || 0],
+        ["合計", invoice.grandTotal || 0]
+      ];
+
+      downloadCsv(rows, `${invoice.memberName || uid}_${month}_ご利用明細.csv`);
+    }
+
+    async function deleteInvoice(uid, month) {
+      hideError(appError);
+
+      if (!confirm(`${month} の請求書を削除しますか？`)) return;
+
+      try {
+        await update(ref(db), {
+          [`invoices/${uid}/${month}`]: null
+        });
+        await loadAllData();
+      } catch (error) {
+        showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     function closeEditModal() {
       editModalBackdrop.classList.remove("show");
       editForm.innerHTML = "";
@@ -1695,6 +1971,11 @@
     window.openStatusEdit = openStatusEdit;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
+    window.createInvoicesForMonth = createInvoicesForMonth;
+    window.downloadInvoiceCsv = downloadInvoiceCsv;
+    window.deleteInvoice = deleteInvoice;
+
+    invoiceMonthInput.addEventListener("change", renderInvoices);
 
     function shippingSizeOptions(current) {
       const options = ["60", "80", "100", "120", "140", "海外発送"];
