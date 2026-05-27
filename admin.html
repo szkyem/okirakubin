@@ -1824,9 +1824,9 @@ async function createInvoiceForMember(member, month, showNoTargetError = true) {
     return false;
   }
 
-  const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
-  const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
-  const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const totalInspectionFee = items.reduce((sum, item) => sum + feeValue(item.inspectionFee), 0);
+  const totalShippingFee = items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0);
+  const grandTotal = items.reduce((sum, item) => sum + feeValue(item.total), 0);
 
   const itemMap = {};
   items.forEach((item) => {
@@ -1855,6 +1855,8 @@ async function createInvoiceForMember(member, month, showNoTargetError = true) {
 }
 
 function cleanForFirebase(value) {
+  if (typeof value === "number" && Number.isNaN(value)) return 0;
+
   if (value === undefined) return "";
 
   if (value === null) return null;
@@ -1874,6 +1876,16 @@ function cleanForFirebase(value) {
   }
 
   return value;
+}
+
+function feeValue(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const cleaned = String(value ?? "").replace(/[^\d.-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function buildInvoiceItems(member, month) {
