@@ -11,7 +11,7 @@
       --border: #d9dee8;
       --text: #0f172a;
       --muted: #64748b;
-      --white: #ffffff;
+      --white: #fff;
       --danger: #dc2626;
       --danger-bg: #fee2e2;
       --yellow: #fff2b8;
@@ -28,9 +28,7 @@
       --red-text: #b91c1c;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -40,17 +38,8 @@
       background: linear-gradient(135deg, #4f7df3 0%, #7551b8 100%);
     }
 
-    button,
-    input,
-    select,
-    textarea {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-      border: 0;
-    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; border: 0; }
 
     .page {
       width: min(1180px, calc(100% - 32px));
@@ -87,10 +76,7 @@
       line-height: 1.7;
     }
 
-    .primary-btn,
-    .secondary-btn,
-    .mini-btn,
-    .danger-btn {
+    .primary-btn, .secondary-btn, .mini-btn, .danger-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -132,9 +118,12 @@
       font-size: 13px;
     }
 
-    .hidden {
-      display: none !important;
+    .mini-btn.yellow {
+      background: var(--yellow);
+      color: var(--yellow-text);
     }
+
+    .hidden { display: none !important; }
 
     .error {
       margin-bottom: 18px;
@@ -202,9 +191,7 @@
       border-bottom-color: var(--blue);
     }
 
-    .section {
-      margin-top: 26px;
-    }
+    .section { margin-top: 26px; }
 
     .stats {
       display: grid;
@@ -213,9 +200,7 @@
       margin-top: 26px;
     }
 
-    .stats.four {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
+    .stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
     .stat-card {
       min-height: 114px;
@@ -225,9 +210,7 @@
       background: var(--white);
     }
 
-    .stat-card.clickable {
-      cursor: pointer;
-    }
+    .stat-card.clickable { cursor: pointer; }
 
     .stat-card.active-view {
       border-color: var(--blue);
@@ -258,9 +241,7 @@
       font-weight: 800;
     }
 
-    .stat-card.neutral-hi .stat-value {
-      color: #64748b;
-    }
+    .stat-card.neutral-hi .stat-value { color: #64748b; }
 
     h2 {
       margin: 28px 0 16px;
@@ -321,13 +302,8 @@
       font-size: 14px;
     }
 
-    .member-row {
-      cursor: pointer;
-    }
-
-    .member-row:hover {
-      background: #f8fbff;
-    }
+    .member-row { cursor: pointer; }
+    .member-row:hover { background: #f8fbff; }
 
     .member-name {
       font-weight: 800;
@@ -402,9 +378,7 @@
       font-weight: 700;
     }
 
-    .ship-badge,
-    .status-pill,
-    .preference-pill {
+    .ship-badge, .status-pill, .preference-pill {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -416,45 +390,15 @@
       white-space: nowrap;
     }
 
-    .ship-badge.domestic {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
+    .ship-badge.domestic { background: #dbeafe; color: #1d4ed8; }
+    .ship-badge.international { background: var(--green-soft); color: var(--green-text); }
+    .ship-badge.return { background: var(--red-soft); color: var(--red-text); }
+    .ship-badge.speedpak { background: var(--orange-soft); color: var(--orange-text); }
+    .ship-badge.none { background: #f1f5f9; color: #64748b; }
 
-    .ship-badge.international {
-      background: var(--green-soft);
-      color: var(--green-text);
-    }
-
-    .ship-badge.return {
-      background: var(--red-soft);
-      color: var(--red-text);
-    }
-
-    .ship-badge.speedpak {
-      background: var(--orange-soft);
-      color: var(--orange-text);
-    }
-
-    .ship-badge.none {
-      background: #f1f5f9;
-      color: #64748b;
-    }
-
-    .status-pill.yellow {
-      background: var(--yellow);
-      color: var(--yellow-text);
-    }
-
-    .status-pill.blue {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
-
-    .status-pill.gray {
-      background: #f1f5f9;
-      color: #64748b;
-    }
+    .status-pill.yellow { background: var(--yellow); color: var(--yellow-text); }
+    .status-pill.blue { background: #dbeafe; color: #1d4ed8; }
+    .status-pill.gray { background: #f1f5f9; color: #64748b; }
 
     .preference-pill.active {
       background: var(--yellow);
@@ -495,9 +439,7 @@
       background: rgba(15, 23, 42, 0.68);
     }
 
-    .modal-backdrop.show {
-      display: flex;
-    }
+    .modal-backdrop.show { display: flex; }
 
     .modal {
       width: min(760px, 100%);
@@ -508,9 +450,7 @@
       padding: 24px;
     }
 
-    .modal.wide {
-      width: min(920px, 100%);
-    }
+    .modal.wide { width: min(920px, 100%); }
 
     .modal-head {
       display: flex;
@@ -578,9 +518,7 @@
       font-size: 14px;
     }
 
-    input,
-    select,
-    textarea {
+    input, select, textarea {
       width: 100%;
       border: 1px solid #cbd5e1;
       border-radius: 7px;
@@ -613,24 +551,14 @@
         padding: 22px 12px 38px;
       }
 
-      .topbar,
-      .detail-header {
+      .topbar, .detail-header {
         align-items: stretch;
         flex-direction: column;
       }
 
-      .user-area {
-        justify-content: flex-start;
-      }
-
-      .stats,
-      .stats.four {
-        grid-template-columns: 1fr;
-      }
-
-      .tabs {
-        overflow-x: auto;
-      }
+      .user-area { justify-content: flex-start; }
+      .stats, .stats.four { grid-template-columns: 1fr; }
+      .tabs { overflow-x: auto; }
     }
   </style>
 </head>
@@ -781,7 +709,7 @@
 
     const databaseUrl = "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyE_73N7gEwKmFoxvY0Plwc9kxmdPQdASEcP7MesXwh9PZq3QUca_MpvrhYXT7QD1Ae/exec";
+    const GAS_WEB_APP_URL = "ここにApps ScriptのウェブアプリURLを入れてください";
     const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
 
     const app = initializeApp(firebaseConfig);
@@ -857,9 +785,7 @@
     });
 
     document.querySelectorAll("[data-main-tab]").forEach((button) => {
-      button.addEventListener("click", () => {
-        setMainTab(button.dataset.mainTab);
-      });
+      button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
     });
 
     editModalCloseBtn.addEventListener("click", closeEditModal);
@@ -958,9 +884,7 @@
     }
 
     function sortProducts(a, b) {
-      const aNumber = String(a.numbering || "");
-      const bNumber = String(b.numbering || "");
-      const numberCompare = aNumber.localeCompare(bNumber, "ja", { numeric: true });
+      const numberCompare = String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
       if (numberCompare !== 0) return numberCompare;
       return Number(a.createdAt || 0) - Number(b.createdAt || 0);
     }
@@ -982,21 +906,12 @@
     }
 
     function renderMembers() {
-      const registeredCount = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
-      const unshippedCount = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
-
       totalMembers.textContent = membersCache.length;
-      totalRegistered.textContent = registeredCount;
-      totalUnshipped.textContent = unshippedCount;
+      totalRegistered.textContent = membersCache.reduce((sum, member) => sum + member.registeredProducts.length, 0);
+      totalUnshipped.textContent = membersCache.reduce((sum, member) => sum + member.unshippedProducts.length, 0);
 
       if (!membersCache.length) {
-        memberListBody.innerHTML = `
-          <tr>
-            <td colspan="7">
-              <div class="empty">メンバーが登録されていません。</div>
-            </td>
-          </tr>
-        `;
+        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">メンバーが登録されていません。</div></td></tr>`;
         return;
       }
 
@@ -1023,8 +938,7 @@
     }
 
     function countPill(value, type) {
-      const className = value > 0 ? type : "";
-      return `<span class="count-pill ${className}">${value}</span>`;
+      return `<span class="count-pill ${value > 0 ? type : ""}">${value}</span>`;
     }
 
     function selectMember(uid) {
@@ -1083,12 +997,8 @@
 
     function setStatCard(card, value, type, active) {
       card.classList.remove("issue", "neutral-hi", "active-view");
-      if (value > 0) {
-        card.classList.add(type);
-      }
-      if (active) {
-        card.classList.add("active-view");
-      }
+      if (value > 0) card.classList.add(type);
+      if (active) card.classList.add("active-view");
     }
 
     function getDetailProducts(member) {
@@ -1109,17 +1019,7 @@
           ${exportControls()}
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>発送</th>
-                  <th>商品名</th>
-                  <th>ナンバリング</th>
-                  <th>作業依頼</th>
-                  <th>情報</th>
-                  <th>こだわり欄</th>
-                  <th>写真撮影日</th>
-                </tr>
-              </thead>
+              <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>こだわり欄</th><th>写真撮影日</th></tr></thead>
               <tbody>${products.map(storedProductRow).join("")}</tbody>
             </table>
           </div>
@@ -1131,17 +1031,7 @@
         detailTableArea.innerHTML = `
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>発送</th>
-                  <th>商品名</th>
-                  <th>ナンバリング</th>
-                  <th>作業依頼</th>
-                  <th>情報</th>
-                  <th>発送情報</th>
-                  <th>状態</th>
-                </tr>
-              </thead>
+              <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>発送情報</th><th>状態</th></tr></thead>
               <tbody>${products.map(unshippedProductRow).join("")}</tbody>
             </table>
           </div>
@@ -1154,16 +1044,7 @@
           ${exportControls()}
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>商品名</th>
-                  <th>ナンバリング</th>
-                  <th>作業依頼</th>
-                  <th>情報</th>
-                  <th>発送情報</th>
-                  <th>状態</th>
-                </tr>
-              </thead>
+              <thead><tr><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>発送情報</th><th>状態</th></tr></thead>
               <tbody>${products.map(shippedProductRow).join("")}</tbody>
             </table>
           </div>
@@ -1174,17 +1055,7 @@
       detailTableArea.innerHTML = `
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>発送</th>
-                <th>商品名</th>
-                <th>ナンバリング</th>
-                <th>作業依頼</th>
-                <th>情報</th>
-                <th>こだわり欄</th>
-                <th>状態</th>
-              </tr>
-            </thead>
+            <thead><tr><th>発送</th><th>商品名</th><th>ナンバリング</th><th>作業依頼</th><th>情報</th><th>こだわり欄</th><th>状態</th></tr></thead>
             <tbody>${products.map(registeredProductRow).join("")}</tbody>
           </table>
         </div>
@@ -1197,10 +1068,7 @@
       const label = detailView === "stored" ? "保管商品をExcel出力" : "発送済みをExcel出力";
       return `
         <div class="table-actions">
-          <label>
-            対象月
-            <input id="exportMonth" type="month" />
-          </label>
+          <label>対象月 <input id="exportMonth" type="month" /></label>
           <button class="primary-btn" onclick="exportCurrentDetailCsv()">${label}</button>
         </div>
       `;
@@ -1273,9 +1141,7 @@
         "SpeedPAK": ["SpeedPAK", "speedpak"]
       };
 
-      if (!hasValue(value)) {
-        return `<span class="ship-badge none">なし</span>`;
-      }
+      if (!hasValue(value)) return `<span class="ship-badge none">なし</span>`;
 
       const [label, className] = map[value] || [value, "none"];
       return `<span class="ship-badge ${className}">${escapeHtml(label)}</span>`;
@@ -1295,10 +1161,7 @@
 
     function shippingStatusText(product) {
       if (product.shippingStatus === "shipped") {
-        return `
-          <span class="status-pill blue">発送済み</span>
-          <span class="shipped-date">${escapeHtml(product.shippedDate || "-")}</span>
-        `;
+        return `<span class="status-pill blue">発送済み</span><span class="shipped-date">${escapeHtml(product.shippedDate || "-")}</span>`;
       }
 
       if (hasValue(product.shippingRequest)) {
@@ -1356,6 +1219,10 @@
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
             <div class="info-label">保管場所</div>
             <div class="info-value">${linkOrDash(product.storageLocation || product.folderUrl)}</div>
+            <div class="info-label"></div>
+            <div class="info-value">
+              <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+            </div>
             <div class="info-label">写真撮影日</div>
             <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
             <div class="info-label">フォルダ状態</div>
@@ -1461,8 +1328,6 @@
       infoModalBackdrop.classList.remove("show");
       infoModalBody.innerHTML = "";
     }
-
-    window.closeInfoModal = closeInfoModal;
 
     function openMemberManagementEdit(uid) {
       const member = findMember(uid);
@@ -1657,6 +1522,67 @@
       }
     });
 
+    async function createStorageFolderFromInfo(uid, productId) {
+      hideError(appError);
+
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+      if (!product || !member) return;
+
+      const folderName = makeFolderName(product.numbering, product.name);
+
+      if (!hasValue(member.driveBaseUrl)) {
+        showError(appError, "Google Drive URL置き場が未設定です。メンバー一覧の管理番号編集から設定してください。");
+        return;
+      }
+
+      if (!folderName) {
+        showError(appError, "商品名またはナンバリングが不足しているため、フォルダ名を作成できません。");
+        return;
+      }
+
+      try {
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "processing",
+          folderError: "",
+          updatedAt: Date.now()
+        });
+
+        const result = await createDriveFolderWithGas(member.driveBaseUrl, folderName);
+        const folderUrl = result.folderUrl || "";
+
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          folderUrl,
+          storageLocation: folderUrl,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "created",
+          folderCreatedAt: Date.now(),
+          folderError: "",
+          updatedAt: Date.now()
+        });
+
+        await loadAllData();
+        openInfoModal(uid, productId);
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "error",
+          folderError: message,
+          updatedAt: Date.now()
+        });
+
+        showError(appError, `保管場所の作成に失敗しました。${message}`);
+        await loadAllData();
+        openInfoModal(uid, productId);
+      }
+    }
+
     async function createDriveFolderWithGas(driveBaseUrl, folderName) {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
         throw new Error("GAS_WEB_APP_URLが未設定です。");
@@ -1768,6 +1694,7 @@
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
+    window.createStorageFolderFromInfo = createStorageFolderFromInfo;
 
     function shippingSizeOptions(current) {
       const options = ["60", "80", "100", "120", "140", "海外発送"];
@@ -1786,8 +1713,7 @@
     }
 
     function makeFolderName(numbering, name) {
-      const raw = `${numbering || ""}_${name || ""}`;
-      return sanitizeName(raw);
+      return sanitizeName(`${numbering || ""}_${name || ""}`);
     }
 
     function sanitizeName(value) {
