@@ -641,6 +641,21 @@
       word-break: break-word;
     }
 
+    .announcement-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .storage-action-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     @media (max-width: 760px) {
       .page {
         width: calc(100% - 20px);
@@ -1040,7 +1055,7 @@
           get(ref(db, "products")),
           get(ref(db, "invoices")),
           get(ref(db, "announcements")),
-          get(ref(db, "memberSettings"))
+          get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) }))
         ]);
 
         const membersRaw = membersSnap.val() || {};
@@ -1477,11 +1492,11 @@
             <div class="info-label">予想サイズ</div>
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
 
-            <div class="info-label"></div>
+            <div class="info-label">保管場所作成</div>
             <div class="info-value">
-              ${linkOrDash(product.storageLocation || product.folderUrl)}
-              <div style="margin-top:10px;">
-                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+              <div class="storage-action-row">
+                ${linkOrDash(product.storageLocation || product.folderUrl)}
+                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">作成</button>
               </div>
             </div>
 
@@ -1735,6 +1750,15 @@
           });
         }
 
+        if (activeEdit.type === "announcement") {
+          await update(ref(db, `announcements/${activeEdit.id}`), {
+            message: getFormValue(formData, "message"),
+            updatedAt: now,
+            updatedBy: currentUser?.uid || "",
+            updatedByEmail: currentUser?.email || ""
+          });
+        }
+
         const finishedEdit = { ...activeEdit };
         closeEditModal();
         await loadAllData();
@@ -1745,6 +1769,10 @@
 
         if (finishedEdit.type === "status") {
           openShippingInfo(finishedEdit.uid, finishedEdit.productId);
+        }
+
+        if (finishedEdit.type === "announcement") {
+          setMainTab("announcements");
         }
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -2103,10 +2131,37 @@ function buildInvoiceItems(member, month) {
 
       announcementList.innerHTML = announcements.map((item) => `
         <article class="announcement-card">
-          <div class="announcement-date">${escapeHtml(formatDateOnly(item.createdAt))}</div>
+          <div class="announcement-head">
+            <div class="announcement-date">${escapeHtml(formatDateOnly(item.createdAt))}</div>
+            <button class="mini-btn" onclick="openAnnouncementEdit('${escapeAttr(item.id)}')">編集</button>
+          </div>
           <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
         </article>
       `).join("");
+    }
+
+    function openAnnouncementEdit(id) {
+      const announcement = announcementsCache?.[id];
+      if (!announcement) return;
+
+      activeEdit = { type: "announcement", id };
+
+      editModalTitle.textContent = "お知らせを編集";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            アナウンス内容
+            <textarea name="message">${escapeHtml(announcement.message || "")}</textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
     }
 
     async function publishAnnouncement() {
@@ -2230,6 +2285,7 @@ function buildInvoiceItems(member, month) {
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.deleteInvoice = deleteInvoice;
     window.publishAnnouncement = publishAnnouncement;
+    window.openAnnouncementEdit = openAnnouncementEdit;
 
     invoiceMonthInput.addEventListener("change", renderInvoices);
 
