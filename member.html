@@ -95,7 +95,45 @@ textarea{min-height:88px;resize:vertical}
 .announcement-message{font-weight:700;line-height:1.7;white-space:pre-wrap}
 .inline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .inquiry-box{display:flex;align-items:center;gap:8px;white-space:nowrap}
-@media(max-width:700px){body{padding:12px;overflow-x:auto}.container{min-width:1120px;padding:28px}.login-container{padding:24px}.header{align-items:center;flex-direction:row}.logout{width:auto}.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ship-filter-btn{min-width:160px}.bulk-action-bar{grid-template-columns:repeat(3,1fr)}.detail-grid{grid-template-columns:130px 1fr}.modal{min-width:720px}}
+@media(max-width:700px){
+  body{padding:10px;font-size:14px;overflow-x:hidden}
+  .container,.login-container{width:100%;padding:18px;border-radius:8px}
+  .login-container{margin:42px auto}
+  .title,.login-title{font-size:24px}
+  .header{align-items:stretch;flex-direction:column;gap:12px;margin-bottom:18px}
+  .user{align-items:stretch;flex-direction:column;gap:8px}
+  .badge{width:max-content}
+  .logout{width:100%}
+  .tabs{gap:4px;overflow-x:auto;flex-wrap:nowrap;margin-bottom:18px}
+  .tab{min-width:96px;padding:9px 8px;font-size:13px;white-space:nowrap}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .stat{padding:14px}
+  .stat-value{font-size:26px}
+  .form{padding:14px}
+  .form-header{align-items:stretch;flex-direction:column}
+  .form-header button{width:100%}
+  .product-entry{padding:14px}
+  .product-entry-head{align-items:stretch;flex-direction:column}
+  .form-grid{grid-template-columns:1fr;gap:10px}
+  .form-group.full{grid-column:auto}
+  input,textarea,select{font-size:16px}
+  .ship-filter{justify-content:flex-start;overflow-x:auto}
+  .ship-filter-btn{min-width:132px;padding:9px 10px;font-size:13px}
+  .table-wrap{overflow-x:auto}
+  .products-table{min-width:760px}
+  .products-table th,.products-table td{padding:9px 10px;font-size:13px}
+  .bulk-action-bar{grid-template-columns:1fr;position:static}
+  .bulk-btn{padding:14px 10px;font-size:14px}
+  .modal-backdrop{align-items:flex-start;padding:10px}
+  .modal{width:100%;max-width:none;min-width:0;max-height:calc(100vh - 20px);padding:16px}
+  .modal-head{align-items:stretch;flex-direction:column}
+  .modal-title{font-size:18px}
+  .detail-heading{align-items:stretch;flex-direction:column}
+  .detail-grid{grid-template-columns:1fr;gap:4px}
+  .detail-label{margin-top:8px}
+  .origin-card-head{align-items:stretch;flex-direction:column}
+  button{min-height:40px}
+}
 </style>
 </head>
 <body>
