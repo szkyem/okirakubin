@@ -1432,7 +1432,7 @@
           <div class="info-box-title">
             <span>発送先</span>
           </div>
-          <div class="info-value">${escapeHtml(product.shippingDestination || "-")}</div>
+          <div class="info-value">${formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">
@@ -1440,7 +1440,7 @@
             <span>発送元</span>
             <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
           </div>
-          <div class="info-value">${escapeHtml(product.shippingOrigin || "-")}</div>
+          <div class="info-value">${formatShippingInfo(product.shippingOrigin)}</div>
         </div>
       `;
 
@@ -2092,6 +2092,41 @@ function buildInvoiceItems(member, month) {
 
     function getFormValue(formData, key) {
       return String(formData.get(key) || "").trim();
+    }
+
+    function formatShippingInfo(value) {
+      if (!hasValue(value)) return "-";
+
+      if (typeof value !== "object") {
+        return escapeHtml(value);
+      }
+
+      const labelMap = {
+        name: "宛名",
+        recipientName: "宛名",
+        postalCode: "郵便番号",
+        zip: "郵便番号",
+        prefecture: "都道府県",
+        address: "住所",
+        address1: "住所",
+        address2: "建物名など",
+        building: "建物名など",
+        company: "会社名など",
+        phone: "電話番号",
+        phoneNumber: "電話番号",
+        deliveryDate: "配送希望日",
+        deliveryTime: "配送希望時間",
+        note: "備考"
+      };
+
+      const rows = Object.entries(value)
+        .filter(([, item]) => hasValue(item))
+        .map(([key, item]) => {
+          const label = labelMap[key] || key;
+          return `${escapeHtml(label)}：${escapeHtml(item)}`;
+        });
+
+      return rows.length ? rows.join("<br>") : "-";
     }
 
     function linkOrDash(value) {
