@@ -89,6 +89,12 @@ textarea{min-height:88px;resize:vertical}
 .modal-form{display:grid;gap:14px}
 .modal-section-title{background:#eaf2ff;color:#1d4ed8;font-weight:800;padding:9px 12px;margin:8px 0}
 .required{display:inline-block;background:#ef4444;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px}
+.announcement-list{display:grid;gap:12px}
+.announcement-card{border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;padding:14px}
+.announcement-date{color:#6b7280;font-size:12px;font-weight:800;margin-bottom:6px}
+.announcement-message{font-weight:700;line-height:1.7;white-space:pre-wrap}
+.inline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inquiry-box{display:flex;align-items:center;gap:8px;white-space:nowrap}
 @media(max-width:700px){body{padding:16px}.container,.login-container{padding:24px}.header{align-items:stretch;flex-direction:column}.logout{width:100%}.form-grid{grid-template-columns:1fr}.ship-filter-btn{min-width:120px}.bulk-action-bar{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -114,7 +120,7 @@ textarea{min-height:88px;resize:vertical}
   </header>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="overview" type="button">概要</button>
+    <button class="tab active" data-tab="overview" type="button">トップ</button>
     <button class="tab" data-tab="register" type="button">商品登録</button>
     <button class="tab" data-tab="stored" type="button">保管商品</button>
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
@@ -129,8 +135,8 @@ textarea{min-height:88px;resize:vertical}
       <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
 
-    <h2 style="margin-bottom:16px;">最近の商品</h2>
-    <div id="recentProducts"></div>
+    <h2 style="margin-bottom:16px;">最近のお知らせ</h2>
+    <div id="recentAnnouncements"></div>
   </section>
 
   <section class="section" id="register">
@@ -151,8 +157,8 @@ textarea{min-height:88px;resize:vertical}
     <h2 style="margin-bottom:16px;">保管商品</h2>
 
     <div class="ship-filter">
-      <button class="ship-filter-btn active" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
-      <button class="ship-filter-btn" id="storedFilterBtn" type="button">保管商品</button>
+      <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
+      <button class="ship-filter-btn" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
     </div>
 
     <div id="storedList"></div>
@@ -348,8 +354,9 @@ const database = getDatabase(
 let currentUser = null;
 let productsCache = [];
 let originsCache = [];
+let announcementsCache = [];
 let entryCount = 0;
-let storedView = "registered";
+let storedView = "stored";
 let shippingView = "unshipped";
 let selectedProductIds = new Set();
 
@@ -417,7 +424,7 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUser = user;
 
-    await set(ref(database, `loginUsers/${user.uid}`), {
+    await update(ref(database, `loginUsers/${user.uid}`), {
       uid: user.uid,
       name: user.displayName || "",
       email: user.email || "",
@@ -483,8 +490,8 @@ productForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  if (payloads.some((item) => !item.name)) {
-    showError("商品名は必須です。");
+  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest)) {
+    showError("商品名、ナンバリング、作業依頼は必須です。");
     return;
   }
 
@@ -763,17 +770,18 @@ function addProductEntry() {
     <div class="form-grid">
       <div class="form-group">
         <label>商品名 *</label>
-        <input type="text" data-field="name" placeholder="例：SONY SEL1855">
+        <input type="text" data-field="name" required placeholder="例：SONY SEL1855">
       </div>
 
       <div class="form-group">
-        <label>ナンバリング</label>
-        <input type="text" data-field="numbering" placeholder="例：20250525">
+        <label>ナンバリング *</label>
+        <input type="text" data-field="numbering" required placeholder="例：20250525">
       </div>
 
       <div class="form-group">
-        <label>作業依頼</label>
-        <select data-field="workRequest">
+        <label>作業依頼 *</label>
+        <select data-field="workRequest" required>
+          <option value="">選択してください</option>
           <option value="検品+写真">検品+写真</option>
           <option value="写真のみ">写真のみ</option>
           <option value="検品のみ">検品のみ</option>
