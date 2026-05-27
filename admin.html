@@ -1078,7 +1078,6 @@
             <table>
               <thead>
                 <tr>
-                  <th>発送</th>
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
@@ -1090,7 +1089,6 @@
               <tbody>
                 ${products.map((product) => `
                   <tr>
-                    <td>${shippingBadge(product.shippingRequest)}</td>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -1119,7 +1117,6 @@
             <table>
               <thead>
                 <tr>
-                  <th>発送</th>
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
@@ -1131,7 +1128,6 @@
               <tbody>
                 ${products.map((product) => `
                   <tr>
-                    <td>${shippingBadge(product.shippingRequest)}</td>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -1381,7 +1377,7 @@
             <div class="info-value">
               ${linkOrDash(product.storageLocation || product.folderUrl)}
               <div style="margin-top:10px;">
-                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">作成</button>
               </div>
             </div>
 
@@ -2103,6 +2099,7 @@ function buildInvoiceItems(member, month) {
 
       const labelMap = {
         name: "宛名",
+        senderName: "宛名",
         recipientName: "宛名",
         postalCode: "郵便番号",
         zip: "郵便番号",
@@ -2120,7 +2117,7 @@ function buildInvoiceItems(member, month) {
       };
 
       const rows = Object.entries(value)
-        .filter(([, item]) => hasValue(item))
+        .filter(([key, item]) => key !== "updatedAt" && hasValue(item))
         .map(([key, item]) => {
           const label = labelMap[key] || key;
           return `${escapeHtml(label)}：${escapeHtml(item)}`;
