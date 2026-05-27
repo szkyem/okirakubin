@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -763,22 +763,21 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  get,
-  update,
-  remove,
-  set
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getDatabase,
       ref,
       get,
       update,
-      remove
+      remove,
+      set
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
-
     const firebaseConfig = {
       apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
       authDomain: "okirakubin-manager.firebaseapp.com",
@@ -2138,3 +2137,6 @@ function buildInvoiceItems(member, month) {
   </script>
 </body>
 </html>
+
+
+
