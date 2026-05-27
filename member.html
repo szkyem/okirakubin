@@ -163,6 +163,7 @@ textarea{min-height:88px;resize:vertical}
     <button class="tab" data-tab="stored" type="button">保管商品</button>
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
+    <button class="tab" data-tab="invoices" type="button">請求書DL</button>
   </nav>
 
   <section class="section show" id="overview">
@@ -263,6 +264,11 @@ textarea{min-height:88px;resize:vertical}
     </div>
 
     <div class="origin-list" id="originList"></div>
+  </section>
+
+  <section class="section" id="invoices">
+    <h2 style="margin-bottom:16px;">請求書ダウンロード</h2>
+    <div id="invoiceList"></div>
   </section>
 </div>
 
@@ -393,6 +399,7 @@ let currentUser = null;
 let productsCache = [];
 let originsCache = [];
 let announcementsCache = [];
+let invoicesCache = {};
 let entryCount = 0;
 let storedView = "stored";
 let shippingView = "unshipped";
@@ -423,6 +430,7 @@ const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
 const originForm = document.getElementById("originForm");
 const clearOriginBtn = document.getElementById("clearOriginBtn");
+const invoiceList = document.getElementById("invoiceList");
 
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
@@ -524,7 +532,7 @@ productForm.addEventListener("submit", async (event) => {
       note: entry.querySelector('[data-field="note"]').value.trim(),
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
     };
-  }).filter((item) => item.name || item.numbering || item.note || item.purchaseUrl);
+  }).filter((item) => item.name || item.numbering || item.note || item.purchaseUrl || item.optionVideo || item.optionThanksCard || item.optionComment);
 
   if (!payloads.length) {
     showError("登録する商品を入力してください。");
@@ -552,6 +560,12 @@ productForm.addEventListener("submit", async (event) => {
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
         optionComment: item.optionComment,
+        options: {
+          video: item.optionVideo,
+          thanksCard: item.optionThanksCard,
+          comment: item.optionComment
+        },
+        optionLabels: optionLabelsFromValues(item.optionVideo, item.optionThanksCard),
         note: item.note,
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
@@ -708,6 +722,7 @@ async function loadData() {
     const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
     const originsSnapshot = await get(ref(database, `shippingOrigins/${currentUser.uid}`));
     const announcementsSnapshot = await get(ref(database, "announcements"));
+    const invoicesSnapshot = await get(ref(database, `invoices/${currentUser.uid}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     productsCache = productsSnapshot.exists()
       ? Object.values(productsSnapshot.val()).sort((a, b) => {
@@ -725,6 +740,8 @@ async function loadData() {
       ? Object.values(announcementsSnapshot.val()).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
       : [];
 
+    invoicesCache = invoicesSnapshot.exists() ? invoicesSnapshot.val() : {};
+
     const registeredProducts = getRegisteredProducts();
     const storedProducts = getStoredProducts();
     const selectableIds = new Set(storedProducts.map((product) => product.id));
@@ -740,6 +757,7 @@ async function loadData() {
     renderStoredList();
     renderShippingList();
     renderOriginList();
+    renderInvoiceList();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
@@ -798,6 +816,45 @@ function renderOriginList() {
   originSelect.innerHTML = originsCache.length
     ? `<option value="">選択してください</option>${originsCache.map((origin) => `<option value="${escapeAttr(origin.id)}">${escapeHtml(originLabel(origin))}</option>`).join("")}`
     : `<option value="">発送元を先に登録してください</option>`;
+}
+
+function renderInvoiceList() {
+  const invoices = Object.values(invoicesCache || {})
+    .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
+
+  if (!invoices.length) {
+    invoiceList.innerHTML = emptyHtml("ダウンロードできる請求書はありません");
+    return;
+  }
+
+  invoiceList.innerHTML = `
+    <div class="table-wrap">
+      <table class="products-table">
+        <thead>
+          <tr>
+            <th>対象月</th>
+            <th>件数</th>
+            <th>検品料金</th>
+            <th>発送料金</th>
+            <th>合計</th>
+            <th>ダウンロード</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoices.map((invoice) => `
+            <tr>
+              <td>${escapeHtml(invoice.month || "-")}</td>
+              <td>${Object.keys(invoice.items || {}).length}</td>
+              <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
+              <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
+              <td>${escapeHtml(invoice.grandTotal || 0)}</td>
+              <td><button class="secondary compact-btn" type="button" onclick="downloadInvoiceCsv('${escapeAttr(invoice.month || "")}')">CSV</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function resetEntries() {
@@ -969,6 +1026,13 @@ function recentAnnouncementsHtml() {
   `;
 }
 
+function optionLabelsFromValues(optionVideo, optionThanksCard) {
+  const labels = [];
+  if (isOptionEnabled(optionVideo)) labels.push("動画撮影");
+  if (isOptionEnabled(optionThanksCard)) labels.push("Thanksカード同梱");
+  return labels;
+}
+
 function originCard(origin) {
   return `
     <div class="origin-card">
@@ -1001,8 +1065,16 @@ function canEditProduct(product) {
 
 function optionSummary(product) {
   const options = [];
-  if (isOptionEnabled(product.optionVideo)) options.push("動画撮影");
-  if (isOptionEnabled(product.optionThanksCard)) options.push("Thanksカード同梱");
+  const optionObject = product.options || {};
+  const optionLabels = Array.isArray(product.optionLabels) ? product.optionLabels : [];
+
+  if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
+  if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
+
+  optionLabels.forEach((label) => {
+    if (label && !options.includes(label)) options.push(label);
+  });
+
   return options.length ? options.join("、") : "-";
 }
 
@@ -1174,6 +1246,13 @@ window.saveProductEdit = async function(event, productId) {
     return;
   }
 
+  data.options = {
+    video: data.optionVideo,
+    thanksCard: data.optionThanksCard,
+    comment: data.optionComment
+  };
+  data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard);
+
   try {
     await update(ref(database, `products/${currentUser.uid}/${productId}`), data);
     closeModal();
@@ -1248,6 +1327,36 @@ window.sendProductInquiry = async function(event, productId) {
     console.error(error);
     showError("お問い合わせの送信に失敗しました。Realtime Databaseのルールを確認してください。");
   }
+};
+
+window.downloadInvoiceCsv = function(month) {
+  const invoice = invoicesCache?.[month];
+  if (!invoice) return;
+
+  const items = Object.values(invoice.items || {});
+  const rows = [
+    ["請求月", invoice.month || ""],
+    ["会員", invoice.memberName || ""],
+    ["管理番号", invoice.managementNumber || ""],
+    [],
+    ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+    ...items.map((item) => [
+      item.name || "",
+      item.numbering || "",
+      item.workRequest || "",
+      item.inspectionDate || "-",
+      item.inspectionFee ?? "-",
+      item.shippingDate || "-",
+      item.shippingFee ?? "-",
+      item.total || 0
+    ]),
+    [],
+    ["検品料金合計", invoice.totalInspectionFee || 0],
+    ["発送料金合計", invoice.totalShippingFee || 0],
+    ["合計", invoice.grandTotal || 0]
+  ];
+
+  downloadCsv(rows, `${invoice.memberName || "会員"}_${month}_請求書.csv`);
 };
 
 function productDetailHtml(product) {
@@ -1359,6 +1468,23 @@ function showAppUI(user) {
 
 function emptyHtml(message) {
   return `<div class="empty"><h3>${escapeHtml(message)}</h3></div>`;
+}
+
+function downloadCsv(rows, filename) {
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 function showLoginError(message) {
