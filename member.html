@@ -217,6 +217,9 @@ textarea{min-height:88px;resize:vertical}
       <button class="ship-filter-btn active" id="unshippedFilterBtn" type="button">未発送</button>
       <button class="ship-filter-btn" id="shippedFilterBtn" type="button">発送済み</button>
     </div>
+    <div class="section-tools">
+      <input id="shippingSearchInput" class="section-search" type="search" placeholder="商品名・ナンバリングで検索">
+    </div>
     <div id="shippingList"></div>
   </section>
 
@@ -437,6 +440,7 @@ const storedFilterBtn = document.getElementById("storedFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
+const shippingSearchInput = document.getElementById("shippingSearchInput");
 const originForm = document.getElementById("originForm");
 const clearOriginBtn = document.getElementById("clearOriginBtn");
 const invoiceList = document.getElementById("invoiceList");
@@ -522,6 +526,8 @@ shippedFilterBtn.addEventListener("click", () => {
   renderShippingList();
 });
 
+shippingSearchInput.addEventListener("input", renderShippingList);
+
 productForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
@@ -537,6 +543,8 @@ productForm.addEventListener("submit", async (event) => {
       name: entry.querySelector('[data-field="name"]').value.trim(),
       numbering: entry.querySelector('[data-field="numbering"]').value.trim(),
       workRequest: entry.querySelector('[data-field="workRequest"]').value,
+      bodyCount: entry.querySelector('[data-field="bodyCount"]').value.trim(),
+      lensCount: entry.querySelector('[data-field="lensCount"]').value.trim(),
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
@@ -550,8 +558,8 @@ productForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest)) {
-    showError("商品名、ナンバリング、作業依頼は必須です。");
+  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount)) {
+    showError("商品名、ナンバリング、作業依頼、ボディ本数、レンズ本数は必須です。");
     return;
   }
 
@@ -568,6 +576,8 @@ productForm.addEventListener("submit", async (event) => {
         name: item.name,
         numbering: item.numbering,
         workRequest: item.workRequest,
+        bodyCount: item.bodyCount,
+        lensCount: item.lensCount,
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
         optionComment: item.optionComment,
@@ -811,16 +821,21 @@ function renderShippingList() {
   unshippedFilterBtn.classList.toggle("active", shippingView === "unshipped");
   shippedFilterBtn.classList.toggle("active", shippingView === "shipped");
 
+  const searchKeyword = normalizeSearch(shippingSearchInput.value);
   const filtered = productsCache
     .filter((product) => {
       if (!hasValue(product.shippingRequest)) return false;
       if (shippingView === "shipped") return product.shippingStatus === "shipped";
       return product.shippingStatus !== "shipped";
     })
+    .filter((product) => {
+      if (!searchKeyword) return true;
+      return normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword);
+    })
     .sort((a, b) => sortByShippingDateAndNumbering(a, b));
 
   document.getElementById("shippingList").innerHTML =
-    filtered.length ? productTable(filtered, { mode: "shipping" }) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
+    filtered.length ? productTable(filtered, { mode: "shipping" }) : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : (shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません"));
 }
 
 function renderOriginList() {
@@ -848,22 +863,16 @@ function renderInvoiceList() {
         <thead>
           <tr>
             <th>対象月</th>
-            <th>件数</th>
-            <th>検品料金</th>
-            <th>発送料金</th>
-            <th>合計</th>
-            <th>ダウンロード</th>
+            <th>CSV</th>
+            <th>PDF</th>
           </tr>
         </thead>
         <tbody>
           ${invoices.map((invoice) => `
             <tr>
               <td>${escapeHtml(invoice.month || "-")}</td>
-              <td>${Object.keys(invoice.items || {}).length}</td>
-              <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
-              <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
-              <td>${escapeHtml(invoice.grandTotal || 0)}</td>
               <td><button class="secondary compact-btn" type="button" onclick="downloadInvoiceCsv('${escapeAttr(invoice.month || "")}')">CSV</button></td>
+              <td><button class="secondary compact-btn" type="button" onclick="downloadInvoicePdf('${escapeAttr(invoice.month || "")}')">PDF</button></td>
             </tr>
           `).join("")}
         </tbody>
@@ -909,6 +918,16 @@ function addProductEntry() {
           <option value="検品のみ">検品のみ</option>
           <option value="保管のみ">保管のみ</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label>ボディ本数 *</label>
+        <input type="number" min="0" step="1" data-field="bodyCount" required placeholder="例：1">
+      </div>
+
+      <div class="form-group">
+        <label>レンズ本数 *</label>
+        <input type="number" min="0" step="1" data-field="lensCount" required placeholder="例：2">
       </div>
 
       <div class="form-group">
@@ -1216,6 +1235,16 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group">
+          <label>ボディ本数 <span class="required">必須</span></label>
+          <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}">
+        </div>
+
+        <div class="form-group">
+          <label>レンズ本数 <span class="required">必須</span></label>
+          <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}">
+        </div>
+
+        <div class="form-group">
           <label>購入先URL</label>
           <input name="purchaseUrl" type="url" value="${escapeAttr(product.purchaseUrl || "")}">
         </div>
@@ -1253,6 +1282,8 @@ window.saveProductEdit = async function(event, productId) {
     name: String(formData.get("name") || "").trim(),
     numbering: String(formData.get("numbering") || "").trim(),
     workRequest: String(formData.get("workRequest") || "").trim(),
+    bodyCount: String(formData.get("bodyCount") || "").trim(),
+    lensCount: String(formData.get("lensCount") || "").trim(),
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
     optionComment: String(formData.get("optionComment") || "").trim(),
@@ -1261,8 +1292,8 @@ window.saveProductEdit = async function(event, productId) {
     updatedAt: Date.now()
   };
 
-  if (!data.name || !data.numbering || !data.workRequest) {
-    showError("商品名、ナンバリング、作業依頼は必須です。");
+  if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount) {
+    showError("商品名、ナンバリング、作業依頼、ボディ本数、レンズ本数は必須です。");
     return;
   }
 
@@ -1379,6 +1410,75 @@ window.downloadInvoiceCsv = function(month) {
   downloadCsv(rows, `${invoice.memberName || "会員"}_${month}_請求書.csv`);
 };
 
+window.downloadInvoicePdf = function(month) {
+  const invoice = invoicesCache?.[month];
+  if (!invoice) return;
+
+  const items = Object.values(invoice.items || {});
+  const rowsHtml = items.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.name || "")}</td>
+      <td>${escapeHtml(item.numbering || "")}</td>
+      <td>${escapeHtml(item.inspectionDate || "-")}</td>
+      <td>${escapeHtml(item.inspectionFee ?? "-")}</td>
+      <td>${escapeHtml(item.shippingDate || "-")}</td>
+      <td>${escapeHtml(item.shippingFee ?? "-")}</td>
+      <td>${escapeHtml(item.total || 0)}</td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <title>請求書 ${escapeHtml(month)}</title>
+      <style>
+        body{font-family:Arial,"Yu Gothic",sans-serif;padding:28px;color:#111827}
+        h1{font-size:24px;margin-bottom:8px}
+        .meta{margin-bottom:20px;line-height:1.8}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #d1d5db;padding:8px;font-size:12px;text-align:left}
+        th{background:#f3f4f6}
+        .total{margin-top:18px;font-size:18px;font-weight:800;text-align:right}
+      </style>
+    </head>
+    <body onload="window.print()">
+      <h1>請求書</h1>
+      <div class="meta">
+        対象月：${escapeHtml(invoice.month || "-")}<br>
+        会員：${escapeHtml(invoice.memberName || "-")}<br>
+        管理番号：${escapeHtml(invoice.managementNumber || "-")}
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>商品名</th>
+            <th>ナンバリング</th>
+            <th>検品日</th>
+            <th>検品料金</th>
+            <th>発送日</th>
+            <th>発送料金</th>
+            <th>合計</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="total">合計 ${escapeHtml(invoice.grandTotal || 0)}</div>
+    </body>
+    </html>
+  `;
+
+  const win = window.open("", "_blank");
+  if (!win) {
+    showError("PDF画面を開けませんでした。ブラウザのポップアップ設定を確認してください。");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
 function productDetailHtml(product) {
   return `
     <div class="detail-section">
@@ -1390,6 +1490,8 @@ function productDetailHtml(product) {
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
+        <div class="detail-label">ボディ本数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
+        <div class="detail-label">レンズ本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${escapeHtml(product.note || "-")}</div>
