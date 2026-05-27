@@ -1780,7 +1780,8 @@
         await loadAllData();
         setMainTab("invoices");
       } catch (error) {
-        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+        console.error(error);
+        showError(appError, `請求書の作成に失敗しました。${error && error.message ? error.message : error}`);
       }
     }
 
@@ -1808,7 +1809,8 @@
         await loadAllData();
         setMainTab("invoices");
       } catch (error) {
-        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+        console.error(error);
+        showError(appError, `請求書の作成に失敗しました。${error && error.message ? error.message : error}`);
       }
     }
 
@@ -2137,6 +2139,8 @@ function buildInvoiceItems(member, month) {
   </script>
 </body>
 </html>
+
+
 
 
 
