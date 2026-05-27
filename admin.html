@@ -656,6 +656,25 @@
       flex-wrap: wrap;
     }
 
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 28px 0 16px;
+    }
+
+    .section-title-row h2 {
+      margin: 0;
+    }
+
+    .member-search {
+      width: min(320px, 100%);
+      min-height: 38px;
+      padding: 8px 12px;
+    }
+
     @media (max-width: 760px) {
       .page {
         width: calc(100% - 20px);
@@ -698,8 +717,8 @@
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-main-tab="members">メンバー一覧</button>
-      <button class="tab" data-main-tab="detail">メンバー詳細</button>
+      <button class="tab active" data-main-tab="members">会員一覧</button>
+      <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
     </nav>
@@ -707,7 +726,7 @@
     <section id="membersSection" class="section">
       <div class="stats">
         <div class="stat-card">
-          <div class="stat-label">メンバー</div>
+          <div class="stat-label">会員</div>
           <div id="totalMembers" class="stat-value">0</div>
         </div>
         <div class="stat-card">
@@ -720,13 +739,16 @@
         </div>
       </div>
 
-      <h2>メンバー一覧</h2>
+      <div class="section-title-row">
+        <h2>会員一覧</h2>
+        <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・会員氏名で検索" />
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>管理番号</th>
-              <th>メンバー</th>
+              <th>会員</th>
               <th>登録済み商品</th>
               <th>保管商品</th>
               <th>未発送</th>
@@ -740,7 +762,7 @@
     </section>
 
     <section id="detailSection" class="section hidden">
-      <div id="detailEmpty" class="empty">メンバー一覧からメンバーを選択してください。</div>
+      <div id="detailEmpty" class="empty">会員一覧から会員を選択してください。</div>
 
       <div id="detailContent" class="hidden">
         <div class="detail-header">
@@ -752,7 +774,7 @@
           </div>
           <div class="detail-actions">
             <input id="detailInvoiceMonthInput" class="detail-invoice-input" type="month" />
-            <button class="primary-btn" onclick="createInvoiceForSelectedMember()">このメンバーの請求書作成</button>
+            <button class="primary-btn" onclick="createInvoiceForSelectedMember()">この会員の請求書作成</button>
             <button id="reloadBtn" class="secondary-btn">再読み込み</button>
           </div>
         </div>
@@ -788,12 +810,12 @@
           対象月
           <input id="invoiceMonthInput" type="month" />
         </label>
-        <button class="primary-btn" onclick="createInvoicesForMonth()">全メンバーの請求書作成</button>
+        <button class="primary-btn" onclick="createInvoicesForMonth()">全会員の請求書作成</button>
       </div>
 
       <div class="invoice-summary">
         <div class="invoice-summary-item">
-          メンバー
+          会員
           <strong id="invoiceMemberCount">0</strong>
         </div>
         <div class="invoice-summary-item">
@@ -816,7 +838,7 @@
             <tr>
               <th>対象月</th>
               <th>管理番号</th>
-              <th>メンバー</th>
+              <th>会員</th>
               <th>件数</th>
               <th>検品料金</th>
               <th>発送料金</th>
@@ -930,6 +952,7 @@
     const totalRegistered = document.getElementById("totalRegistered");
     const totalUnshipped = document.getElementById("totalUnshipped");
     const memberListBody = document.getElementById("memberListBody");
+    const memberSearchInput = document.getElementById("memberSearchInput");
 
     const detailMemberName = document.getElementById("detailMemberName");
     const detailMemberEmail = document.getElementById("detailMemberEmail");
@@ -993,6 +1016,8 @@
     });
 
     editModalCloseBtn.addEventListener("click", closeEditModal);
+
+    memberSearchInput.addEventListener("input", renderMembers);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -1118,11 +1143,24 @@
       totalUnshipped.textContent = totalUnshippedCount;
 
       if (!membersCache.length) {
-        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">メンバーが登録されていません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">会員が登録されていません。</div></td></tr>`;
         return;
       }
 
-      memberListBody.innerHTML = membersCache.map((member) => {
+      const searchKeyword = normalizeSearch(memberSearchInput.value);
+      const displayMembers = searchKeyword
+        ? membersCache.filter((member) => {
+            const target = normalizeSearch(`${member.managementNumber || ""} ${member.name || ""}`);
+            return target.includes(searchKeyword);
+          })
+        : membersCache;
+
+      if (!displayMembers.length) {
+        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
+        return;
+      }
+
+      memberListBody.innerHTML = displayMembers.map((member) => {
         const groups = getProductGroups(member);
 
         return `
@@ -1784,7 +1822,7 @@
       const folderName = makeFolderName(product.numbering, product.name);
 
       if (!hasValue(member.driveBaseUrl)) {
-        showError(appError, "Google Drive URL置き場が未設定です。メンバー一覧の管理番号編集から設定してください。");
+        showError(appError, "Google Drive URL置き場が未設定です。会員一覧の管理番号編集から設定してください。");
         return;
       }
 
@@ -1934,7 +1972,7 @@
       const month = detailInvoiceMonthInput?.value || invoiceMonthInput.value;
 
       if (!member) {
-        showError(appError, "メンバーを選択してください。");
+        showError(appError, "会員を選択してください。");
         return;
       }
 
@@ -2074,7 +2112,7 @@ function buildInvoiceItems(member, month) {
       const items = Object.values(invoice.items || {});
       const rows = [
         ["請求月", invoice.month || ""],
-        ["メンバー", invoice.memberName || ""],
+        ["会員", invoice.memberName || ""],
         ["管理番号", invoice.managementNumber || ""],
         [],
         ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
@@ -2371,6 +2409,12 @@ function buildInvoiceItems(member, month) {
 
     function hasValue(value) {
       return value !== undefined && value !== null && String(value).trim() !== "";
+    }
+
+    function normalizeSearch(value) {
+      return String(value || "")
+        .toLocaleLowerCase("ja-JP")
+        .replace(/\s+/g, "");
     }
 
     function showError(element, message) {
