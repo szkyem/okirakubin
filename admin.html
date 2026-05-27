@@ -834,7 +834,6 @@ import {
     const detailTableArea = document.getElementById("detailTableArea");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
-const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
     const invoiceListBody = document.getElementById("invoiceListBody");
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
     const invoiceCount = document.getElementById("invoiceCount");
@@ -880,57 +879,49 @@ const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput
 
     editModalCloseBtn.addEventListener("click", closeEditModal);
 
-onAuthStateChanged(auth, async (user) => {
-  hideError(loginError);
-  hideError(appError);
+    onAuthStateChanged(auth, async (user) => {
+      hideError(loginError);
+      hideError(appError);
 
-  if (!user) {
-    currentUser = null;
-    membersCache = [];
-    selectedMemberUid = null;
-    loginView.classList.remove("hidden");
-    appView.classList.add("hidden");
-    return;
-  }
+      if (!user) {
+        currentUser = null;
+        membersCache = [];
+        invoicesCache = {};
+        selectedMemberUid = null;
+        loginView.classList.remove("hidden");
+        appView.classList.add("hidden");
+        return;
+      }
 
-  currentUser = user;
+      currentUser = user;
 
-  try {
-    const adminSnap = await get(ref(db, `admins/${user.uid}`));
+      try {
+        const adminSnap = await get(ref(db, `admins/${user.uid}`));
+        if (adminSnap.val() !== true) {
+          await signOut(auth);
+          showError(loginError, "このアカウントは管理者として登録されていません。");
+          return;
+        }
 
-    if (adminSnap.val() !== true) {
-      await signOut(auth);
-      showError(loginError, "このアカウントは管理者として登録されていません。");
-      return;
-    }
-  } catch (error) {
-    await signOut(auth);
-    showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
-    return;
-  }
+        userEmail.textContent = user.email || "";
+        loginView.classList.add("hidden");
+        appView.classList.remove("hidden");
 
-  userEmail.textContent = user.email || "";
-  loginView.classList.add("hidden");
-  appView.classList.remove("hidden");
+        await update(ref(db, `loginUsers/${user.uid}`), {
+          email: user.email || "",
+          name: user.displayName || "",
+          uid: user.uid,
+          role: "admin",
+          lastLoginAt: Date.now()
+        });
 
-  try {
-    await update(ref(db, `loginUsers/${user.uid}`), {
-      email: user.email || "",
-      name: user.displayName || "",
-      uid: user.uid,
-      role: "admin",
-      lastLoginAt: Date.now()
+        setDefaultMonths();
+        await loadAllData();
+      } catch (error) {
+        showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
+        await signOut(auth);
+      }
     });
-  } catch (error) {
-    showError(appError, "ログイン履歴の更新に失敗しました。Realtime Database のルールを確認してください。");
-  }
-
-  try {
-    await loadAllData();
-  } catch (error) {
-    showError(appError, "データの読み込みに失敗しました。Realtime Database のルールを確認してください。");
-  }
-});
 
     async function loadAllData() {
       hideError(appError);
@@ -1791,6 +1782,11 @@ async function createInvoicesForMonth() {
   }
 }
 
+async function createInvoicesForMonth() {
+  // 既存の全メンバー請求書作成処理
+}
+
+/* ここに追加 */
 async function createInvoiceForSelectedMember() {
   hideError(appError);
 
@@ -1855,6 +1851,10 @@ async function createInvoiceForMember(member, month, showNoTargetError = true) {
   });
 
   return true;
+}
+
+function buildInvoiceItems(member, month) {
+  // 既存の処理
 }
 
       const updates = {};
