@@ -266,7 +266,7 @@
       font-weight: 800;
     }
 
-    .table-actions input, .invoice-actions input, .detail-invoice-input {
+.table-actions input, .invoice-actions input, .detail-invoice-input {
       width: 150px;
       min-height: 36px;
       padding: 6px 10px;
@@ -317,11 +317,10 @@
       word-break: break-all;
     }
 
-    .management-cell, .detail-actions {
+    .management-cell {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
     }
 
     .count-pill {
@@ -581,8 +580,6 @@
       .user-area { justify-content: flex-start; }
       .stats, .stats.four, .invoice-summary { grid-template-columns: 1fr; }
       .tabs { overflow-x: auto; }
-      .detail-actions { align-items: stretch; }
-      .detail-invoice-input { width: 100%; }
     }
   </style>
 </head>
@@ -653,19 +650,15 @@
       <div id="detailEmpty" class="empty">メンバー一覧からメンバーを選択してください。</div>
 
       <div id="detailContent" class="hidden">
-        <div class="detail-header">
-          <div>
-            <h2 id="detailMemberName" class="detail-name"></h2>
-            <div id="detailMemberEmail" class="member-meta"></div>
-            <div id="detailMemberUid" class="member-meta"></div>
-            <div id="detailManagementHeader" class="management-header"></div>
-          </div>
-          <div class="detail-actions">
-            <input id="detailInvoiceMonthInput" class="detail-invoice-input" type="month" />
-            <button class="primary-btn" onclick="createInvoiceForSelectedMember()">このメンバーの請求書作成</button>
-            <button id="reloadBtn" class="secondary-btn">再読み込み</button>
-          </div>
-        </div>
+<div class="detail-header">
+  <div>
+    <h2 id="detailMemberName" class="detail-name"></h2>
+    <div id="detailMemberEmail" class="member-meta"></div>
+    <div id="detailMemberUid" class="member-meta"></div>
+    <div id="detailManagementHeader" class="management-header"></div>
+  </div>
+  <button id="reloadBtn" class="secondary-btn">再読み込み</button>
+</div>
 
         <div class="stats four">
           <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
@@ -698,7 +691,7 @@
           対象月
           <input id="invoiceMonthInput" type="month" />
         </label>
-        <button class="primary-btn" onclick="createInvoicesForMonth()">全メンバーの請求書作成</button>
+        <button class="primary-btn" onclick="createInvoicesForMonth()">請求書作成</button>
       </div>
 
       <div class="invoice-summary">
@@ -770,12 +763,13 @@
       onAuthStateChanged,
       signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import {
-      getDatabase,
-      ref,
-      get,
-      update
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+import {
+  getDatabase,
+  ref,
+  get,
+  update,
+  remove
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
@@ -840,7 +834,7 @@
     const detailTableArea = document.getElementById("detailTableArea");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
-    const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
+const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
     const invoiceListBody = document.getElementById("invoiceListBody");
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
     const invoiceCount = document.getElementById("invoiceCount");
@@ -885,7 +879,6 @@
     });
 
     editModalCloseBtn.addEventListener("click", closeEditModal);
-    invoiceMonthInput.addEventListener("change", renderInvoices);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -985,11 +978,13 @@
       }
     }
 
-    function setDefaultMonths() {
-      const month = todayString().slice(0, 7);
-      invoiceMonthInput.value = month;
-      detailInvoiceMonthInput.value = month;
-    }
+function setDefaultMonths() {
+  const month = todayString().slice(0, 7);
+  invoiceMonthInput.value = month;
+  if (detailInvoiceMonthInput) {
+    detailInvoiceMonthInput.value = month;
+  }
+}
 
     function sortProducts(a, b) {
       const numberCompare = String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
@@ -1111,9 +1106,6 @@
     }
 
     function getDetailProducts(member) {
-      const member = membersCache.find((item) => item.uid === selectedMemberUid);
-      if (!member) return [];
-
       if (detailView === "stored") return member.storedProducts;
       if (detailView === "unshipped") return member.unshippedProducts;
       if (detailView === "shipped") return member.shippedProducts;
@@ -1761,100 +1753,147 @@
         `).join("");
     }
 
-    async function createInvoiceForSelectedMember() {
-      hideError(appError);
+async function createInvoicesForMonth() {
+  hideError(appError);
 
-      const member = membersCache.find((item) => item.uid === selectedMemberUid);
-      const month = detailInvoiceMonthInput.value || invoiceMonthInput.value;
+  const month = invoiceMonthInput.value;
 
-      if (!member) {
-        showError(appError, "メンバーを選択してください。");
-        return;
-      }
+  if (!month) {
+    showError(appError, "対象月を選択してください。");
+    return;
+  }
 
-      if (!month) {
-        showError(appError, "対象月を選択してください。");
-        return;
-      }
+  try {
+    let createdCount = 0;
 
-      try {
-        const created = await createInvoiceForMember(member, month, true);
-        if (!created) return;
-
-        invoiceMonthInput.value = month;
-        await loadAllData();
-        setMainTab("invoices");
-      } catch (error) {
-        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
-      }
+    for (const member of membersCache) {
+      const created = await createInvoiceForMember(member, month, false);
+      if (created) createdCount++;
     }
 
-    async function createInvoicesForMonth() {
-      hideError(appError);
+    if (createdCount === 0) {
+      showError(appError, "対象月に請求対象の商品がありません。");
+      return;
+    }
 
-      const month = invoiceMonthInput.value;
+    await loadAllData();
+    setMainTab("invoices");
+  } catch (error) {
+    showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+}
 
-      if (!month) {
-        showError(appError, "対象月を選択してください。");
-        return;
-      }
+async function createInvoiceForSelectedMember() {
+  hideError(appError);
+
+  const member = membersCache.find((item) => item.uid === selectedMemberUid);
+  const month = detailInvoiceMonthInput?.value || invoiceMonthInput.value;
+
+  if (!member) {
+    showError(appError, "メンバーを選択してください。");
+    return;
+  }
+
+  if (!month) {
+    showError(appError, "対象月を選択してください。");
+    return;
+  }
+
+  try {
+    const created = await createInvoiceForMember(member, month, true);
+    if (!created) return;
+
+    invoiceMonthInput.value = month;
+    await loadAllData();
+    setMainTab("invoices");
+  } catch (error) {
+    showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+}
+
+async function createInvoiceForMember(member, month, showNoTargetError = true) {
+  const items = buildInvoiceItems(member, month);
+
+  if (!items.length) {
+    if (showNoTargetError) {
+      showError(appError, "対象月に請求対象の商品がありません。");
+    }
+    return false;
+  }
+
+  const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+  const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+  const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+  const itemMap = {};
+  items.forEach((item) => {
+    itemMap[item.productId] = item;
+  });
+
+  await update(ref(db, `invoices/${member.uid}/${month}`), {
+    uid: member.uid,
+    memberName: member.name || "",
+    email: member.email || "",
+    managementNumber: member.managementNumber || "",
+    month,
+    status: "created",
+    createdAt: Date.now(),
+    createdBy: currentUser?.uid || "",
+    createdByEmail: currentUser?.email || "",
+    totalInspectionFee,
+    totalShippingFee,
+    grandTotal,
+    items: itemMap
+  });
+
+  return true;
+}
+
+      const updates = {};
+      const now = Date.now();
+
+      membersCache.forEach((member) => {
+        const items = buildInvoiceItems(member, month);
+        if (!items.length) return;
+
+        const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+        const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+        const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+        const itemMap = {};
+        items.forEach((item) => {
+          itemMap[item.productId] = item;
+        });
+
+        updates[`invoices/${member.uid}/${month}`] = {
+          uid: member.uid,
+          memberName: member.name,
+          email: member.email,
+          managementNumber: member.managementNumber || "",
+          month,
+          status: "created",
+          createdAt: now,
+          createdBy: currentUser?.uid || "",
+          createdByEmail: currentUser?.email || "",
+          totalInspectionFee,
+          totalShippingFee,
+          grandTotal,
+          items: itemMap
+        };
+      });
 
       try {
-        let createdCount = 0;
-
-        for (const member of membersCache) {
-          const created = await createInvoiceForMember(member, month, false);
-          if (created) createdCount++;
-        }
-
-        if (createdCount === 0) {
+        if (!Object.keys(updates).length) {
           showError(appError, "対象月に請求対象の商品がありません。");
           return;
         }
 
+        await update(ref(db), updates);
         await loadAllData();
         setMainTab("invoices");
       } catch (error) {
         showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
       }
-    }
-
-    async function createInvoiceForMember(member, month, showNoTargetError = true) {
-      const items = buildInvoiceItems(member, month);
-
-      if (!items.length) {
-        if (showNoTargetError) {
-          showError(appError, "対象月に請求対象の商品がありません。");
-        }
-        return false;
-      }
-
-      const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
-      const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
-      const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-      const itemMap = {};
-      items.forEach((item) => {
-        itemMap[item.productId] = item;
-      });
-
-      await update(ref(db, `invoices/${member.uid}/${month}`), {
-        uid: member.uid,
-        memberName: member.name,
-        email: member.email,
-        managementNumber: member.managementNumber || "",
-        month,
-        status: "created",
-        createdAt: Date.now(),
-        createdBy: currentUser?.uid || "",
-        createdByEmail: currentUser?.email || "",
-        totalInspectionFee,
-        totalShippingFee,
-        grandTotal,
-        items: itemMap
-      });
-
-      return true;
     }
 
     function buildInvoiceItems(member, month) {
@@ -1924,20 +1963,19 @@
       downloadCsv(rows, `${invoice.memberName || uid}_${month}_ご利用明細.csv`);
     }
 
-    async function deleteInvoice(uid, month) {
-      hideError(appError);
+async function deleteInvoice(uid, month) {
+  hideError(appError);
 
-      if (!confirm(`${month} の請求書を削除しますか？`)) return;
+  if (!confirm(`${month} の請求書を削除しますか？`)) return;
 
-      try {
-        await update(ref(db), {
-          [`invoices/${uid}/${month}`]: null
-        });
-        await loadAllData();
-      } catch (error) {
-        showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
-      }
-    }
+  try {
+    await remove(ref(db, `invoices/${uid}/${month}`));
+    await loadAllData();
+    renderInvoices();
+  } catch (error) {
+    showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+}
 
     function closeEditModal() {
       editModalBackdrop.classList.remove("show");
@@ -2025,9 +2063,11 @@
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
-    window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
+window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.deleteInvoice = deleteInvoice;
+
+    invoiceMonthInput.addEventListener("change", renderInvoices);
 
     function shippingSizeOptions(current) {
       const options = ["60", "80", "100", "120", "140", "海外発送"];
