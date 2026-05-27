@@ -663,6 +663,7 @@ async function loadData() {
   try {
     const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
     const originsSnapshot = await get(ref(database, `shippingOrigins/${currentUser.uid}`));
+    const announcementsSnapshot = await get(ref(database, "announcements"));
 
     productsCache = productsSnapshot.exists()
       ? Object.values(productsSnapshot.val()).sort((a, b) => {
@@ -676,9 +677,13 @@ async function loadData() {
       ? Object.values(originsSnapshot.val()).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"))
       : [];
 
+    announcementsCache = announcementsSnapshot.exists()
+      ? Object.values(announcementsSnapshot.val()).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+      : [];
+
     const registeredProducts = getRegisteredProducts();
     const storedProducts = getStoredProducts();
-    const selectableIds = new Set([...registeredProducts, ...storedProducts].map((product) => product.id));
+    const selectableIds = new Set(storedProducts.map((product) => product.id));
     selectedProductIds = new Set([...selectedProductIds].filter((id) => selectableIds.has(id)));
 
     document.getElementById("productCount").textContent = registeredProducts.length;
@@ -686,8 +691,7 @@ async function loadData() {
     document.getElementById("unshippedCount").textContent = productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped").length;
     document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
 
-    document.getElementById("recentProducts").innerHTML =
-      registeredProducts.slice(0, 5).length ? productTable(registeredProducts.slice(0, 5), false, true) : emptyHtml("商品が登録されていません");
+    document.getElementById("recentAnnouncements").innerHTML = recentAnnouncementsHtml();
 
     renderStoredList();
     renderShippingList();
@@ -723,21 +727,23 @@ function renderStoredList() {
     : "保管商品はありません";
 
   document.getElementById("storedList").innerHTML =
-    products.length ? productTable(products, false, true) + bulkActionBar() : emptyHtml(emptyMessage);
+    products.length ? productTable(products, { mode: storedView }) + (storedView === "stored" ? bulkActionBar() : "") : emptyHtml(emptyMessage);
 }
 
 function renderShippingList() {
   unshippedFilterBtn.classList.toggle("active", shippingView === "unshipped");
   shippedFilterBtn.classList.toggle("active", shippingView === "shipped");
 
-  const filtered = productsCache.filter((product) => {
-    if (!hasValue(product.shippingRequest)) return false;
-    if (shippingView === "shipped") return product.shippingStatus === "shipped";
-    return product.shippingStatus !== "shipped";
-  });
+  const filtered = productsCache
+    .filter((product) => {
+      if (!hasValue(product.shippingRequest)) return false;
+      if (shippingView === "shipped") return product.shippingStatus === "shipped";
+      return product.shippingStatus !== "shipped";
+    })
+    .sort((a, b) => sortByShippingDateAndNumbering(a, b));
 
   document.getElementById("shippingList").innerHTML =
-    filtered.length ? productTable(filtered, true, false) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
+    filtered.length ? productTable(filtered, { mode: "shipping" }) : emptyHtml(shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません");
 }
 
 function renderOriginList() {
@@ -814,53 +820,57 @@ function addProductEntry() {
   productEntries.appendChild(entry);
 }
 
-function productTable(products, showShippingStatus = false, isSelectableList = false) {
+function productTable(products, options = {}) {
+  const mode = options.mode || "registered";
+  const isRegistered = mode === "registered";
+  const isStored = mode === "stored";
+  const isShipping = mode === "shipping";
+
   return `
     <div class="table-wrap">
       <table class="products-table">
         <thead>
           <tr>
-            <th>発送</th>
+            ${isStored || isShipping ? "<th>発送</th>" : ""}
             <th>商品名</th>
             <th>ナンバリング</th>
-            <th>発送情報</th>
+            ${isRegistered ? "<th>内容変更</th>" : ""}
+            ${isShipping ? "<th>発送情報</th>" : ""}
             <th>情報</th>
-            <th>撮影日</th>
-            ${showShippingStatus ? "<th>状態</th>" : ""}
+            ${isStored ? "<th>撮影日</th>" : ""}
+            ${isShipping ? "<th>発送日</th><th>状態</th><th>お問い合わせ</th>" : ""}
           </tr>
         </thead>
         <tbody>
-          ${products.map((product) => productRow(product, showShippingStatus, isSelectableList)).join("")}
+          ${products.map((product) => productRow(product, mode)).join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-function productRow(product, showShippingStatus = false, isSelectableList = false) {
+function productRow(product, mode = "registered") {
+  const isRegistered = mode === "registered";
+  const isStored = mode === "stored";
+  const isShipping = mode === "shipping";
+
   return `
     <tr>
-      <td class="shipping-cell">
-        ${
-          isSelectableList
-            ? `<input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">`
-            : shippingPill(product.shippingRequest)
-        }
-      </td>
+      ${isStored ? `
+        <td class="shipping-cell">
+          <input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">
+        </td>
+      ` : ""}
+      ${isShipping ? `<td>${shippingPill(product.shippingRequest)}</td>` : ""}
       <td>${escapeHtml(product.name)}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
-      <td>
-        ${
-          hasValue(product.shippingRequest)
-            ? `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button>`
-            : "-"
-        }
-      </td>
+      ${isRegistered ? `<td><button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button></td>` : ""}
+      ${isShipping ? `<td><button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button></td>` : ""}
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
-      <td>${escapeHtml(product.shootingDate || "-")}</td>
-      ${showShippingStatus ? `<td>${shippingStatusText(product)}</td>` : ""}
+      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td>` : ""}
+      ${isShipping ? `<td>${escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${inquiryControl(product)}</td>` : ""}
     </tr>
   `;
 }
@@ -871,6 +881,36 @@ function bulkActionBar() {
       <button type="button" class="bulk-btn domestic" onclick="openShippingModal('国内発送')">選択中を国内発送する</button>
       <button type="button" class="bulk-btn overseas" onclick="openShippingModal('海外発送')">選択中を海外発送する</button>
       <button type="button" class="bulk-btn return" onclick="openShippingModal('返品依頼')">選択中を返品依頼する</button>
+    </div>
+  `;
+}
+
+function inquiryControl(product) {
+  if (shippingView === "shipped") return "-";
+
+  return `
+    <label class="inquiry-box">
+      <input class="shipping-check" type="checkbox" onchange="if(this.checked){openInquiryModal('${escapeAttr(product.id)}'); this.checked=false;}">
+      お問い合わせ
+    </label>
+  `;
+}
+
+function recentAnnouncementsHtml() {
+  const recent = announcementsCache.slice(0, 5);
+
+  if (!recent.length) {
+    return emptyHtml("お知らせはまだありません");
+  }
+
+  return `
+    <div class="announcement-list">
+      ${recent.map((item) => `
+        <div class="announcement-card">
+          <div class="announcement-date">${escapeHtml(formatDate(item.createdAt))}</div>
+          <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
+        </div>
+      `).join("")}
     </div>
   `;
 }
@@ -899,6 +939,32 @@ function shippingStatusText(product) {
   return product.shippingStatus === "shipped"
     ? `<span class="status-pill domestic">発送済み</span>`
     : `<span class="status-pill none">未発送</span>`;
+}
+
+function workRequestOptions(current) {
+  const options = ["検品+写真", "写真のみ", "検品のみ", "保管のみ"];
+  return `<option value="">選択してください</option>${options.map((option) => `
+    <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
+  `).join("")}`;
+}
+
+function sortByShippingDateAndNumbering(a, b) {
+  const dateCompare = String(a.shippedDate || "9999-99-99").localeCompare(String(b.shippedDate || "9999-99-99"));
+  if (dateCompare !== 0) return dateCompare;
+
+  return String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  const date = new Date(Number(value));
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
 }
 
 function originLabel(origin) {
@@ -957,6 +1023,143 @@ window.showInfo = function(productId) {
   if (!product) return;
 
   openModal("商品情報", productDetailHtml(product), true);
+};
+
+window.openProductEdit = function(productId) {
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) return;
+
+  openModal("登録内容を編集", `
+    <form class="modal-form" onsubmit="saveProductEdit(event, '${escapeAttr(product.id)}')">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>商品名 <span class="required">必須</span></label>
+          <input name="name" type="text" required value="${escapeAttr(product.name || "")}">
+        </div>
+
+        <div class="form-group">
+          <label>ナンバリング <span class="required">必須</span></label>
+          <input name="numbering" type="text" required value="${escapeAttr(product.numbering || "")}">
+        </div>
+
+        <div class="form-group">
+          <label>作業依頼 <span class="required">必須</span></label>
+          <select name="workRequest" required>
+            ${workRequestOptions(product.workRequest)}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>購入先URL</label>
+          <input name="purchaseUrl" type="url" value="${escapeAttr(product.purchaseUrl || "")}">
+        </div>
+
+        <div class="form-group full">
+          <label>備考欄</label>
+          <textarea name="note">${escapeHtml(product.note || "")}</textarea>
+        </div>
+      </div>
+
+      <button type="submit" style="width:100%;">保存する</button>
+    </form>
+  `, true);
+};
+
+window.saveProductEdit = async function(event, productId) {
+  event.preventDefault();
+  clearError();
+
+  if (!currentUser) return;
+
+  const formData = new FormData(event.target);
+  const data = {
+    name: String(formData.get("name") || "").trim(),
+    numbering: String(formData.get("numbering") || "").trim(),
+    workRequest: String(formData.get("workRequest") || "").trim(),
+    purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
+    note: String(formData.get("note") || "").trim(),
+    updatedAt: Date.now()
+  };
+
+  if (!data.name || !data.numbering || !data.workRequest) {
+    showError("商品名、ナンバリング、作業依頼は必須です。");
+    return;
+  }
+
+  try {
+    await update(ref(database, `products/${currentUser.uid}/${productId}`), data);
+    closeModal();
+    await loadData();
+  } catch (error) {
+    console.error(error);
+    showError("登録内容の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+};
+
+window.openInquiryModal = function(productId) {
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) return;
+
+  const title = `${product.name || "-"} ${product.numbering || "-"}について`;
+
+  openModal("お問い合わせ", `
+    <form class="modal-form" onsubmit="sendProductInquiry(event, '${escapeAttr(product.id)}')">
+      <div class="form-group">
+        <label>タイトル</label>
+        <input name="title" type="text" readonly value="${escapeAttr(title)}">
+      </div>
+
+      <div class="form-group">
+        <label>お問い合わせ内容 <span class="required">必須</span></label>
+        <textarea name="message" required placeholder="管理者へ伝えたい内容を入力してください"></textarea>
+      </div>
+
+      <button type="submit" style="width:100%;">送信する</button>
+    </form>
+  `, true);
+};
+
+window.sendProductInquiry = async function(event, productId) {
+  event.preventDefault();
+  clearError();
+
+  if (!currentUser) return;
+
+  const formData = new FormData(event.target);
+  const title = String(formData.get("title") || "").trim();
+  const message = String(formData.get("message") || "").trim();
+
+  if (!message) {
+    showError("お問い合わせ内容を入力してください。");
+    return;
+  }
+
+  try {
+    const now = Date.now();
+    const inquiryId = `${now}`;
+
+    await set(ref(database, `products/${currentUser.uid}/${productId}/inquiries/${inquiryId}`), {
+      id: inquiryId,
+      title,
+      message,
+      createdAt: now,
+      createdBy: currentUser.uid,
+      createdByEmail: currentUser.email || ""
+    });
+
+    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
+      latestInquiryAt: now,
+      latestInquiryTitle: title,
+      updatedAt: now
+    });
+
+    closeModal();
+    await loadData();
+    alert("お問い合わせを送信しました。");
+  } catch (error) {
+    console.error(error);
+    showError("お問い合わせの送信に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
 };
 
 function productDetailHtml(product) {
