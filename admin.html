@@ -1493,12 +1493,7 @@
             <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
 
             <div class="info-label">保管場所作成</div>
-            <div class="info-value">
-              <div class="storage-action-row">
-                ${linkOrDash(product.storageLocation || product.folderUrl)}
-                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">作成</button>
-              </div>
-            </div>
+            <div class="info-value">${storageLocationControl(uid, productId, product)}</div>
 
             <div class="info-label">写真撮影日</div>
             <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
@@ -2361,6 +2356,17 @@ function buildInvoiceItems(member, month) {
       if (!hasValue(value)) return "-";
       const safe = escapeAttr(value);
       return `<a class="link-cell" href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`;
+    }
+
+    function storageLocationControl(uid, productId, product) {
+      const storageUrl = product.storageLocation || product.folderUrl || "";
+      const button = `<button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">作成</button>`;
+
+      if (!hasValue(storageUrl)) {
+        return `<div class="storage-action-row">${button}</div>`;
+      }
+
+      return `<div class="storage-action-row">${linkOrDash(storageUrl)}${button}</div>`;
     }
 
     function hasValue(value) {
