@@ -83,7 +83,7 @@ textarea{min-height:88px;resize:vertical}
 .modal-title{font-size:20px;font-weight:800}
 .modal-body{line-height:1.8;white-space:pre-wrap}
 .detail-section{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
-.detail-heading{font-weight:800;color:#2563eb;margin-bottom:8px}
+.detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800;color:#2563eb;margin-bottom:8px}
 .detail-grid{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:14px}
 .detail-label{color:#6b7280;font-weight:700}
 .modal-form{display:grid;gap:14px}
@@ -480,6 +480,9 @@ productForm.addEventListener("submit", async (event) => {
       name: entry.querySelector('[data-field="name"]').value.trim(),
       numbering: entry.querySelector('[data-field="numbering"]').value.trim(),
       workRequest: entry.querySelector('[data-field="workRequest"]').value,
+      optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
+      optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
+      optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
       note: entry.querySelector('[data-field="note"]').value.trim(),
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
     };
@@ -508,6 +511,9 @@ productForm.addEventListener("submit", async (event) => {
         name: item.name,
         numbering: item.numbering,
         workRequest: item.workRequest,
+        optionVideo: item.optionVideo,
+        optionThanksCard: item.optionThanksCard,
+        optionComment: item.optionComment,
         note: item.note,
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
@@ -801,6 +807,17 @@ function addProductEntry() {
       </div>
 
       <div class="form-group full">
+        <label>オプション</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionVideo"> 動画撮影</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionThanksCard"> Thanksカード同梱</label>
+      </div>
+
+      <div class="form-group full">
+        <label>オプションコメント</label>
+        <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄"></textarea>
+      </div>
+
+      <div class="form-group full">
         <label>備考欄</label>
         <textarea data-field="note" placeholder="備考を入力してください"></textarea>
       </div>
@@ -810,6 +827,7 @@ function addProductEntry() {
   entry.querySelector("[data-remove-entry]").addEventListener("click", () => {
     if (document.querySelectorAll(".product-entry").length === 1) {
       entry.querySelectorAll("input,textarea").forEach((input) => input.value = "");
+      entry.querySelectorAll('input[type="checkbox"]').forEach((input) => input.checked = false);
       entry.querySelector("select").selectedIndex = 0;
       return;
     }
@@ -834,7 +852,6 @@ function productTable(products, options = {}) {
             ${isStored || isShipping ? "<th>発送</th>" : ""}
             <th>商品名</th>
             <th>ナンバリング</th>
-            ${isRegistered ? "<th>内容変更</th>" : ""}
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>情報</th>
             ${isStored ? "<th>撮影日</th>" : ""}
@@ -864,7 +881,6 @@ function productRow(product, mode = "registered") {
       ${isShipping ? `<td>${shippingPill(product.shippingRequest)}</td>` : ""}
       <td>${escapeHtml(product.name)}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
-      ${isRegistered ? `<td><button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button></td>` : ""}
       ${isShipping ? `<td><button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button></td>` : ""}
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
@@ -939,6 +955,22 @@ function shippingStatusText(product) {
   return product.shippingStatus === "shipped"
     ? `<span class="status-pill domestic">発送済み</span>`
     : `<span class="status-pill none">未発送</span>`;
+}
+
+function canEditProduct(product) {
+  return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate);
+}
+
+function optionSummary(product) {
+  const options = [];
+  if (product.optionVideo === true) options.push("動画撮影");
+  if (product.optionThanksCard === true) options.push("Thanksカード同梱");
+  return options.length ? options.join("、") : "-";
+}
+
+function linkOrDash(value) {
+  if (!hasValue(value)) return "-";
+  return `<a href="${escapeAttr(value)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`;
 }
 
 function workRequestOptions(current) {
@@ -1055,6 +1087,17 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group full">
+          <label>オプション</label>
+          <label><input class="shipping-check" type="checkbox" name="optionVideo" ${product.optionVideo === true ? "checked" : ""}> 動画撮影</label>
+          <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${product.optionThanksCard === true ? "checked" : ""}> Thanksカード同梱</label>
+        </div>
+
+        <div class="form-group full">
+          <label>オプションコメント</label>
+          <textarea name="optionComment">${escapeHtml(product.optionComment || "")}</textarea>
+        </div>
+
+        <div class="form-group full">
           <label>備考欄</label>
           <textarea name="note">${escapeHtml(product.note || "")}</textarea>
         </div>
@@ -1076,6 +1119,9 @@ window.saveProductEdit = async function(event, productId) {
     name: String(formData.get("name") || "").trim(),
     numbering: String(formData.get("numbering") || "").trim(),
     workRequest: String(formData.get("workRequest") || "").trim(),
+    optionVideo: formData.get("optionVideo") === "on",
+    optionThanksCard: formData.get("optionThanksCard") === "on",
+    optionComment: String(formData.get("optionComment") || "").trim(),
     purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
     note: String(formData.get("note") || "").trim(),
     updatedAt: Date.now()
@@ -1165,11 +1211,16 @@ window.sendProductInquiry = async function(event, productId) {
 function productDetailHtml(product) {
   return `
     <div class="detail-section">
-      <div class="detail-heading">会員記載情報</div>
+      <div class="detail-heading">
+        <span>会員記載情報</span>
+        ${canEditProduct(product) ? `<button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>` : ""}
+      </div>
       <div class="detail-grid">
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
+        <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
+        <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${escapeHtml(product.note || "-")}</div>
         <div class="detail-label">購入先URL</div><div>${product.purchaseUrl ? `<a href="${escapeAttr(product.purchaseUrl)}" target="_blank" rel="noopener">${escapeHtml(product.purchaseUrl)}</a>` : "-"}</div>
       </div>
@@ -1182,7 +1233,7 @@ function productDetailHtml(product) {
         <div class="detail-label">確認結果</div><div>${escapeHtml(product.confirmationResult || "-")}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
-        <div class="detail-label">保管場所</div><div>${escapeHtml(product.storageLocation || "-")}</div>
+        <div class="detail-label">保管場所</div><div>${linkOrDash(product.storageLocation || product.folderUrl)}</div>
       </div>
     </div>
   `;
