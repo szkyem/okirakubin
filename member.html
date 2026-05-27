@@ -49,7 +49,7 @@ textarea{min-height:88px;resize:vertical}
 .products-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
 .products-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
 .products-table tr:nth-child(even){background:#fafafa}
-.shipping-cell{background:#fffde7;text-align:center;min-width:92px}
+.shipping-cell{background:#fffde7;text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:6px!important;padding-right:6px!important}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -61,6 +61,8 @@ textarea{min-height:88px;resize:vertical}
 .ship-filter-btn{background:#fff;color:#9ca3af;border-bottom:2px solid #d1d5db;border-radius:0;min-width:160px}
 .ship-filter-btn.active{color:#2563eb;border-bottom-color:#2563eb}
 .ship-filter-btn:hover{background:#f8fafc}
+.section-tools{display:flex;justify-content:flex-end;margin:-4px 0 14px}
+.section-search{width:min(360px,100%);min-height:40px}
 .bulk-action-bar{display:none;position:sticky;bottom:0;margin-top:12px;grid-template-columns:repeat(3,1fr);box-shadow:0 -8px 24px rgba(15,23,42,.12);z-index:5}
 .bulk-action-bar.show{display:grid}
 .bulk-btn{border-radius:0;padding:18px 12px;font-size:15px}
@@ -119,6 +121,8 @@ textarea{min-height:88px;resize:vertical}
   input,textarea,select{font-size:16px}
   .ship-filter{justify-content:flex-start;overflow-x:auto}
   .ship-filter-btn{min-width:132px;padding:9px 10px;font-size:13px}
+  .section-tools{justify-content:stretch}
+  .section-search{width:100%}
   .table-wrap{overflow-x:auto}
   .products-table{min-width:760px}
   .products-table th,.products-table td{padding:9px 10px;font-size:13px}
@@ -198,6 +202,10 @@ textarea{min-height:88px;resize:vertical}
     <div class="ship-filter">
       <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
       <button class="ship-filter-btn" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
+    </div>
+
+    <div class="section-tools">
+      <input id="storedSearchInput" class="section-search" type="search" placeholder="商品名・ナンバリングで検索">
     </div>
 
     <div id="storedList"></div>
@@ -426,6 +434,7 @@ const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
+const storedSearchInput = document.getElementById("storedSearchInput");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
 const originForm = document.getElementById("originForm");
@@ -500,6 +509,8 @@ storedFilterBtn.addEventListener("click", () => {
   storedView = "stored";
   renderStoredList();
 });
+
+storedSearchInput.addEventListener("input", renderStoredList);
 
 unshippedFilterBtn.addEventListener("click", () => {
   shippingView = "unshipped";
@@ -780,16 +791,20 @@ function renderStoredList() {
   registeredStoredFilterBtn.classList.toggle("active", storedView === "registered");
   storedFilterBtn.classList.toggle("active", storedView === "stored");
 
-  const products = storedView === "registered"
+  const baseProducts = storedView === "registered"
     ? getRegisteredProducts()
     : getStoredProducts();
+  const searchKeyword = normalizeSearch(storedSearchInput.value);
+  const products = searchKeyword
+    ? baseProducts.filter((product) => normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword))
+    : baseProducts;
 
   const emptyMessage = storedView === "registered"
     ? "登録済み商品はありません"
     : "保管商品はありません";
 
   document.getElementById("storedList").innerHTML =
-    products.length ? productTable(products, { mode: storedView }) + (storedView === "stored" ? bulkActionBar() : "") : emptyHtml(emptyMessage);
+    products.length ? productTable(products, { mode: storedView }) + (storedView === "stored" ? bulkActionBar() : "") : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : emptyMessage);
 }
 
 function renderShippingList() {
@@ -950,7 +965,7 @@ function productTable(products, options = {}) {
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>情報</th>
             ${isStored ? "<th>撮影日</th>" : ""}
-            ${isShipping ? "<th>発送日</th><th>状態</th><th>お問い合わせ</th>" : ""}
+            ${isShipping ? `<th>発送日</th><th>状態</th><th>${shippingView === "shipped" ? "追跡番号" : "お問い合わせ"}</th>` : ""}
           </tr>
         </thead>
         <tbody>
@@ -981,7 +996,7 @@ function productRow(product, mode = "registered") {
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td>` : ""}
-      ${isShipping ? `<td>${escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${inquiryControl(product)}</td>` : ""}
+      ${isShipping ? `<td>${escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${shippingView === "shipped" ? trackingNumberHtml(product) : inquiryControl(product)}</td>` : ""}
     </tr>
   `;
 }
@@ -1005,6 +1020,11 @@ function inquiryControl(product) {
       お問い合わせ
     </label>
   `;
+}
+
+function trackingNumberHtml(product) {
+  const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
+  return hasValue(trackingNumber) ? escapeHtml(trackingNumber) : "-";
 }
 
 function recentAnnouncementsHtml() {
@@ -1509,6 +1529,12 @@ function clearError() {
 
 function hasValue(value) {
   return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function normalizeSearch(value) {
+  return String(value || "")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/\s+/g, "");
 }
 
 function escapeHtml(value) {
