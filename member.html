@@ -52,21 +52,15 @@ textarea{min-height:88px;resize:vertical}
 .shipping-cell{background:#fffde7;text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:6px!important;padding-right:6px!important}
 .member-meta{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35}
 .bundle-note{display:inline-flex;align-items:center;border-radius:999px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:3px 8px;font-size:12px;font-weight:800;margin-top:5px;white-space:nowrap}
-.bundle-label{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid #111;color:#111;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:800;line-height:1;white-space:nowrap}
+.bundle-label{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid #cbd5e1;color:#1f2937;background:#fff;padding:5px 10px;font-size:12px;font-weight:800;line-height:1;white-space:nowrap}
+.bundle-count{display:inline-flex;margin-left:8px;color:#475569;font-size:12px;font-weight:800;white-space:nowrap}
 .dash-mark{color:#1f2937;font-size:14px;font-weight:400;line-height:1}
 .dash-mark::before{content:"-"}
-.products-table tr.bundle-first td{box-shadow:inset 0 2px 0 #111}
-.products-table tr.bundle-middle td,.products-table tr.bundle-last td{border-top-color:transparent}
-.products-table tr.bundle-last td{box-shadow:inset 0 -2px 0 #111}
-.products-table tr.bundle-first td:first-child{box-shadow:inset 2px 0 0 #111,inset 0 2px 0 #111}
-.products-table tr.bundle-first td:last-child{box-shadow:inset -2px 0 0 #111,inset 0 2px 0 #111}
-.products-table tr.bundle-middle td:first-child{box-shadow:inset 2px 0 0 #111}
-.products-table tr.bundle-middle td:last-child{box-shadow:inset -2px 0 0 #111}
-.products-table tr.bundle-last td:first-child{box-shadow:inset 2px 0 0 #111,inset 0 -2px 0 #111}
-.products-table tr.bundle-last td:last-child{box-shadow:inset -2px 0 0 #111,inset 0 -2px 0 #111}
-.products-table tr.bundle-single td{box-shadow:inset 0 2px 0 #111,inset 0 -2px 0 #111}
-.products-table tr.bundle-single td:first-child{box-shadow:inset 2px 0 0 #111,inset 0 2px 0 #111,inset 0 -2px 0 #111}
-.products-table tr.bundle-single td:last-child{box-shadow:inset -2px 0 0 #111,inset 0 2px 0 #111,inset 0 -2px 0 #111}
+.products-table tr.bundle-first td:first-child{box-shadow:inset 3px 0 0 #2563eb}
+.products-table tr.bundle-middle td:first-child,.products-table tr.bundle-last td:first-child{position:relative;padding-left:30px}
+.products-table tr.bundle-middle td:first-child::before,.products-table tr.bundle-last td:first-child::before{content:"";position:absolute;left:14px;top:0;bottom:0;width:1px;background:#cbd5e1}
+.products-table tr.bundle-middle td:first-child::after,.products-table tr.bundle-last td:first-child::after{content:"";position:absolute;left:14px;top:50%;width:12px;height:1px;background:#cbd5e1}
+.products-table tr.bundle-last td:first-child::before{bottom:50%}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -1234,9 +1228,10 @@ function shippingPill(value) {
 
 function shippingStatusText(product) {
   if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
+  const bundleCount = product.shipmentGroupCount > 1 ? `<span class="bundle-count">同梱 ${escapeHtml(product.shipmentGroupCount)}点</span>` : "";
   return product.shippingStatus === "shipped"
-    ? `<span class="status-pill domestic">発送済み</span>`
-    : `<span class="status-pill none">未発送</span>`;
+    ? `<span class="status-pill domestic">発送済み</span>${bundleCount}`
+    : `<span class="status-pill none">未発送</span>${bundleCount}`;
 }
 
 function canEditProduct(product) {

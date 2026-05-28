@@ -346,13 +346,31 @@
       align-items: center;
       justify-content: center;
       border-radius: 999px;
-      border: 1px solid #111;
-      color: #111;
-      background: #f3f4f6;
+      border: 1px solid #cbd5e1;
+      color: #1f2937;
+      background: #fff;
       padding: 5px 10px;
       font-size: 12px;
       font-weight: 800;
       line-height: 1;
+      white-space: nowrap;
+    }
+
+    .bundle-helper {
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-top: 5px;
+      white-space: normal;
+    }
+
+    .bundle-count {
+      display: inline-flex;
+      margin-left: 8px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
       white-space: nowrap;
     }
 
@@ -367,19 +385,41 @@
       content: "-";
     }
 
-    tr.bundle-first td { box-shadow: inset 0 2px 0 #111; }
-    tr.bundle-middle td,
-    tr.bundle-last td { border-top-color: transparent; }
-    tr.bundle-last td { box-shadow: inset 0 -2px 0 #111; }
-    tr.bundle-first td:first-child { box-shadow: inset 2px 0 0 #111, inset 0 2px 0 #111; }
-    tr.bundle-first td:last-child { box-shadow: inset -2px 0 0 #111, inset 0 2px 0 #111; }
-    tr.bundle-middle td:first-child { box-shadow: inset 2px 0 0 #111; }
-    tr.bundle-middle td:last-child { box-shadow: inset -2px 0 0 #111; }
-    tr.bundle-last td:first-child { box-shadow: inset 2px 0 0 #111, inset 0 -2px 0 #111; }
-    tr.bundle-last td:last-child { box-shadow: inset -2px 0 0 #111, inset 0 -2px 0 #111; }
-    tr.bundle-single td { box-shadow: inset 0 2px 0 #111, inset 0 -2px 0 #111; }
-    tr.bundle-single td:first-child { box-shadow: inset 2px 0 0 #111, inset 0 2px 0 #111, inset 0 -2px 0 #111; }
-    tr.bundle-single td:last-child { box-shadow: inset -2px 0 0 #111, inset 0 2px 0 #111, inset 0 -2px 0 #111; }
+    tr.bundle-first td:first-child {
+      box-shadow: inset 3px 0 0 #2563eb;
+    }
+
+    tr.bundle-middle td:first-child,
+    tr.bundle-last td:first-child {
+      position: relative;
+      padding-left: 30px;
+    }
+
+    tr.bundle-middle td:first-child::before,
+    tr.bundle-last td:first-child::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #cbd5e1;
+    }
+
+    tr.bundle-middle td:first-child::after,
+    tr.bundle-last td:first-child::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 12px;
+      height: 1px;
+      background: #cbd5e1;
+    }
+
+    tr.bundle-last td:first-child::before {
+      bottom: 50%;
+    }
 
     .management-cell, .detail-actions {
       display: flex;
@@ -1843,6 +1883,8 @@
           ...product,
           shipmentGroupId: groupId,
           shipmentGroupCount: sortedProducts.length,
+          bundleParentName: sortedProducts[0]?.name || "",
+          bundleParentNumbering: sortedProducts[0]?.numbering || "",
           bundleRole: index === 0 ? "parent" : "child",
           bundlePosition: sortedProducts.length === 1 ? "" : index === 0 ? "first" : index === sortedProducts.length - 1 ? "last" : "middle"
         }));
@@ -1860,7 +1902,11 @@
     }
 
     function shippingCellHtml(product) {
-      return product.bundleRole === "child" ? `<span class="bundle-label">同梱</span>` : shippingBadge(product.shippingRequest);
+      if (product.bundleRole === "child") {
+        return `<span class="bundle-label">同梱</span>`;
+      }
+
+      return shippingBadge(product.shippingRequest);
     }
 
     function shippingInfoButtonHtml(uid, product) {
@@ -1871,8 +1917,9 @@
 
     function shippingStatusCellHtml(product, view) {
       if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
-      if (view === "unshipped") return `<span class="status-pill yellow">未発送</span>`;
-      return `<span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}`;
+      const bundleCount = product.shipmentGroupCount > 1 ? `<span class="bundle-count">同梱 ${escapeHtml(product.shipmentGroupCount)}点</span>` : "";
+      if (view === "unshipped") return `<span class="status-pill yellow">未発送</span>${bundleCount}`;
+      return `<span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}${bundleCount}`;
     }
 
     function bundleRowClass(product) {
