@@ -1,1 +1,2140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>おきらく便 管理者</title>
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-soft: #eaf2ff;
+      --border: #d9dee8;
+      --text: #0f172a;
+      --muted: #64748b;
+      --white: #fff;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --yellow: #fff2b8;
+      --yellow-soft: #fff9d9;
+      --yellow-text: #8a5a00;
+      --gray-hi: #d7dce5;
+      --gray-hi-text: #334155;
+      --header: #6b7280;
+      --green-soft: #dcfce7;
+      --green-text: #15803d;
       --orange-soft: #ffedd5;
+      --orange-text: #c2410c;
+      --red-soft: #fee2e2;
+      --red-text: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, #4f7df3 0%, #7551b8 100%);
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; border: 0; }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 18px auto 56px;
+      padding: 28px 18px 48px;
+      background: var(--white);
+      border-radius: 10px;
+    }
+
+    .login-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      width: min(460px, 100%);
+      background: var(--white);
+      border-radius: 10px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+    }
+
+    .login-card h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      color: var(--blue);
+    }
+
+    .login-card p {
+      margin: 0 0 24px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .primary-btn, .secondary-btn, .mini-btn, .danger-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .primary-btn {
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 18px;
+      border-radius: 8px;
+      background: var(--blue);
+      color: white;
+    }
+
+    .secondary-btn {
+      min-height: 40px;
+      padding: 0 16px;
+      border-radius: 7px;
+      background: #eef2f7;
+      color: var(--text);
+    }
+
+    .danger-btn {
+      min-height: 36px;
+      padding: 0 12px;
+      border-radius: 7px;
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .mini-btn {
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 7px;
+      background: #eef2f7;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .mini-btn.yellow {
+      background: var(--yellow);
+      color: var(--yellow-text);
+    }
+
+    .hidden { display: none !important; }
+
+    .error {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: #fff1f1;
+      color: #d20f0f;
+      line-height: 1.6;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      margin: 0;
+      color: var(--blue);
+      font-size: 30px;
+      letter-spacing: 0.08em;
+    }
+
+    .user-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .role-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 18px;
+      margin-top: 28px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .tab {
+      min-width: 112px;
+      padding: 14px 10px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      border-bottom: 3px solid transparent;
+    }
+
+    .tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+
+    .section { margin-top: 26px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .stat-card {
+      min-height: 114px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 20px;
+      background: var(--white);
+    }
+
+    .stat-card.clickable { cursor: pointer; }
+
+    .stat-card.active-view {
+      border-color: var(--blue);
+      box-shadow: inset 0 -3px 0 var(--blue);
+    }
+
+    .stat-card.issue {
+      border-color: #f6d672;
+      background: #fff8d7;
+    }
+
+    .stat-card.neutral-hi {
+      border-color: #bfc5cf;
+      background: #eef1f5;
+    }
+
+    .stat-label {
+      color: #475569;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stat-value {
+      margin-top: 16px;
+      color: var(--blue);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .stat-card.neutral-hi .stat-value { color: #64748b; }
+
+    h2 {
+      margin: 28px 0 16px;
+      font-size: 24px;
+    }
+
+    .table-actions, .invoice-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin: 0 0 12px;
+      flex-wrap: wrap;
+    }
+
+    .table-actions label, .invoice-actions label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #475569;
+      font-weight: 800;
+    }
+
+    .table-actions input, .invoice-actions input, .detail-invoice-input {
+      width: 150px;
+      min-height: 36px;
+      padding: 6px 10px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: var(--header);
+      color: white;
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px;
+      border-top: 1px solid var(--border);
+      vertical-align: middle;
+      font-size: 14px;
+    }
+
+    .member-row { cursor: pointer; }
+    .member-row:hover { background: #f8fbff; }
+
+    .member-name {
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .member-meta {
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    .management-cell, .detail-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .count-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .count-pill.issue {
+      background: var(--yellow);
+      color: var(--yellow-text);
+    }
+
+    .count-pill.neutral-hi {
+      background: var(--gray-hi);
+      color: var(--gray-hi-text);
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 26px;
+    }
+
+    .detail-name {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+
+    .management-header {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .management-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .ship-badge, .status-pill, .preference-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .ship-badge.domestic { background: #dbeafe; color: #1d4ed8; }
+    .ship-badge.international { background: var(--green-soft); color: var(--green-text); }
+    .ship-badge.return { background: var(--red-soft); color: var(--red-text); }
+    .ship-badge.speedpak { background: var(--orange-soft); color: var(--orange-text); }
+    .ship-badge.none { background: #f1f5f9; color: #64748b; }
+
+    .status-pill.yellow { background: var(--yellow); color: var(--yellow-text); }
+    .status-pill.blue { background: #dbeafe; color: #1d4ed8; }
+    .status-pill.gray { background: #f1f5f9; color: #64748b; }
+
+    .preference-pill.active {
+      background: var(--yellow);
+      color: var(--yellow-text);
+      cursor: pointer;
+    }
+
+    .preference-pill.inactive {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .shipped-date {
+      display: inline-block;
+      margin-left: 8px;
+      color: #475569;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .empty {
+      padding: 32px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.68);
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      width: min(760px, 100%);
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+    }
+
+    .modal.wide { width: min(920px, 100%); }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .info-box {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .info-box.highlight {
+      border-color: #f6d672;
+      background: var(--yellow-soft);
+    }
+
+    .info-box-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--blue);
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 130px minmax(0, 1fr);
+      gap: 12px;
+      line-height: 1.6;
+    }
+
+    .info-label {
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .info-value {
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: #334155;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      padding: 10px 12px;
+      background: white;
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .link-cell {
+      color: var(--blue);
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    .invoice-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .invoice-summary-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .invoice-summary-item strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 22px;
+      color: var(--blue);
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: calc(100% - 20px);
+        padding: 22px 12px 38px;
+      }
+
+      .topbar, .detail-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .user-area { justify-content: flex-start; }
+      .stats, .stats.four, .invoice-summary { grid-template-columns: 1fr; }
+      .tabs { overflow-x: auto; }
+      .detail-actions { align-items: stretch; }
+      .detail-invoice-input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loginView" class="login-page">
+    <div class="login-card">
+      <h1>おきらく便</h1>
+      <p>管理者としてログインしてください。</p>
+      <div id="loginError" class="error hidden"></div>
+      <button id="loginBtn" class="primary-btn">Googleで管理者ログイン</button>
+    </div>
+  </div>
+
+  <main id="appView" class="page hidden">
+    <div id="appError" class="error hidden"></div>
+
+    <header class="topbar">
+      <h1 class="brand">おきらく便</h1>
+      <div class="user-area">
+        <span id="userEmail"></span>
+        <span class="role-pill">管理者</span>
+        <button id="logoutBtn" class="secondary-btn">ログアウト</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-main-tab="members">メンバー一覧</button>
+      <button class="tab" data-main-tab="detail">メンバー詳細</button>
+      <button class="tab" data-main-tab="invoices">請求書</button>
+    </nav>
+
+    <section id="membersSection" class="section">
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">メンバー</div>
+          <div id="totalMembers" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">登録済み商品</div>
+          <div id="totalRegistered" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">未発送</div>
+          <div id="totalUnshipped" class="stat-value">0</div>
+        </div>
+      </div>
+
+      <h2>メンバー一覧</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>メンバー</th>
+              <th>登録済み商品</th>
+              <th>保管商品</th>
+              <th>未発送</th>
+              <th>発送済み</th>
+              <th>最終ログイン</th>
+            </tr>
+          </thead>
+          <tbody id="memberListBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="detailSection" class="section hidden">
+      <div id="detailEmpty" class="empty">メンバー一覧からメンバーを選択してください。</div>
+
+      <div id="detailContent" class="hidden">
+        <div class="detail-header">
+          <div>
+            <h2 id="detailMemberName" class="detail-name"></h2>
+            <div id="detailMemberEmail" class="member-meta"></div>
+            <div id="detailMemberUid" class="member-meta"></div>
+            <div id="detailManagementHeader" class="management-header"></div>
+          </div>
+          <div class="detail-actions">
+            <input id="detailInvoiceMonthInput" class="detail-invoice-input" type="month" />
+            <button class="primary-btn" onclick="createInvoiceForSelectedMember()">このメンバーの請求書作成</button>
+            <button id="reloadBtn" class="secondary-btn">再読み込み</button>
+          </div>
+        </div>
+
+        <div class="stats four">
+          <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
+            <div class="stat-label">登録済み商品</div>
+            <div id="detailRegisteredCount" class="stat-value">0</div>
+          </div>
+          <div id="detailStoredCard" class="stat-card clickable" onclick="setDetailView('stored')">
+            <div class="stat-label">保管商品</div>
+            <div id="detailStoredCount" class="stat-value">0</div>
+          </div>
+          <div id="detailUnshippedCard" class="stat-card clickable" onclick="setDetailView('unshipped')">
+            <div class="stat-label">未発送</div>
+            <div id="detailUnshippedCount" class="stat-value">0</div>
+          </div>
+          <div id="detailShippedCard" class="stat-card clickable" onclick="setDetailView('shipped')">
+            <div class="stat-label">発送済み</div>
+            <div id="detailShippedCount" class="stat-value">0</div>
+          </div>
+        </div>
+
+        <div id="detailTableArea" class="section"></div>
+      </div>
+    </section>
+
+    <section id="invoicesSection" class="section hidden">
+      <h2>請求書</h2>
+
+      <div class="invoice-actions">
+        <label>
+          対象月
+          <input id="invoiceMonthInput" type="month" />
+        </label>
+        <button class="primary-btn" onclick="createInvoicesForMonth()">全メンバーの請求書作成</button>
+      </div>
+
+      <div class="invoice-summary">
+        <div class="invoice-summary-item">
+          メンバー
+          <strong id="invoiceMemberCount">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          請求書
+          <strong id="invoiceCount">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          検品料金
+          <strong id="invoiceInspectionTotal">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          合計
+          <strong id="invoiceGrandTotal">0</strong>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>対象月</th>
+              <th>管理番号</th>
+              <th>メンバー</th>
+              <th>件数</th>
+              <th>検品料金</th>
+              <th>発送料金</th>
+              <th>合計</th>
+              <th>明細</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceListBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="infoModalBackdrop" class="modal-backdrop">
+    <div class="modal wide">
+      <div class="modal-head">
+        <h2 id="infoModalTitle">商品情報</h2>
+        <button class="secondary-btn" onclick="closeInfoModal()">閉じる</button>
+      </div>
+      <div id="infoModalBody"></div>
+    </div>
+  </div>
+
+  <div id="editModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="editModalTitle">編集</h2>
+        <button id="editModalCloseBtn" class="secondary-btn" type="button">閉じる</button>
+      </div>
+      <form id="editForm"></form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  get,
+  update,
+  remove,
+  set
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+    import {
+      getDatabase,
+      ref,
+      get,
+      update,
+      remove
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+      authDomain: "okirakubin-manager.firebaseapp.com",
+      projectId: "okirakubin-manager",
+      storageBucket: "okirakubin-manager.firebasestorage.app",
+      messagingSenderId: "387991576787",
+      appId: "1:387991576787:web:db731b898f46dc8214f426"
+    };
+
+    const databaseUrl = "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+    const GAS_WEB_APP_URL = "ここにApps ScriptのウェブアプリURLを入れてください";
+    const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
+
+    const INSPECTION_PRICE_MAP = {
+      "検品+写真": 300,
+      "写真のみ": 200,
+      "検品のみ": 150,
+      "保管のみ": 0
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    const db = getDatabase(app, databaseUrl);
+
+    const loginView = document.getElementById("loginView");
+    const appView = document.getElementById("appView");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginError = document.getElementById("loginError");
+    const appError = document.getElementById("appError");
+    const userEmail = document.getElementById("userEmail");
+
+    const membersSection = document.getElementById("membersSection");
+    const detailSection = document.getElementById("detailSection");
+    const invoicesSection = document.getElementById("invoicesSection");
+    const detailEmpty = document.getElementById("detailEmpty");
+    const detailContent = document.getElementById("detailContent");
+
+    const totalMembers = document.getElementById("totalMembers");
+    const totalRegistered = document.getElementById("totalRegistered");
+    const totalUnshipped = document.getElementById("totalUnshipped");
+    const memberListBody = document.getElementById("memberListBody");
+
+    const detailMemberName = document.getElementById("detailMemberName");
+    const detailMemberEmail = document.getElementById("detailMemberEmail");
+    const detailMemberUid = document.getElementById("detailMemberUid");
+    const detailManagementHeader = document.getElementById("detailManagementHeader");
+
+    const detailRegisteredCard = document.getElementById("detailRegisteredCard");
+    const detailStoredCard = document.getElementById("detailStoredCard");
+    const detailUnshippedCard = document.getElementById("detailUnshippedCard");
+    const detailShippedCard = document.getElementById("detailShippedCard");
+
+    const detailRegisteredCount = document.getElementById("detailRegisteredCount");
+    const detailStoredCount = document.getElementById("detailStoredCount");
+    const detailUnshippedCount = document.getElementById("detailUnshippedCount");
+    const detailShippedCount = document.getElementById("detailShippedCount");
+    const detailTableArea = document.getElementById("detailTableArea");
+
+    const invoiceMonthInput = document.getElementById("invoiceMonthInput");
+    const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
+    const invoiceListBody = document.getElementById("invoiceListBody");
+    const invoiceMemberCount = document.getElementById("invoiceMemberCount");
+    const invoiceCount = document.getElementById("invoiceCount");
+    const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
+    const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
+
+    const infoModalBackdrop = document.getElementById("infoModalBackdrop");
+    const infoModalBody = document.getElementById("infoModalBody");
+    const infoModalTitle = document.getElementById("infoModalTitle");
+
+    const editModalBackdrop = document.getElementById("editModalBackdrop");
+    const editModalTitle = document.getElementById("editModalTitle");
+    const editModalCloseBtn = document.getElementById("editModalCloseBtn");
+    const editForm = document.getElementById("editForm");
+
+    let currentUser = null;
+    let membersCache = [];
+    let invoicesCache = {};
+    let selectedMemberUid = null;
+    let detailView = "registered";
+    let activeEdit = null;
+
+    loginBtn.addEventListener("click", async () => {
+      hideError(loginError);
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        showError(loginError, "ログインに失敗しました。Firebase Authentication の設定を確認してください。");
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    document.querySelectorAll("[data-main-tab]").forEach((button) => {
+      button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
+    });
+
+    editModalCloseBtn.addEventListener("click", closeEditModal);
+
+    onAuthStateChanged(auth, async (user) => {
+      hideError(loginError);
+      hideError(appError);
+
+      if (!user) {
+        currentUser = null;
+        membersCache = [];
+        invoicesCache = {};
+        selectedMemberUid = null;
+        loginView.classList.remove("hidden");
+        appView.classList.add("hidden");
+        return;
+      }
+
+      currentUser = user;
+
+      try {
+        const adminSnap = await get(ref(db, `admins/${user.uid}`));
+
+        if (adminSnap.val() !== true) {
+          await signOut(auth);
+          showError(loginError, "このアカウントは管理者として登録されていません。");
+          return;
+        }
+      } catch (error) {
+        await signOut(auth);
+        showError(loginError, "管理者認証に失敗しました。Realtime Database のルールを確認してください。");
+        return;
+      }
+
+      userEmail.textContent = user.email || "";
+      loginView.classList.add("hidden");
+      appView.classList.remove("hidden");
+
+      try {
+        await update(ref(db, `loginUsers/${user.uid}`), {
+          email: user.email || "",
+          name: user.displayName || "",
+          uid: user.uid,
+          role: "admin",
+          lastLoginAt: Date.now()
+        });
+      } catch (error) {
+        showError(appError, "ログイン履歴の更新に失敗しました。Realtime Database のルールを確認してください。");
+      }
+
+      await loadAllData();
+    });
+
+    async function loadAllData() {
+      hideError(appError);
+
+      try {
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap] = await Promise.all([
+          get(ref(db, "members")),
+          get(ref(db, "loginUsers")),
+          get(ref(db, "products")),
+          get(ref(db, "invoices"))
+        ]);
+
+        const membersRaw = membersSnap.val() || {};
+        const usersRaw = usersSnap.val() || {};
+        const productsRaw = productsSnap.val() || {};
+        invoicesCache = invoicesSnap.val() || {};
+
+        membersCache = Object.keys(membersRaw)
+          .filter((uid) => membersRaw[uid] === true)
+          .map((uid) => {
+            const user = usersRaw[uid] || {};
+            const productMap = productsRaw[uid] || {};
+            const products = Object.entries(productMap).map(([id, value]) => ({
+              id,
+              ...value
+            }));
+
+            return {
+              uid,
+              name: user.name || user.email || uid,
+              email: user.email || "",
+              role: user.role || "member",
+              lastLoginAt: user.lastLoginAt || "",
+              managementNumber: user.managementNumber || "",
+              driveBaseUrl: user.driveBaseUrl || "",
+              products
+            };
+          })
+          .sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+
+        if (!selectedMemberUid && membersCache.length) {
+          selectedMemberUid = membersCache[0].uid;
+        }
+
+        setDefaultMonths();
+        renderMembers();
+        renderMemberDetail();
+        renderInvoices();
+      } catch (error) {
+        showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    function setDefaultMonths() {
+      const month = todayString().slice(0, 7);
+      if (invoiceMonthInput) invoiceMonthInput.value = month;
+      if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
+    }
+
+    function renderMembers() {
+      const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
+      const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
+
+      totalMembers.textContent = membersCache.length;
+      totalRegistered.textContent = totalRegisteredCount;
+      totalUnshipped.textContent = totalUnshippedCount;
+
+      if (!membersCache.length) {
+        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">メンバーが登録されていません。</div></td></tr>`;
+        return;
+      }
+
+      memberListBody.innerHTML = membersCache.map((member) => {
+        const groups = getProductGroups(member);
+
+        return `
+          <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
+            <td>
+              <div class="management-cell">
+                <strong>${escapeHtml(member.managementNumber || "-")}</strong>
+                <button class="mini-btn" onclick="event.stopPropagation(); openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
+              </div>
+            </td>
+            <td>
+              <div class="member-name">${escapeHtml(member.name || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.uid)}</div>
+            </td>
+            <td>${countPill(groups.registered.length, "issue")}</td>
+            <td>${countPill(groups.stored.length, "neutral-hi")}</td>
+            <td>${countPill(groups.unshipped.length, "issue")}</td>
+            <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
+            <td>${formatDateTime(member.lastLoginAt)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderMemberDetail() {
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+
+      if (!member) {
+        detailEmpty.classList.remove("hidden");
+        detailContent.classList.add("hidden");
+        return;
+      }
+
+      const groups = getProductGroups(member);
+
+      detailEmpty.classList.add("hidden");
+      detailContent.classList.remove("hidden");
+
+      detailMemberName.textContent = member.name || "-";
+      detailMemberEmail.textContent = member.email || "-";
+      detailMemberUid.textContent = member.uid;
+
+      detailManagementHeader.innerHTML = `
+        <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
+        <span class="management-pill">${member.driveBaseUrl ? "Drive 設定済み" : "Drive 未設定"}</span>
+      `;
+
+      detailRegisteredCount.textContent = groups.registered.length;
+      detailStoredCount.textContent = groups.stored.length;
+      detailUnshippedCount.textContent = groups.unshipped.length;
+      detailShippedCount.textContent = groups.shipped.length;
+
+      setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
+      setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
+      setStatCard(detailUnshippedCard, groups.unshipped.length, "issue", detailView === "unshipped");
+      setStatCard(detailShippedCard, groups.shipped.length, "neutral-hi", detailView === "shipped");
+
+      renderDetailTable(member, groups);
+    }
+
+    function renderDetailTable(member, groups) {
+      const products = getDetailProducts(member);
+
+      if (!products.length) {
+        detailTableArea.innerHTML = `<div class="empty">表示する商品がありません。</div>`;
+        return;
+      }
+
+      if (detailView === "registered") {
+        detailTableArea.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>こだわり欄</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td>${preferenceButton(member.uid, product)}</td>
+                    <td><span class="status-pill gray">未依頼</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "stored") {
+        detailTableArea.innerHTML = `
+          <div class="table-actions">
+            <label>
+              対象月
+              <input id="exportMonth" type="month" />
+            </label>
+            <button class="primary-btn" onclick="exportCurrentDetailCsv()">保管商品をExcel出力</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>こだわり欄</th>
+                  <th>写真撮影日</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td>${preferenceButton(member.uid, product)}</td>
+                    <td>${escapeHtml(product.shootingDate || "-")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      if (detailView === "unshipped") {
+        detailTableArea.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>発送</th>
+                  <th>商品名</th>
+                  <th>ナンバリング</th>
+                  <th>作業依頼</th>
+                  <th>情報</th>
+                  <th>発送情報</th>
+                  <th>状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((product) => `
+                  <tr>
+                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td><span class="status-pill yellow">未発送</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
+
+      detailTableArea.innerHTML = `
+        <div class="table-actions">
+          <label>
+            対象月
+            <input id="exportMonth" type="month" />
+          </label>
+          <button class="primary-btn" onclick="exportCurrentDetailCsv()">発送済みをExcel出力</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品名</th>
+                <th>ナンバリング</th>
+                <th>作業依頼</th>
+                <th>情報</th>
+                <th>発送情報</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${products.map((product) => `
+                <tr>
+                  <td>${escapeHtml(product.name || "-")}</td>
+                  <td>${escapeHtml(product.numbering || "-")}</td>
+                  <td>${escapeHtml(product.workRequest || "-")}</td>
+                  <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                  <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                  <td><span class="status-pill blue">発送済み</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function getProductGroups(member) {
+      const registered = [];
+      const stored = [];
+      const unshipped = [];
+      const shipped = [];
+
+      member.products.forEach((product) => {
+        const hasShippingRequest = hasValue(product.shippingRequest);
+        const hasShootingDate = hasValue(product.shootingDate);
+        const isShipped = product.shippingStatus === "shipped";
+
+        if (isShipped) {
+          shipped.push(product);
+        } else if (hasShippingRequest) {
+          unshipped.push(product);
+        } else if (hasShootingDate) {
+          stored.push(product);
+        } else {
+          registered.push(product);
+        }
+      });
+
+      const sorter = (a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+
+      return {
+        registered: registered.sort(sorter),
+        stored: stored.sort(sorter),
+        unshipped: unshipped.sort(sorter),
+        shipped: shipped.sort(sorter)
+      };
+    }
+
+    function getDetailProducts(member) {
+      return getProductGroups(member)[detailView] || [];
+    }
+
+    function setStatCard(card, value, type, active) {
+      card.classList.remove("issue", "neutral-hi", "active-view");
+      if (value > 0) card.classList.add(type);
+      if (active) card.classList.add("active-view");
+    }
+
+    function countPill(value, type) {
+      const className = value > 0 ? `count-pill ${type}` : "count-pill";
+      return `<span class="${className}">${value}</span>`;
+    }
+
+    function selectMember(uid) {
+      selectedMemberUid = uid;
+      detailView = "registered";
+      renderMemberDetail();
+      setMainTab("detail");
+    }
+
+    function setDetailView(view) {
+      detailView = view;
+      renderMemberDetail();
+    }
+
+    function setMainTab(tabName) {
+      document.querySelectorAll("[data-main-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.mainTab === tabName);
+      });
+
+      membersSection.classList.toggle("hidden", tabName !== "members");
+      detailSection.classList.toggle("hidden", tabName !== "detail");
+      invoicesSection.classList.toggle("hidden", tabName !== "invoices");
+    }
+
+    function shippingBadge(value) {
+      const key = shippingKey(value);
+      const textMap = {
+        domestic: "国内発送",
+        international: "海外発送",
+        return: "返品依頼",
+        speedpak: "SpeedPAK",
+        none: "なし"
+      };
+
+      return `<span class="ship-badge ${key}">${textMap[key] || "なし"}</span>`;
+    }
+
+    function shippingKey(value) {
+      const text = String(value || "").trim();
+
+      if (text === "domestic" || text === "国内発送") return "domestic";
+      if (text === "international" || text === "海外発送") return "international";
+      if (text === "return" || text === "返品依頼") return "return";
+      if (text === "speedpak" || text === "SpeedPAK") return "speedpak";
+
+      return "none";
+    }
+
+    function preferenceButton(uid, product) {
+      const enabled = product.preferenceEnabled === true || product.preferenceEnabled === "true";
+
+      if (!enabled) {
+        return `<span class="preference-pill inactive">なし</span>`;
+      }
+
+      return `<button class="preference-pill active" onclick="openPreferenceModal('${escapeAttr(uid)}','${escapeAttr(product.id)}')">あり</button>`;
+    }
+
+    function findMember(uid) {
+      return membersCache.find((member) => member.uid === uid);
+    }
+
+    function findProduct(uid, productId) {
+      return findMember(uid)?.products.find((product) => product.id === productId);
+    }
+
+    function openInfoModal(uid, productId) {
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+
+      if (!product || !member) return;
+
+      infoModalTitle.textContent = "商品情報";
+      infoModalBody.innerHTML = `
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>会員記載情報</span>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">商品名</div>
+            <div class="info-value">${escapeHtml(product.name || "-")}</div>
+
+            <div class="info-label">ナンバリング</div>
+            <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
+
+            <div class="info-label">作業依頼</div>
+            <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
+
+            <div class="info-label">備考欄</div>
+            <div class="info-value">${escapeHtml(product.note || "-")}</div>
+
+            <div class="info-label">購入先URL</div>
+            <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>管理者記載情報</span>
+            <button class="mini-btn" onclick="openAdminFieldsEdit('${escapeAttr(uid)}','${escapeAttr(productId)}')">編集</button>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">確認日</div>
+            <div class="info-value">${escapeHtml(product.confirmationDate || "-")}</div>
+
+            <div class="info-label">確認結果</div>
+            <div class="info-value">${escapeHtml(product.confirmationResult || "-")}</div>
+
+            <div class="info-label">写真URL</div>
+            <div class="info-value">${linkOrDash(product.photoUrl)}</div>
+
+            <div class="info-label">予想サイズ</div>
+            <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
+
+            <div class="info-label">保管場所</div>
+            <div class="info-value">
+              ${linkOrDash(product.storageLocation || product.folderUrl)}
+              <div style="margin-top:10px;">
+                <button class="mini-btn yellow" onclick="createStorageFolderFromInfo('${escapeAttr(uid)}','${escapeAttr(productId)}')">保管場所作成</button>
+              </div>
+            </div>
+
+            <div class="info-label">写真撮影日</div>
+            <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
+
+            <div class="info-label">フォルダ状態</div>
+            <div class="info-value">${escapeHtml(folderStatusText(product))}</div>
+
+            <div class="info-label">作成予定名</div>
+            <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
+          </div>
+        </div>
+      `;
+
+      infoModalBackdrop.classList.add("show");
+    }
+
+    function openShippingInfo(uid, productId) {
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+
+      if (!product || !member) return;
+
+      infoModalTitle.textContent = "発送情報";
+      infoModalBody.innerHTML = `
+        <div class="info-box highlight">
+          <div class="info-box-title">
+            <span>発送状態</span>
+            <button class="mini-btn" onclick="openStatusEdit('${escapeAttr(uid)}','${escapeAttr(productId)}')">編集</button>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">状態</div>
+            <div class="info-value">${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+
+            <div class="info-label">発送サイズ</div>
+            <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
+
+            <div class="info-label">値段</div>
+            <div class="info-value">${escapeHtml(product.shippingPrice || "-")}</div>
+
+            <div class="info-label">発送日</div>
+            <div class="info-value">${escapeHtml(product.shippedDate || "-")}</div>
+          </div>
+        </div>
+
+        <div class="info-box highlight">
+          <div class="info-box-title">
+            <span>発送先</span>
+          </div>
+          <div class="info-value">${escapeHtml(product.shippingDestination || "-")}</div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>発送元</span>
+            <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
+          </div>
+          <div class="info-value">${escapeHtml(product.shippingOrigin || "-")}</div>
+        </div>
+      `;
+
+      infoModalBackdrop.classList.add("show");
+    }
+
+    function openPreferenceModal(uid, productId) {
+      const product = findProduct(uid, productId);
+      if (!product || !(product.preferenceEnabled === true || product.preferenceEnabled === "true")) return;
+
+      infoModalTitle.textContent = "こだわり欄";
+      infoModalBody.innerHTML = `
+        <div class="info-box highlight">
+          <div class="info-value">${escapeHtml(product.preferenceComment || "-")}</div>
+        </div>
+      `;
+      infoModalBackdrop.classList.add("show");
+    }
+
+    function closeInfoModal() {
+      infoModalBackdrop.classList.remove("show");
+      infoModalBody.innerHTML = "";
+    }
+
+    function openMemberManagementEdit(uid) {
+      const member = findMember(uid);
+      if (!member) return;
+
+      activeEdit = { type: "memberManagement", uid };
+
+      editModalTitle.textContent = "管理番号を編集";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            管理番号
+            <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
+          </label>
+
+          <label>
+            Google Drive URL置き場
+            <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+    }
+
+    function openAdminFieldsEdit(uid, productId) {
+      const product = findProduct(uid, productId);
+      if (!product) return;
+
+      activeEdit = { type: "adminFields", uid, productId };
+
+      editModalTitle.textContent = "管理者記載情報を編集";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            確認日
+            <input name="confirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}" />
+          </label>
+
+          <label>
+            確認結果
+            <textarea name="confirmationResult">${escapeHtml(product.confirmationResult || "")}</textarea>
+          </label>
+
+          <label>
+            写真URL
+            <input name="photoUrl" value="${escapeAttr(product.photoUrl || "")}" />
+          </label>
+
+          <label>
+            予想サイズ
+            <input name="expectedSize" value="${escapeAttr(product.expectedSize || "")}" />
+          </label>
+
+          <label>
+            保管場所
+            <input name="storageLocation" value="${escapeAttr(product.storageLocation || product.folderUrl || "")}" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+    }
+
+    function openStatusEdit(uid, productId) {
+      const product = findProduct(uid, productId);
+      if (!product) return;
+
+      activeEdit = { type: "status", uid, productId };
+
+      editModalTitle.textContent = "発送状態を編集";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            状態
+            <select name="shippingStatus">
+              <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
+              <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
+            </select>
+          </label>
+
+          <label>
+            発送サイズ
+            <select name="shippingSize">
+              ${shippingSizeOptions(product.shippingSize)}
+            </select>
+          </label>
+
+          <label>
+            値段
+            <input name="shippingPrice" type="number" min="0" value="${escapeAttr(product.shippingPrice || "")}" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+    }
+
+    editForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!activeEdit) return;
+
+      hideError(appError);
+
+      const formData = new FormData(editForm);
+      const now = Date.now();
+
+      try {
+        if (activeEdit.type === "memberManagement") {
+          await update(ref(db, `loginUsers/${activeEdit.uid}`), {
+            managementNumber: getFormValue(formData, "managementNumber"),
+            driveBaseUrl: getFormValue(formData, "driveBaseUrl"),
+            updatedAt: now
+          });
+        }
+
+        if (activeEdit.type === "adminFields") {
+          const confirmationDate = getFormValue(formData, "confirmationDate");
+          const product = findProduct(activeEdit.uid, activeEdit.productId);
+          const member = findMember(activeEdit.uid);
+
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
+            updatedAt: now,
+            confirmationDate,
+            shootingDate: confirmationDate,
+            confirmationResult: getFormValue(formData, "confirmationResult"),
+            photoUrl: getFormValue(formData, "photoUrl"),
+            expectedSize: getFormValue(formData, "expectedSize"),
+            storageLocation: getFormValue(formData, "storageLocation"),
+            folderUrl: getFormValue(formData, "storageLocation"),
+            driveBaseUrl: member?.driveBaseUrl || "",
+            folderName: makeFolderName(product?.numbering, product?.name)
+          });
+        }
+
+        if (activeEdit.type === "status") {
+          const status = getFormValue(formData, "shippingStatus");
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
+            updatedAt: now,
+            shippingStatus: status,
+            shippedDate: status === "shipped" ? todayString() : "",
+            shippingSize: getFormValue(formData, "shippingSize"),
+            shippingPrice: getFormValue(formData, "shippingPrice")
+          });
+        }
+
+        closeEditModal();
+        await loadAllData();
+      } catch (error) {
+        showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    });
+
+    async function createStorageFolderFromInfo(uid, productId) {
+      hideError(appError);
+
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+      if (!product || !member) return;
+
+      const folderName = makeFolderName(product.numbering, product.name);
+
+      if (!hasValue(member.driveBaseUrl)) {
+        showError(appError, "Google Drive URL置き場が未設定です。メンバー一覧の管理番号編集から設定してください。");
+        return;
+      }
+
+      try {
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "processing",
+          folderError: "",
+          updatedAt: Date.now()
+        });
+
+        const result = await createDriveFolderWithGas(member.driveBaseUrl, folderName);
+        const folderUrl = result.folderUrl || "";
+
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          folderUrl,
+          storageLocation: folderUrl,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "created",
+          folderCreatedAt: Date.now(),
+          folderError: "",
+          updatedAt: Date.now()
+        });
+
+        await loadAllData();
+        openInfoModal(uid, productId);
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+
+        await update(ref(db, `products/${uid}/${productId}`), {
+          folderName,
+          driveBaseUrl: member.driveBaseUrl,
+          folderJobStatus: "error",
+          folderError: message,
+          updatedAt: Date.now()
+        });
+
+        showError(appError, `保管場所の作成に失敗しました。${message}`);
+        await loadAllData();
+        openInfoModal(uid, productId);
+      }
+    }
+
+    async function createDriveFolderWithGas(driveBaseUrl, folderName) {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
+        throw new Error("GAS_WEB_APP_URLが未設定です。");
+      }
+
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          token: GAS_WEB_APP_TOKEN,
+          driveBaseUrl,
+          folderName
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.ok) {
+        throw new Error(result.error || "Driveフォルダ作成に失敗しました。");
+      }
+
+      if (!result.folderUrl) {
+        throw new Error("DriveフォルダURLが返却されませんでした。");
+      }
+
+      return result;
+    }
+
+    function renderInvoices() {
+      const month = invoiceMonthInput.value || todayString().slice(0, 7);
+      const invoices = [];
+
+      Object.entries(invoicesCache || {}).forEach(([uid, monthMap]) => {
+        const invoice = monthMap && monthMap[month];
+        if (invoice) invoices.push(invoice);
+      });
+
+      invoiceMemberCount.textContent = membersCache.length;
+      invoiceCount.textContent = invoices.length;
+      invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
+      invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
+
+      if (!invoices.length) {
+        invoiceListBody.innerHTML = `<tr><td colspan="9"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
+        return;
+      }
+
+      invoiceListBody.innerHTML = invoices
+        .sort((a, b) => String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja"))
+        .map((invoice) => `
+          <tr>
+            <td>${escapeHtml(invoice.month || "-")}</td>
+            <td>${escapeHtml(invoice.managementNumber || "-")}</td>
+            <td>
+              <div class="member-name">${escapeHtml(invoice.memberName || "-")}</div>
+              <div class="member-meta">${escapeHtml(invoice.email || "-")}</div>
+            </td>
+            <td>${Object.keys(invoice.items || {}).length}</td>
+            <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
+            <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
+            <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
+            <td><button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV(明細)</button></td>
+            <td><button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button></td>
+          </tr>
+        `).join("");
+    }
+
+    async function createInvoicesForMonth() {
+      hideError(appError);
+
+      const month = invoiceMonthInput.value;
+
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
+
+      try {
+        let createdCount = 0;
+
+        for (const member of membersCache) {
+          const created = await createInvoiceForMember(member, month, false);
+          if (created) createdCount++;
+        }
+
+        if (createdCount === 0) {
+          showError(appError, "対象月に請求対象の商品がありません。");
+          return;
+        }
+
+        await loadAllData();
+        setMainTab("invoices");
+      } catch (error) {
+        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    async function createInvoiceForSelectedMember() {
+      hideError(appError);
+
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+      const month = detailInvoiceMonthInput?.value || invoiceMonthInput.value;
+
+      if (!member) {
+        showError(appError, "メンバーを選択してください。");
+        return;
+      }
+
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
+
+      try {
+        const created = await createInvoiceForMember(member, month, true);
+        if (!created) return;
+
+        invoiceMonthInput.value = month;
+        await loadAllData();
+        setMainTab("invoices");
+      } catch (error) {
+        showError(appError, "請求書の作成に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+async function createInvoiceForMember(member, month, showNoTargetError = true) {
+  const items = buildInvoiceItems(member, month);
+
+  if (!items.length) {
+    if (showNoTargetError) {
+      showError(appError, "対象月に請求対象の商品がありません。");
+    }
+    return false;
+  }
+
+  const totalInspectionFee = items.reduce((sum, item) => sum + Number(item.inspectionFee || 0), 0);
+  const totalShippingFee = items.reduce((sum, item) => sum + Number(item.shippingFee || 0), 0);
+  const grandTotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+  const itemMap = {};
+  items.forEach((item) => {
+    itemMap[item.productId] = cleanForFirebase(item);
+  });
+
+  const invoiceData = cleanForFirebase({
+    uid: member.uid,
+    memberName: member.name || "",
+    email: member.email || "",
+    managementNumber: member.managementNumber || "",
+    month,
+    status: "created",
+    createdAt: Date.now(),
+    createdBy: currentUser ? currentUser.uid : "",
+    createdByEmail: currentUser ? currentUser.email || "" : "",
+    totalInspectionFee,
+    totalShippingFee,
+    grandTotal,
+    items: itemMap
+  });
+
+  await set(ref(db, `invoices/${member.uid}/${month}`), invoiceData);
+
+  return true;
+}
+
+function cleanForFirebase(value) {
+  if (value === undefined) return "";
+
+  if (value === null) return null;
+
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanForFirebase(item));
+  }
+
+  if (typeof value === "object") {
+    const cleaned = {};
+
+    Object.entries(value).forEach(([key, item]) => {
+      cleaned[key] = cleanForFirebase(item);
+    });
+
+    return cleaned;
+  }
+
+  return value;
+}
+
+function buildInvoiceItems(member, month) {
+  return member.products
+    .map((product) => {
+      const inspectionInMonth = matchesMonth(product.shootingDate, month);
+      const shippingInMonth = matchesMonth(product.shippedDate, month);
+
+      if (!inspectionInMonth && !shippingInMonth) return null;
+
+      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product.workRequest) : 0;
+      const shippingFee = shippingInMonth ? numberValue(product.shippingPrice) : 0;
+
+      return {
+        productId: product.id,
+        name: product.name || "",
+        numbering: product.numbering || "",
+        workRequest: product.workRequest || "",
+        inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
+        inspectionFee: inspectionInMonth ? inspectionFee : "-",
+        shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
+        shippingFee: shippingInMonth ? shippingFee : "-",
+        total: inspectionFee + shippingFee
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+}
+
+    function inspectionFeeFor(workRequest) {
+      return Number(INSPECTION_PRICE_MAP[workRequest] ?? 0);
+    }
+
+    function numberValue(value) {
+      if (typeof value === "number") return value;
+      const cleaned = String(value || "").replace(/[^\d.-]/g, "");
+      return Number(cleaned || 0);
+    }
+
+    function downloadInvoiceCsv(uid, month) {
+      const invoice = invoicesCache?.[uid]?.[month];
+      if (!invoice) return;
+
+      const items = Object.values(invoice.items || {});
+      const rows = [
+        ["請求月", invoice.month || ""],
+        ["メンバー", invoice.memberName || ""],
+        ["管理番号", invoice.managementNumber || ""],
+        [],
+        ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+        ...items.map((item) => [
+          item.name || "",
+          item.numbering || "",
+          item.workRequest || "",
+          item.inspectionDate || "-",
+          item.inspectionFee ?? "-",
+          item.shippingDate || "-",
+          item.shippingFee ?? "-",
+          item.total || 0
+        ]),
+        [],
+        ["検品料金合計", invoice.totalInspectionFee || 0],
+        ["発送料金合計", invoice.totalShippingFee || 0],
+        ["合計", invoice.grandTotal || 0]
+      ];
+
+      downloadCsv(rows, `${invoice.memberName || uid}_${month}_ご利用明細.csv`);
+    }
+
+    async function deleteInvoice(uid, month) {
+      hideError(appError);
+
+      if (!confirm(`${month} の請求書を削除しますか？`)) return;
+
+      try {
+        await remove(ref(db, `invoices/${uid}/${month}`));
+        await loadAllData();
+        renderInvoices();
+      } catch (error) {
+        showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    function closeEditModal() {
+      editModalBackdrop.classList.remove("show");
+      editForm.innerHTML = "";
+      activeEdit = null;
+    }
+
+    function exportCurrentDetailCsv() {
+      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+      if (!member) return;
+
+      const monthInput = document.getElementById("exportMonth");
+      const selectedMonth = monthInput ? monthInput.value : "";
+      let products = getDetailProducts(member);
+
+      if (detailView === "stored") {
+        products = products
+          .filter((product) => matchesMonth(product.shootingDate, selectedMonth))
+          .sort((a, b) => String(a.shootingDate || "").localeCompare(String(b.shootingDate || "")));
+
+        const rows = [
+          ["商品名", "ナンバリング", "作業依頼"],
+          ...products.map((product) => [
+            product.name || "",
+            product.numbering || "",
+            product.workRequest || ""
+          ])
+        ];
+
+        downloadCsv(rows, `${member.name}_保管商品_${selectedMonth || "全期間"}.csv`);
+        return;
+      }
+
+      if (detailView === "shipped") {
+        products = products
+          .filter((product) => matchesMonth(product.shippedDate, selectedMonth))
+          .sort((a, b) => String(a.shippedDate || "").localeCompare(String(b.shippedDate || "")));
+
+        const rows = [
+          ["商品名", "ナンバリング", "発送サイズ", "値段"],
+          ...products.map((product) => [
+            product.name || "",
+            product.numbering || "",
+            product.shippingSize || "",
+            product.shippingPrice || ""
+          ])
+        ];
+
+        downloadCsv(rows, `${member.name}_発送済み_${selectedMonth || "全期間"}.csv`);
+      }
+    }
+
+    function matchesMonth(dateValue, selectedMonth) {
+      if (!selectedMonth) return true;
+      if (!hasValue(dateValue)) return false;
+      return String(dateValue).startsWith(selectedMonth);
+    }
+
+    function downloadCsv(rows, filename) {
+      const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function csvCell(value) {
+      return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    }
+
+    window.closeInfoModal = closeInfoModal;
+    window.closeEditModal = closeEditModal;
+    window.selectMember = selectMember;
+    window.setDetailView = setDetailView;
+    window.openInfoModal = openInfoModal;
+    window.openShippingInfo = openShippingInfo;
+    window.openPreferenceModal = openPreferenceModal;
+    window.openMemberManagementEdit = openMemberManagementEdit;
+    window.openAdminFieldsEdit = openAdminFieldsEdit;
+    window.openStatusEdit = openStatusEdit;
+    window.exportCurrentDetailCsv = exportCurrentDetailCsv;
+    window.createStorageFolderFromInfo = createStorageFolderFromInfo;
+    window.createInvoicesForMonth = createInvoicesForMonth;
+    window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
+    window.downloadInvoiceCsv = downloadInvoiceCsv;
+    window.deleteInvoice = deleteInvoice;
+
+    invoiceMonthInput.addEventListener("change", renderInvoices);
+
+    function shippingSizeOptions(current) {
+      const options = ["60", "80", "100", "120", "140", "海外発送"];
+      return options.map((option) => `
+        <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
+      `).join("");
+    }
+
+    function folderStatusText(product) {
+      const status = product.folderJobStatus || product.folderStatus || "";
+      if (status === "created") return "作成済み";
+      if (status === "processing") return "作成中";
+      if (status === "pending") return "作成依頼中";
+      if (status === "error") return `作成失敗 ${product.folderError ? "：" + product.folderError : ""}`;
+      return "-";
+    }
+
+    function makeFolderName(numbering, name) {
+      return sanitizeName(`${numbering || ""}_${name || ""}`);
+    }
+
+    function sanitizeName(value) {
+      return String(value || "")
+        .trim()
+        .replace(/[\/\\<>:"|?*\u0000-\u001F]/g, "_")
+        .replace(/\s{2,}/g, " ")
+        .slice(0, 180);
+    }
+
+    function getFormValue(formData, key) {
+      return String(formData.get(key) || "").trim();
+    }
+
+    function linkOrDash(value) {
+      if (!hasValue(value)) return "-";
+      const safe = escapeAttr(value);
+      return `<a class="link-cell" href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`;
+    }
+
+    function hasValue(value) {
+      return value !== undefined && value !== null && String(value).trim() !== "";
+    }
+
+    function showError(element, message) {
+      element.textContent = message;
+      element.classList.remove("hidden");
+    }
+
+    function hideError(element) {
+      element.textContent = "";
+      element.classList.add("hidden");
+    }
+
+    function todayString() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "-";
+      const date = new Date(Number(value));
+      if (Number.isNaN(date.getTime())) return "-";
+      return date.toLocaleString("ja-JP", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+  </script>
+</body>
+</html>
