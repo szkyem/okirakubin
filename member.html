@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>おきらく便 - 会員</title>
+<title>お気楽便 - 会員</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#1f2937;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:24px}
@@ -97,6 +97,15 @@ textarea{min-height:88px;resize:vertical}
 .announcement-message{font-weight:700;line-height:1.7;white-space:pre-wrap}
 .inline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .inquiry-box{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.invoice-year{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px}
+.invoice-year-title{font-size:18px;font-weight:800;margin-bottom:14px;color:#1f2937}
+.invoice-grid{display:grid;grid-template-columns:repeat(2,120px);gap:12px}
+.invoice-month-card{width:120px;aspect-ratio:1/1;border:1px solid #dbe3ef;border-radius:8px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.invoice-month-card.available{background:#eff6ff;border-color:#bfdbfe}
+.invoice-month{font-size:18px;font-weight:800;color:#1f2937}
+.invoice-downloads{display:flex;gap:6px}
+.invoice-downloads button{padding:6px 8px;font-size:12px}
+.invoice-empty{font-size:12px;color:#9ca3af}
 @media(max-width:700px){
   body{padding:10px;font-size:14px;overflow-x:hidden}
   .container,.login-container{width:100%;padding:18px;border-radius:8px}
@@ -128,6 +137,8 @@ textarea{min-height:88px;resize:vertical}
   .products-table th,.products-table td{padding:9px 10px;font-size:13px}
   .bulk-action-bar{grid-template-columns:1fr;position:static}
   .bulk-btn{padding:14px 10px;font-size:14px}
+  .invoice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .invoice-month-card{width:100%}
   .modal-backdrop{align-items:flex-start;padding:10px}
   .modal{width:100%;max-width:none;min-width:0;max-height:calc(100vh - 20px);padding:16px}
   .modal-head{align-items:stretch;flex-direction:column}
@@ -144,7 +155,7 @@ textarea{min-height:88px;resize:vertical}
 
 <section class="login-container" id="loginArea">
   <div class="error" id="loginError"></div>
-  <h1 class="login-title">おきらく便</h1>
+  <h1 class="login-title">お気楽便</h1>
   <p class="login-text">会員としてログインしてください。</p>
   <button class="login-button" id="loginBtn" type="button">Googleで会員ログイン</button>
 </section>
@@ -153,7 +164,7 @@ textarea{min-height:88px;resize:vertical}
   <div class="error" id="errorMessage"></div>
 
   <header class="header">
-    <h1 class="title">おきらく便</h1>
+    <h1 class="title">お気楽便</h1>
     <div class="user">
       <span id="userEmail"></span>
       <span class="badge">会員</span>
@@ -191,7 +202,7 @@ textarea{min-height:88px;resize:vertical}
 
       <form id="productForm">
         <div id="productEntries"></div>
-        <button type="submit" style="width:100%;">登録する</button>
+        <button id="registerProductsBtn" type="button" style="width:100%;">登録する</button>
       </form>
     </div>
   </section>
@@ -426,6 +437,7 @@ const errorMessage = document.getElementById("errorMessage");
 const productForm = document.getElementById("productForm");
 const productEntries = document.getElementById("productEntries");
 const addEntryBtn = document.getElementById("addEntryBtn");
+const registerProductsBtn = document.getElementById("registerProductsBtn");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
@@ -528,8 +540,17 @@ shippedFilterBtn.addEventListener("click", () => {
 
 shippingSearchInput.addEventListener("input", renderShippingList);
 
-productForm.addEventListener("submit", async (event) => {
+productForm.addEventListener("submit", (event) => {
   event.preventDefault();
+});
+
+productForm.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
+    event.preventDefault();
+  }
+});
+
+registerProductsBtn.addEventListener("click", async () => {
   clearError();
 
   if (!currentUser) {
@@ -547,6 +568,8 @@ productForm.addEventListener("submit", async (event) => {
       lensCount: entry.querySelector('[data-field="lensCount"]').value.trim(),
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
+      optionOkirakuThanksCard: entry.querySelector('[data-field="optionOkirakuThanksCard"]').checked,
+      optionFlyer: entry.querySelector('[data-field="optionFlyer"]').checked,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
       note: entry.querySelector('[data-field="note"]').value.trim(),
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
@@ -580,13 +603,17 @@ productForm.addEventListener("submit", async (event) => {
         lensCount: item.lensCount,
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
+        optionOkirakuThanksCard: item.optionOkirakuThanksCard,
+        optionFlyer: item.optionFlyer,
         optionComment: item.optionComment,
         options: {
           video: item.optionVideo,
           thanksCard: item.optionThanksCard,
+          okirakuThanksCard: item.optionOkirakuThanksCard,
+          flyer: item.optionFlyer,
           comment: item.optionComment
         },
-        optionLabels: optionLabelsFromValues(item.optionVideo, item.optionThanksCard),
+        optionLabels: optionLabelsFromValues(item.optionVideo, item.optionThanksCard, item.optionOkirakuThanksCard, item.optionFlyer),
         note: item.note,
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
@@ -849,34 +876,30 @@ function renderOriginList() {
 }
 
 function renderInvoiceList() {
-  const invoices = Object.values(invoicesCache || {})
-    .sort((a, b) => String(b.month || "").localeCompare(String(a.month || "")));
-
-  if (!invoices.length) {
-    invoiceList.innerHTML = emptyHtml("ダウンロードできる請求書はありません");
-    return;
-  }
+  const year = "2026";
+  const months = ["01", "02", "03", "04", "05", "06"];
 
   invoiceList.innerHTML = `
-    <div class="table-wrap">
-      <table class="products-table">
-        <thead>
-          <tr>
-            <th>対象月</th>
-            <th>CSV</th>
-            <th>PDF</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${invoices.map((invoice) => `
-            <tr>
-              <td>${escapeHtml(invoice.month || "-")}</td>
-              <td><button class="secondary compact-btn" type="button" onclick="downloadInvoiceCsv('${escapeAttr(invoice.month || "")}')">CSV</button></td>
-              <td><button class="secondary compact-btn" type="button" onclick="downloadInvoicePdf('${escapeAttr(invoice.month || "")}')">PDF</button></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+    <div class="invoice-year">
+      <div class="invoice-year-title">${year}年</div>
+      <div class="invoice-grid">
+        ${months.map((monthNumber) => {
+          const month = `${year}-${monthNumber}`;
+          const invoice = invoicesCache?.[month];
+
+          return `
+            <div class="invoice-month-card ${invoice ? "available" : ""}">
+              <div class="invoice-month">${Number(monthNumber)}月</div>
+              ${invoice ? `
+                <div class="invoice-downloads">
+                  <button class="secondary compact-btn" type="button" onclick="downloadInvoiceCsv('${escapeAttr(month)}')">CSV</button>
+                  <button class="secondary compact-btn" type="button" onclick="downloadInvoicePdf('${escapeAttr(month)}')">PDF</button>
+                </div>
+              ` : `<div class="invoice-empty">未発行</div>`}
+            </div>
+          `;
+        }).join("")}
+      </div>
     </div>
   `;
 }
@@ -939,6 +962,8 @@ function addProductEntry() {
         <label>オプション</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionVideo"> 動画撮影</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionThanksCard"> Thanksカード同梱</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuThanksCard" checked> お気楽便Thanksカード同梱</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionFlyer" checked> チラシ同梱</label>
       </div>
 
       <div class="form-group full">
@@ -957,6 +982,8 @@ function addProductEntry() {
     if (document.querySelectorAll(".product-entry").length === 1) {
       entry.querySelectorAll("input,textarea").forEach((input) => input.value = "");
       entry.querySelectorAll('input[type="checkbox"]').forEach((input) => input.checked = false);
+      entry.querySelector('[data-field="optionOkirakuThanksCard"]').checked = true;
+      entry.querySelector('[data-field="optionFlyer"]').checked = true;
       entry.querySelector("select").selectedIndex = 0;
       return;
     }
@@ -1065,10 +1092,12 @@ function recentAnnouncementsHtml() {
   `;
 }
 
-function optionLabelsFromValues(optionVideo, optionThanksCard) {
+function optionLabelsFromValues(optionVideo, optionThanksCard, optionOkirakuThanksCard, optionFlyer) {
   const labels = [];
   if (isOptionEnabled(optionVideo)) labels.push("動画撮影");
   if (isOptionEnabled(optionThanksCard)) labels.push("Thanksカード同梱");
+  if (isOptionEnabled(optionOkirakuThanksCard)) labels.push("お気楽便Thanksカード同梱");
+  if (isOptionEnabled(optionFlyer)) labels.push("チラシ同梱");
   return labels;
 }
 
@@ -1109,6 +1138,8 @@ function optionSummary(product) {
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
   if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
+  if (isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(optionObject.okirakuThanksCard)) options.push("お気楽便Thanksカード同梱");
+  if (isOptionEnabled(product.optionFlyer) || isOptionEnabled(optionObject.flyer)) options.push("チラシ同梱");
 
   optionLabels.forEach((label) => {
     if (label && !options.includes(label)) options.push(label);
@@ -1253,6 +1284,8 @@ window.openProductEdit = function(productId) {
           <label>オプション</label>
           <label><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}> 動画撮影</label>
           <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}> Thanksカード同梱</label>
+          <label><input class="shipping-check" type="checkbox" name="optionOkirakuThanksCard" ${isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) ? "checked" : ""}> お気楽便Thanksカード同梱</label>
+          <label><input class="shipping-check" type="checkbox" name="optionFlyer" ${isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> チラシ同梱</label>
         </div>
 
         <div class="form-group full">
@@ -1286,6 +1319,8 @@ window.saveProductEdit = async function(event, productId) {
     lensCount: String(formData.get("lensCount") || "").trim(),
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
+    optionOkirakuThanksCard: formData.get("optionOkirakuThanksCard") === "on",
+    optionFlyer: formData.get("optionFlyer") === "on",
     optionComment: String(formData.get("optionComment") || "").trim(),
     purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
     note: String(formData.get("note") || "").trim(),
@@ -1300,9 +1335,11 @@ window.saveProductEdit = async function(event, productId) {
   data.options = {
     video: data.optionVideo,
     thanksCard: data.optionThanksCard,
+    okirakuThanksCard: data.optionOkirakuThanksCard,
+    flyer: data.optionFlyer,
     comment: data.optionComment
   };
-  data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard);
+  data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard, data.optionOkirakuThanksCard, data.optionFlyer);
 
   try {
     await update(ref(database, `products/${currentUser.uid}/${productId}`), data);
@@ -1654,3 +1691,4 @@ function escapeAttr(value) {
 </script>
 </body>
 </html>
+
