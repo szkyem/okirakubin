@@ -1756,7 +1756,7 @@
               </thead>
               <tbody>
                 ${filteredProducts.map((product) => `
-                  <tr>
+                  <tr class="${bundleRowClass(product)}">
                     <td>${shippingCellHtml(product)}</td>
                     <td>${productNameCell(product)}</td>
                     <td>${productNumberingCell(product)}</td>
@@ -1795,7 +1795,7 @@
             </thead>
             <tbody>
               ${filteredProducts.map((product) => `
-                <tr>
+                <tr class="${bundleRowClass(product)}">
                   <td>${productNameCell(product)}</td>
                   <td>${productNumberingCell(product)}</td>
                   <td>${escapeHtml(product.workRequest || "-")}</td>
