@@ -3000,9 +3000,9 @@ function firstInvoiceDate(item) {
       const items = Object.values(invoice.items || {});
       const issueDate = todayString();
       const invoiceNumber = `${invoice.managementNumber || uid}_${issueDate}`;
-      const taxableAmount = feeValue(invoice.grandTotal);
-      const taxAmount = Math.floor(taxableAmount * 0.1);
-      const billedAmount = taxableAmount + taxAmount;
+      const billedAmount = feeValue(invoice.grandTotal);
+      const taxableAmount = Math.floor(billedAmount / 1.1);
+      const taxAmount = billedAmount - taxableAmount;
       const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
       const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
       const detailRows = buildPdfInvoiceRows(items);
