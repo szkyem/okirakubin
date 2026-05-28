@@ -347,22 +347,34 @@
     }
 
     .dash-mark {
-      display: inline-block;
-      width: 32px;
-      height: 4px;
-      background: #111;
-      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 24px;
+      background: #f3f4f6;
+      border-radius: 6px;
       vertical-align: middle;
     }
 
-    tr.bundle-first td { border-top: 2px solid #111; }
-    tr.bundle-last td { border-bottom: 2px solid #111; }
+    .dash-mark::before {
+      content: "";
+      width: 26px;
+      height: 3px;
+      background: #111;
+      border-radius: 999px;
+    }
+
+    tr.bundle-first td { border-top: 2px solid #111 !important; }
+    tr.bundle-middle td,
+    tr.bundle-last td { border-top: 0 !important; }
+    tr.bundle-last td { border-bottom: 2px solid #111 !important; }
     tr.bundle-first td:first-child,
     tr.bundle-middle td:first-child,
-    tr.bundle-last td:first-child { border-left: 2px solid #111; }
+    tr.bundle-last td:first-child { border-left: 2px solid #111 !important; }
     tr.bundle-first td:last-child,
     tr.bundle-middle td:last-child,
-    tr.bundle-last td:last-child { border-right: 2px solid #111; }
+    tr.bundle-last td:last-child { border-right: 2px solid #111 !important; }
 
     .management-cell, .detail-actions {
       display: flex;
@@ -1578,7 +1590,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr class="${bundleRowClass(product)}">
+                <tr>
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
@@ -1589,7 +1601,7 @@
               </thead>
               <tbody>
                 ${products.map((product) => `
-                  <tr>
+                  <tr class="${bundleRowClass(product)}">
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>

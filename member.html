@@ -53,11 +53,13 @@ textarea{min-height:88px;resize:vertical}
 .member-meta{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35}
 .bundle-note{display:inline-flex;align-items:center;border-radius:999px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:3px 8px;font-size:12px;font-weight:800;margin-top:5px;white-space:nowrap}
 .bundle-label{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid #111;color:#111;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:800;line-height:1;white-space:nowrap}
-.dash-mark{display:inline-block;width:32px;height:4px;background:#111;border-radius:999px;vertical-align:middle}
-.products-table tr.bundle-first td{border-top:2px solid #111}
-.products-table tr.bundle-last td{border-bottom:2px solid #111}
-.products-table tr.bundle-first td:first-child,.products-table tr.bundle-middle td:first-child,.products-table tr.bundle-last td:first-child{border-left:2px solid #111}
-.products-table tr.bundle-first td:last-child,.products-table tr.bundle-middle td:last-child,.products-table tr.bundle-last td:last-child{border-right:2px solid #111}
+.dash-mark{display:inline-flex;align-items:center;justify-content:center;width:42px;height:24px;background:#f3f4f6;border-radius:6px;vertical-align:middle}
+.dash-mark::before{content:"";width:26px;height:3px;background:#111;border-radius:999px}
+.products-table tr.bundle-first td{border-top:2px solid #111!important}
+.products-table tr.bundle-middle td,.products-table tr.bundle-last td{border-top:0!important}
+.products-table tr.bundle-last td{border-bottom:2px solid #111!important}
+.products-table tr.bundle-first td:first-child,.products-table tr.bundle-middle td:first-child,.products-table tr.bundle-last td:first-child{border-left:2px solid #111!important}
+.products-table tr.bundle-first td:last-child,.products-table tr.bundle-middle td:last-child,.products-table tr.bundle-last td:last-child{border-right:2px solid #111!important}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -1106,6 +1108,7 @@ function bulkActionBar() {
 }
 
 function inquiryControl(product) {
+  if (product.bundleRole === "child") return `<span class="dash-mark" aria-label="同梱"></span>`;
   if (shippingView === "shipped") return "-";
 
   return `
