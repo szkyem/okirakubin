@@ -969,6 +969,79 @@
             </tbody>
           </table>
         </div>
+
+        <h2>コンサル生料金</h2>
+
+        <div class="table-wrap">
+          <table class="price-table">
+            <tbody>
+              <tr>
+                <td class="group-cell" rowspan="4">作業料</td>
+                <td>検品＋写真</td>
+                <td>1,000円</td>
+                <td>ボディまたはレンズ1点目を含む基本料金</td>
+              </tr>
+              <tr>
+                <td>検品のみ</td>
+                <td>1,000円</td>
+                <td>検品のみの場合</td>
+              </tr>
+              <tr>
+                <td>レンズキット検品追加料金</td>
+                <td>0円</td>
+                <td>追加料金なし</td>
+              </tr>
+              <tr>
+                <td>海外送料</td>
+                <td>400円</td>
+                <td>海外発送は400円固定</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>区分</th>
+                <th>価格</th>
+                <th>備考</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
+              <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
+              <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
+              <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
+              <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
+              <tr><td>お気楽便チラシ同梱</td><td>0円</td><td>コンサル生向け</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead>
+              <tr>
+                <th>サイズ</th>
+                <th>静岡</th>
+                <th>関東・信越・北陸・東海・近畿</th>
+                <th>東北・中国・四国</th>
+                <th>九州</th>
+                <th>沖縄</th>
+                <th>北海道</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>60</td><td>902円</td><td>945円</td><td>1,023円</td><td>1,135円</td><td>1,350円</td><td>1,446円</td></tr>
+              <tr><td>80</td><td>1,118円</td><td>1,167円</td><td>1,248円</td><td>1,341円</td><td>1,633円</td><td>1,671円</td></tr>
+              <tr><td>100</td><td>1,344円</td><td>1,383円</td><td>1,469円</td><td>1,582円</td><td>1,940円</td><td>1,969円</td></tr>
+              <tr><td>120</td><td>1,573円</td><td>1,617円</td><td>1,582円</td><td>1,797円</td><td>2,305円</td><td>2,339円</td></tr>
+              <tr><td>140以上</td><td>1,822円</td><td>1,858円</td><td>1,953円</td><td>2,054円</td><td>2,733円</td><td>2,773円</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -1053,6 +1126,19 @@
       overseasHandling: 500
     };
 
+    const CONSULTING_PRICE_TABLE = {
+      inspectionBase: 1000,
+      inspectionOnly: 1000,
+      additionalKitItem: 0,
+      photoOnly: 500,
+      returnHandling: 700,
+      reshoot: 500,
+      video: 500,
+      thanksCard: 0,
+      flyer: 0,
+      overseasHandling: 400
+    };
+
     const SHIPPING_RATE_TABLE = {
       "60": { shizuoka: 1000, main: 1050, tohokuChugokuShikoku: 1150, kyushu: 1250, okinawa: 1450, hokkaido: 1550 },
       "80": { shizuoka: 1250, main: 1300, tohokuChugokuShikoku: 1350, kyushu: 1450, okinawa: 1750, hokkaido: 1780 },
@@ -1060,6 +1146,15 @@
       "120": { shizuoka: 1900, main: 1950, tohokuChugokuShikoku: 2000, kyushu: 2100, okinawa: 2650, hokkaido: 2650 },
       "140": { shizuoka: 2750, main: 2800, tohokuChugokuShikoku: 3300, kyushu: 3400, okinawa: 4400, hokkaido: 4950 },
       "140以上": { shizuoka: 2750, main: 2800, tohokuChugokuShikoku: 3300, kyushu: 3400, okinawa: 4400, hokkaido: 4950 }
+    };
+
+    const CONSULTING_SHIPPING_RATE_TABLE = {
+      "60": { shizuoka: 902, main: 945, tohokuChugokuShikoku: 1023, kyushu: 1135, okinawa: 1350, hokkaido: 1446 },
+      "80": { shizuoka: 1118, main: 1167, tohokuChugokuShikoku: 1248, kyushu: 1341, okinawa: 1633, hokkaido: 1671 },
+      "100": { shizuoka: 1344, main: 1383, tohokuChugokuShikoku: 1469, kyushu: 1582, okinawa: 1940, hokkaido: 1969 },
+      "120": { shizuoka: 1573, main: 1617, tohokuChugokuShikoku: 1582, kyushu: 1797, okinawa: 2305, hokkaido: 2339 },
+      "140": { shizuoka: 1822, main: 1858, tohokuChugokuShikoku: 1953, kyushu: 2054, okinawa: 2733, hokkaido: 2773 },
+      "140以上": { shizuoka: 1822, main: 1858, tohokuChugokuShikoku: 1953, kyushu: 2054, okinawa: 2733, hokkaido: 2773 }
     };
 
     const app = initializeApp(firebaseConfig);
@@ -1858,12 +1953,13 @@
     function openStatusEdit(uid, productId) {
       const product = findProduct(uid, productId);
       if (!product) return;
+      const member = findMember(uid);
 
       activeEdit = { type: "status", uid, productId };
-      const calculatedPrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus);
+      const calculatedPrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus, member);
       const initialShippingPrice = product.shippingStatus === "cash_on_delivery"
         ? calculatedPrice
-        : hasValue(product.shippingPrice) ? product.shippingPrice : calculatedPrice;
+        : hasValue(calculatedPrice) ? calculatedPrice : product.shippingPrice;
       const destinationPrefecture = product.shippingDestination?.prefecture || "";
 
       editModalTitle.textContent = "発送状態を編集";
@@ -1904,7 +2000,7 @@
       const priceInput = editForm.querySelector('[name="shippingPrice"]');
       if (sizeSelect && statusSelect && priceInput) {
         const updateAutoPrice = () => {
-          const nextPrice = autoShippingPriceFor(product, sizeSelect.value, statusSelect.value);
+          const nextPrice = autoShippingPriceFor(product, sizeSelect.value, statusSelect.value, member);
           priceInput.value = hasValue(nextPrice) ? nextPrice : "";
         };
         sizeSelect.addEventListener("change", updateAutoPrice);
@@ -1997,6 +2093,11 @@
         const finishedEdit = { ...activeEdit };
         closeEditModal();
         await loadAllData();
+
+        if (finishedEdit.type === "memberManagement") {
+          await refreshExistingInvoicesForMember(finishedEdit.uid);
+          await loadAllData();
+        }
 
         if (invoiceRefreshTarget) {
           await refreshExistingInvoicesForProduct(invoiceRefreshTarget);
@@ -2240,6 +2341,8 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
     memberName: member.name || "",
     email: member.email || "",
     managementNumber: member.managementNumber || "",
+    planType: member.planType || "",
+    planLabel: planTypeLabel(member.planType),
     month,
     status: existingInvoice.status || "created",
     createdAt: existingInvoice.createdAt || Date.now(),
@@ -2286,6 +2389,16 @@ async function refreshExistingInvoicesForProduct(target) {
     if (existed && (wasInInvoice || wasInMonth || isInMonth)) {
       await writeInvoiceForMember(member, month, false, true);
     }
+  }
+}
+
+async function refreshExistingInvoicesForMember(uid) {
+  const member = findMember(uid);
+  const monthMap = invoicesCache?.[uid] || {};
+  if (!member) return;
+
+  for (const month of Object.keys(monthMap)) {
+    await writeInvoiceForMember(member, month, false, true);
   }
 }
 
@@ -2350,8 +2463,8 @@ function buildInvoiceItems(member, month) {
 
       if (!inspectionInMonth && !shippingInMonth) return null;
 
-      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product) : 0;
-      const shippingFee = shippingInMonth ? shippingFeeFor(product) : 0;
+      const inspectionFee = inspectionInMonth ? inspectionFeeFor(product, member) : 0;
+      const shippingFee = shippingInMonth ? shippingFeeFor(product, member) : 0;
 
       return {
         productId: product.id,
@@ -2372,42 +2485,52 @@ function buildInvoiceItems(member, month) {
     .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
 }
 
-    function inspectionFeeFor(product) {
+    function inspectionFeeFor(product, member) {
+      const prices = priceTableForMember(member);
       if (product.workRequest === "保管のみ") return 0;
-      if (product.workRequest === "返品対応" || shippingKey(product.shippingRequest) === "return") return PRICE_TABLE.returnHandling;
-      if (product.workRequest === "写真のみ") return PRICE_TABLE.photoOnly;
-      if (product.workRequest === "検品のみ") return PRICE_TABLE.inspectionOnly;
+      if (product.workRequest === "返品対応" || shippingKey(product.shippingRequest) === "return") return prices.returnHandling;
+      if (product.workRequest === "写真のみ") return prices.photoOnly;
+      if (product.workRequest === "検品のみ") return prices.inspectionOnly;
 
-      let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
+      let fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * prices.additionalKitItem;
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
-        fee += PRICE_TABLE.video;
+        fee += prices.video;
       }
 
       return fee;
     }
 
-    function shippingFeeFor(product) {
+    function shippingFeeFor(product, member) {
       if (product.shippingStatus === "cash_on_delivery") return 0;
-      if (String(product.shippingSize || "").trim() === "海外発送" || shippingKey(product.shippingRequest) === "international") {
-        return PRICE_TABLE.overseasHandling;
-      }
+      const tablePrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus, member);
+      if (hasValue(tablePrice)) return numberValue(tablePrice);
 
       return numberValue(product.shippingPrice);
     }
 
-    function autoShippingPriceFor(product, size, status = product?.shippingStatus) {
+    function autoShippingPriceFor(product, size, status = product?.shippingStatus, member = null) {
       if (status === "cash_on_delivery") return 0;
 
       const normalizedSize = String(size || "").trim();
       if (!normalizedSize) return "";
-      if (normalizedSize === "海外発送") return PRICE_TABLE.overseasHandling;
+      if (normalizedSize === "海外発送" || shippingKey(product?.shippingRequest) === "international") {
+        return priceTableForMember(member).overseasHandling;
+      }
 
-      const rates = SHIPPING_RATE_TABLE[normalizedSize];
+      const rates = shippingRateTableForMember(member)[normalizedSize];
       const region = shippingRegionFor(product?.shippingDestination?.prefecture);
       if (!rates || !region || !hasValue(rates[region])) return "";
 
       return rates[region];
+    }
+
+    function priceTableForMember(member) {
+      return member?.planType === "consulting" ? CONSULTING_PRICE_TABLE : PRICE_TABLE;
+    }
+
+    function shippingRateTableForMember(member) {
+      return member?.planType === "consulting" ? CONSULTING_SHIPPING_RATE_TABLE : SHIPPING_RATE_TABLE;
     }
 
     function shippingRegionFor(prefecture) {
