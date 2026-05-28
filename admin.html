@@ -920,6 +920,10 @@
           </div>
         </div>
 
+        <div class="section-title-row">
+          <h2>商品一覧</h2>
+          <input id="detailProductSearchInput" class="member-search" type="search" placeholder="商品名・ナンバリングで検索" />
+        </div>
         <div id="detailTableArea" class="section"></div>
       </div>
     </section>
@@ -1301,6 +1305,7 @@
     const detailUnshippedCount = document.getElementById("detailUnshippedCount");
     const detailShippedCount = document.getElementById("detailShippedCount");
     const detailTableArea = document.getElementById("detailTableArea");
+    const detailProductSearchInput = document.getElementById("detailProductSearchInput");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
     const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
@@ -1353,6 +1358,7 @@
     editModalCloseBtn.addEventListener("click", closeEditModal);
 
     memberSearchInput.addEventListener("input", renderMembers);
+    detailProductSearchInput.addEventListener("input", renderMemberDetail);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
