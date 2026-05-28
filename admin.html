@@ -1468,8 +1468,8 @@
 
       detailRegisteredCount.textContent = groups.registered.length;
       detailStoredCount.textContent = groups.stored.length;
-      detailUnshippedCount.textContent = groups.unshipped.length;
-      detailShippedCount.textContent = groups.shipped.length;
+      detailUnshippedCount.textContent = groupedShipmentProducts(groups.unshipped).length;
+      detailShippedCount.textContent = groupedShipmentProducts(groups.shipped).length;
 
       setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
       setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
@@ -1480,7 +1480,7 @@
     }
 
     function renderDetailTable(member, groups) {
-      const products = getDetailProducts(member);
+      const products = getDisplayProductsForDetail(member);
 
       if (!products.length) {
         detailTableArea.innerHTML = `<div class="empty">表示する商品がありません。</div>`;
@@ -1566,7 +1566,7 @@
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
-                  <th>情報</th>
+                  <th>商品情報</th>
                   <th>発送情報</th>
                   <th>状態</th>
                 </tr>
@@ -1575,8 +1575,8 @@
                 ${products.map((product) => `
                   <tr>
                     <td>${shippingBadge(product.shippingRequest)}</td>
-                    <td>${escapeHtml(product.name || "-")}</td>
-                    <td>${escapeHtml(product.numbering || "-")}</td>
+                    <td>${productNameCell(product)}</td>
+                    <td>${productNumberingCell(product)}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
@@ -1605,7 +1605,7 @@
                 <th>商品名</th>
                 <th>ナンバリング</th>
                 <th>作業依頼</th>
-                <th>情報</th>
+                <th>商品情報</th>
                 <th>発送情報</th>
                 <th>状態</th>
               </tr>
@@ -1613,8 +1613,8 @@
             <tbody>
               ${products.map((product) => `
                 <tr>
-                  <td>${escapeHtml(product.name || "-")}</td>
-                  <td>${escapeHtml(product.numbering || "-")}</td>
+                  <td>${productNameCell(product)}</td>
+                  <td>${productNumberingCell(product)}</td>
                   <td>${escapeHtml(product.workRequest || "-")}</td>
                   <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                   <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
@@ -1661,6 +1661,58 @@
 
     function getDetailProducts(member) {
       return getProductGroups(member)[detailView] || [];
+    }
+
+    function getDisplayProductsForDetail(member) {
+      const products = getDetailProducts(member);
+
+      if (detailView === "unshipped" || detailView === "shipped") {
+        return groupedShipmentProducts(products);
+      }
+
+      return products;
+    }
+
+    function groupedShipmentProducts(products) {
+      const groups = new Map();
+      const singles = [];
+
+      products.forEach((product) => {
+        const groupId = product.shipmentGroupId || "";
+        if (!groupId) {
+          singles.push(product);
+          return;
+        }
+
+        if (!groups.has(groupId)) groups.set(groupId, []);
+        groups.get(groupId).push(product);
+      });
+
+      const grouped = [...groups.entries()].map(([groupId, groupProducts]) => {
+        const sortedProducts = groupProducts.slice().sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+        const representative = sortedProducts[0] || {};
+
+        return {
+          ...representative,
+          id: representative.id,
+          shipmentGroupId: groupId,
+          shipmentProducts: sortedProducts,
+          shipmentGroupCount: sortedProducts.length,
+          name: sortedProducts.map((product) => product.name || "-").join(" / "),
+          numbering: sortedProducts.map((product) => product.numbering || "-").join(" / "),
+          workRequest: sortedProducts.map((product) => product.workRequest || "-").filter((value, index, array) => array.indexOf(value) === index).join(" / ")
+        };
+      });
+
+      return [...grouped, ...singles];
+    }
+
+    function productNameCell(product) {
+      return `${escapeHtml(product.name || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}`;
+    }
+
+    function productNumberingCell(product) {
+      return `${escapeHtml(product.numbering || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱ナンバリング</div>` : ""}`;
     }
 
     function setStatCard(card, value, type, active) {
@@ -1755,8 +1807,15 @@
       const member = findMember(uid);
 
       if (!product || !member) return;
+      const shipmentProducts = shipmentProductsFor(member, product);
 
       infoModalTitle.textContent = "商品情報";
+      if (shipmentProducts.length > 1) {
+        infoModalBody.innerHTML = shipmentProductsInfoHtml(uid, shipmentProducts);
+        infoModalBackdrop.classList.add("show");
+        return;
+      }
+
       infoModalBody.innerHTML = `
         <div class="info-box">
           <div class="info-box-title">
@@ -1833,7 +1892,6 @@
       const member = findMember(uid);
 
       if (!product || !member) return;
-      const shipmentProducts = shipmentProductsFor(member, product);
 
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
@@ -1871,8 +1929,6 @@
           </div>
           <div class="info-value">${formatShippingInfo(product.shippingOrigin)}</div>
         </div>
-
-        ${shipmentProductsInfoHtml(uid, shipmentProducts)}
       `;
 
       infoModalBackdrop.classList.add("show");
