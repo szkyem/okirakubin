@@ -1052,7 +1052,7 @@ function productTable(products, options = {}) {
             <th>商品名</th>
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
-            <th>情報</th>
+            <th>${isShipping ? "商品情報" : "情報"}</th>
             ${isStored ? "<th>撮影日</th>" : ""}
             ${isShipping ? `<th>発送日</th><th>状態</th><th>${shippingView === "shipped" ? "追跡番号" : "お問い合わせ"}</th>` : ""}
           </tr>
@@ -1281,7 +1281,7 @@ window.showInfo = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
-  openModal("商品情報", productDetailHtml(product), true);
+  openModal("商品情報", productInfoHtml(product), true);
 };
 
 window.openProductEdit = function(productId) {
@@ -1593,8 +1593,17 @@ function productDetailHtml(product) {
   `;
 }
 
+function productInfoHtml(product) {
+  const shipmentProducts = shipmentProductsFor(product);
+
+  if (shipmentProducts.length <= 1) {
+    return productDetailHtml(product);
+  }
+
+  return shipmentProductsDetailHtml(shipmentProducts);
+}
+
 function shippingDetailHtml(product) {
-  const shipmentProducts = arguments.length > 1 && Array.isArray(arguments[1]) && arguments[1].length ? arguments[1] : [product];
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
 
@@ -1634,8 +1643,6 @@ function shippingDetailHtml(product) {
         <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
       </div>
     </div>
-
-    ${shipmentProductsDetailHtml(shipmentProducts)}
   `;
 }
 
