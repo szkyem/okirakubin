@@ -110,10 +110,10 @@ textarea{min-height:88px;resize:vertical}
 .inquiry-box{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .invoice-year{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:16px}
 .invoice-year-title{font-size:18px;font-weight:800;margin-bottom:14px;color:#1f2937}
-.invoice-grid{display:grid;grid-template-columns:repeat(2,120px);gap:12px}
-.invoice-month-card{width:120px;aspect-ratio:1/1;border:1px solid #dbe3ef;border-radius:8px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.invoice-grid{display:grid;grid-template-columns:220px;gap:10px}
+.invoice-month-card{width:220px;min-height:74px;border:1px solid #dbe3ef;border-radius:8px;background:#f8fafc;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;padding:12px}
 .invoice-month-card.available{background:#eff6ff;border-color:#bfdbfe}
-.invoice-month{font-size:18px;font-weight:800;color:#1f2937}
+.invoice-month{font-size:18px;font-weight:800;color:#1f2937;text-align:center}
 .invoice-downloads{display:flex;gap:6px}
 .invoice-downloads button{padding:6px 8px;font-size:12px}
 .invoice-empty{font-size:12px;color:#9ca3af}
@@ -148,7 +148,7 @@ textarea{min-height:88px;resize:vertical}
   .products-table th,.products-table td{padding:7px 8px;font-size:13px}
   .bulk-action-bar{grid-template-columns:1fr;position:static}
   .bulk-btn{padding:14px 10px;font-size:14px}
-  .invoice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .invoice-grid{grid-template-columns:minmax(0,1fr)}
   .invoice-month-card{width:100%}
   .modal-backdrop{align-items:flex-start;padding:10px}
   .modal{width:100%;max-width:none;min-width:0;max-height:calc(100vh - 20px);padding:16px}
@@ -433,6 +433,7 @@ let productsCache = [];
 let originsCache = [];
 let announcementsCache = [];
 let invoicesCache = {};
+let companyInfoCache = {};
 let entryCount = 0;
 let storedView = "stored";
 let shippingView = "unshipped";
@@ -793,6 +794,7 @@ async function loadData() {
     const originsSnapshot = await get(ref(database, `shippingOrigins/${currentUser.uid}`));
     const announcementsSnapshot = await get(ref(database, "announcements"));
     const invoicesSnapshot = await get(ref(database, `invoices/${currentUser.uid}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     productsCache = productsSnapshot.exists()
       ? Object.values(productsSnapshot.val()).sort((a, b) => {
@@ -811,6 +813,7 @@ async function loadData() {
       : [];
 
     invoicesCache = invoicesSnapshot.exists() ? invoicesSnapshot.val() : {};
+    companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
 
     const registeredProducts = getRegisteredProducts();
     const storedProducts = getStoredProducts();
@@ -1545,11 +1548,14 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
       item.workRequest || "",
+      item.bodyCount || "",
+      item.lensCount || "",
+      item.options || "",
       item.inspectionDate || "-",
       item.inspectionFee ?? "-",
       item.shippingDate || "-",
@@ -1562,23 +1568,36 @@ window.downloadInvoiceCsv = function(month) {
     ["合計", invoice.grandTotal || 0]
   ];
 
-  downloadCsv(rows, `${invoice.memberName || "会員"}_${month}_請求書.csv`);
+  downloadCsv(rows, `${invoice.memberName || "会員"}_${month}_ご利用明細.csv`);
 };
 
 window.downloadInvoicePdf = function(month) {
+  try {
   const invoice = invoicesCache?.[month];
-  if (!invoice) return;
+  if (!invoice) {
+    showError("請求書データが見つかりません。再読み込みしてください。");
+    return;
+  }
 
   const items = Object.values(invoice.items || {});
-  const rowsHtml = items.map((item) => `
+  const issueDate = todayString();
+  const createdDate = formatDateOnly(invoice.createdAt);
+  const invoiceNumber = `${invoice.managementNumber || currentUser?.uid || "member"}_${issueDate}`;
+  const billedAmount = feeValue(invoice.grandTotal);
+  const taxableAmount = Math.floor(billedAmount / 1.1);
+  const taxAmount = billedAmount - taxableAmount;
+  const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
+  const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
+  const detailRows = buildPdfInvoiceRows(items);
+  const rowsHtml = detailRows.map((row) => `
     <tr>
-      <td>${escapeHtml(item.name || "")}</td>
-      <td>${escapeHtml(item.numbering || "")}</td>
-      <td>${escapeHtml(item.inspectionDate || "-")}</td>
-      <td>${escapeHtml(item.inspectionFee ?? "-")}</td>
-      <td>${escapeHtml(item.shippingDate || "-")}</td>
-      <td>${escapeHtml(item.shippingFee ?? "-")}</td>
-      <td>${escapeHtml(item.total || 0)}</td>
+      <td>${escapeHtml(row.date || "-")}</td>
+      <td>${escapeHtml(row.numbering || "-")}</td>
+      <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
+      <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
+      <td class="num">${yen(row.total)}</td>
+      <td class="num">10%</td>
+      <td>${escapeHtml(row.note || "-")}</td>
     </tr>
   `).join("");
 
@@ -1589,37 +1608,101 @@ window.downloadInvoicePdf = function(month) {
       <meta charset="UTF-8">
       <title>請求書 ${escapeHtml(month)}</title>
       <style>
-        body{font-family:Arial,"Yu Gothic",sans-serif;padding:28px;color:#111827}
-        h1{font-size:24px;margin-bottom:8px}
-        .meta{margin-bottom:20px;line-height:1.8}
+        *{box-sizing:border-box}
+        body{font-family:"Yu Gothic","Meiryo",Arial,sans-serif;color:#111;padding:10mm 12mm;font-size:12px}
+        .invoice{max-width:190mm;margin:0 auto}
+        .top-line,.title-line{border-top:1px solid #222}
+        h1{font-size:20px;text-align:center;letter-spacing:.18em;font-weight:500;margin:4px 0 16px;padding-top:4px}
+        .title-line{margin-bottom:18px}
+        .head{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px}
+        .meta-right{text-align:right;line-height:1.8}
+        .client{line-height:1.7}
+        .client-name{font-size:14px;margin:4px 0}
+        .message{margin:14px 0 10px}
+        .amount{display:inline-block;min-width:95mm;border-bottom:2px solid #333;font-size:17px;font-weight:700;padding:3px 0}
+        .company{text-align:right;white-space:pre-line;line-height:1.55;margin-top:8px}
+        .section-title{text-align:center;margin:26px 0 8px;font-size:13px}
         table{width:100%;border-collapse:collapse}
-        th,td{border:1px solid #d1d5db;padding:8px;font-size:12px;text-align:left}
-        th{background:#f3f4f6}
-        .total{margin-top:18px;font-size:18px;font-weight:800;text-align:right}
+        th,td{border:1px solid #222;padding:4px 6px;font-size:10px;vertical-align:top}
+        thead th{background:#e5e7eb !important;text-align:center;font-weight:600}
+        .num{text-align:right;white-space:nowrap}
+        .bottom{display:grid;grid-template-columns:80mm 1fr;gap:18px;margin-top:14px;align-items:start}
+        .tax-table th,.tax-table td{font-size:11px}
+        .bank-box{border:1px solid #222;padding:8px;white-space:pre-line;line-height:1.55;min-height:42mm}
+        .bank-title{font-weight:700;margin-bottom:4px}
+        @media print{body{padding:0}.invoice{max-width:none}}
       </style>
     </head>
     <body onload="window.print()">
-      <h1>請求書</h1>
-      <div class="meta">
-        対象月：${escapeHtml(invoice.month || "-")}<br>
-        会員：${escapeHtml(invoice.memberName || "-")}<br>
-        管理番号：${escapeHtml(invoice.managementNumber || "-")}
-      </div>
+      <div class="invoice">
+        <div class="top-line"></div>
+        <h1>御請求書</h1>
+        <div class="title-line"></div>
+
+        <div class="head">
+          <div class="client">
+            <div class="client-name">${escapeHtml(invoice.memberName || "-")} 様</div>
+            <div>件名：お気楽便 ${escapeHtml(invoice.month || "-")} ご利用分</div>
+          </div>
+          <div>
+            <div class="meta-right">
+              請求日：${escapeHtml(issueDate)}<br>
+              作成日：${escapeHtml(createdDate)}<br>
+              請求管理番号：${escapeHtml(invoiceNumber)}
+            </div>
+            <div class="company">${lineBreaks(companyText)}</div>
+          </div>
+        </div>
+
+        <div class="message">以下の通りご請求申し上げます。</div>
+        <div class="amount">ご請求金額 ￥${yen(billedAmount)}.-</div>
+
+        <div class="section-title">ご利用明細</div>
       <table>
         <thead>
           <tr>
-            <th>商品名</th>
-            <th>ナンバリング</th>
-            <th>検品日</th>
-            <th>検品料金</th>
-            <th>発送日</th>
-            <th>発送料金</th>
+            <th>日付</th>
+            <th>管理番号</th>
+            <th>検品</th>
+            <th>送料</th>
             <th>合計</th>
+            <th>税率</th>
+            <th>適用</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
-      <div class="total">合計 ${escapeHtml(invoice.grandTotal || 0)}</div>
+
+        <div class="bottom">
+          <table class="tax-table">
+            <thead>
+              <tr>
+                <th>税率区分</th>
+                <th>金額</th>
+                <th>消費税</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>10%対象</td>
+                <td class="num">${yen(taxableAmount)}</td>
+                <td class="num">${yen(taxAmount)}</td>
+              </tr>
+              <tr>
+                <td>非課税</td>
+                <td class="num">0</td>
+                <td class="num">0</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="bank-box">
+            <div class="bank-title">お振込み先</div>
+            ${lineBreaks(bankText)}
+            <br><br>内容をご確認の上、上記口座に5日までにお振込お願い致します。
+          </div>
+        </div>
+      </div>
     </body>
     </html>
   `;
@@ -1632,7 +1715,38 @@ window.downloadInvoicePdf = function(month) {
   win.document.open();
   win.document.write(html);
   win.document.close();
+  } catch (error) {
+    console.error(error);
+    showError(`PDFの作成に失敗しました。${error && error.message ? error.message : error}`);
+  }
 };
+
+function buildPdfInvoiceRows(items) {
+  return items
+    .map((item) => {
+      const hasInspection = item.inspectionFee !== "-";
+      const hasShipping = item.shippingFee !== "-";
+      const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
+      const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
+      const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
+      const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
+      if (item.shippingNote) noteParts.push(item.shippingNote);
+      if (item.options && item.options !== "-") noteParts.push(item.options);
+
+      return {
+        date: dates[0] || "-",
+        numbering: item.numbering || "-",
+        hasInspection,
+        inspectionFee,
+        hasShipping,
+        shippingFee,
+        total: inspectionFee + shippingFee,
+        note: noteParts.join(" / ")
+      };
+    })
+    .filter((row) => row.total > 0 || row.hasShipping)
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
+}
 
 function productDetailHtml(product) {
   return `
@@ -1782,6 +1896,42 @@ function downloadCsv(rows, filename) {
 
 function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function feeValue(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const cleaned = String(value ?? "").replace(/[^\d.-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function yen(value) {
+  return Number(feeValue(value)).toLocaleString("ja-JP");
+}
+
+function lineBreaks(value) {
+  return escapeHtml(value || "").replace(/\n/g, "<br>");
+}
+
+function todayString() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateOnly(value) {
+  if (!value) return "-";
+  const date = new Date(Number(value));
+  if (Number.isNaN(date.getTime())) return "-";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
 }
 
 function showLoginError(message) {
