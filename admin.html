@@ -1685,7 +1685,7 @@
               </thead>
               <tbody>
                 ${filteredProducts.map((product) => `
-                  <tr class="${bundleRowClass(product)}">
+                  <tr>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -1723,7 +1723,7 @@
               </thead>
               <tbody>
                 ${filteredProducts.map((product) => `
-                  <tr class="${bundleRowClass(product)}">
+                  <tr>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -3144,14 +3144,14 @@ function firstInvoiceDate(item) {
             <div class="bottom">
               <table class="tax-table">
                 <thead>
-                  <tr>
+                  <tr class="${bundleRowClass(product)}">
                     <th>税率区分</th>
                     <th>金額</th>
                     <th>消費税</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
+                <tr class="${bundleRowClass(product)}">
                     <td>10%対象</td>
                     <td class="num">${yen(taxableAmount)}</td>
                     <td class="num">${yen(taxAmount)}</td>
