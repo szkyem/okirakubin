@@ -280,6 +280,16 @@
       background: white;
     }
 
+    .inquiry-table-wrap {
+      margin-bottom: 30px;
+    }
+
+    .inquiry-message {
+      white-space: pre-wrap;
+      line-height: 1.6;
+      min-width: 260px;
+    }
+
     table {
       width: 100%;
       min-width: 920px;
@@ -839,6 +849,24 @@
       </div>
 
       <div class="section-title-row">
+        <h2>お問い合わせ</h2>
+      </div>
+      <div class="table-wrap inquiry-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>会員</th>
+              <th>商品名</th>
+              <th>ナンバリング</th>
+              <th>お問い合わせ内容</th>
+            </tr>
+          </thead>
+          <tbody id="inquiryListBody"></tbody>
+        </table>
+      </div>
+
+      <div class="section-title-row">
         <h2>会員一覧</h2>
         <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・会員氏名で検索" />
       </div>
@@ -1260,6 +1288,7 @@
     const totalRegistered = document.getElementById("totalRegistered");
     const totalUnshipped = document.getElementById("totalUnshipped");
     const memberListBody = document.getElementById("memberListBody");
+    const inquiryListBody = document.getElementById("inquiryListBody");
     const memberSearchInput = document.getElementById("memberSearchInput");
 
     const detailMemberName = document.getElementById("detailMemberName");
@@ -1434,6 +1463,7 @@
 
         setDefaultMonths();
         renderMembers();
+        renderInquiries();
         renderMemberDetail();
         renderInvoices();
         renderCompanyInfo();
@@ -1499,6 +1529,43 @@
           </tr>
         `;
       }).join("");
+    }
+
+    function renderInquiries() {
+      const inquiries = membersCache.flatMap((member) => {
+        return member.products.flatMap((product) => {
+          const inquiryMap = product.inquiries || {};
+
+          return Object.entries(inquiryMap).map(([id, inquiry]) => ({
+            id,
+            member,
+            product,
+            message: inquiry?.message || "",
+            createdAt: inquiry?.createdAt || inquiry?.updatedAt || 0
+          }));
+        });
+      }).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+
+      if (!inquiries.length) {
+        inquiryListBody.innerHTML = `<tr><td colspan="5"><div class="empty">お問い合わせはありません。</div></td></tr>`;
+        return;
+      }
+
+      inquiryListBody.innerHTML = inquiries.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.member.managementNumber || "-")}</td>
+          <td>
+            <div class="member-name">${escapeHtml(item.member.name || "-")}</div>
+            <div class="member-meta">${escapeHtml(item.member.email || "-")}</div>
+          </td>
+          <td>${escapeHtml(item.product.name || "-")}</td>
+          <td>${escapeHtml(item.product.numbering || "-")}</td>
+          <td>
+            <div class="inquiry-message">${escapeHtml(item.message || "-")}</div>
+            <div class="member-meta">${escapeHtml(formatDateTime(item.createdAt))}</div>
+          </td>
+        </tr>
+      `).join("");
     }
 
     function renderMemberDetail() {
