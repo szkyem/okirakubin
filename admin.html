@@ -317,6 +317,41 @@
       word-break: break-all;
     }
 
+    .bundle-note {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fed7aa;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-top: 5px;
+      white-space: nowrap;
+    }
+
+    .bundle-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid #111;
+      color: #111;
+      background: #fff;
+      padding: 3px 12px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .dash-mark {
+      display: inline-block;
+      width: 32px;
+      height: 4px;
+      background: #111;
+      border-radius: 999px;
+      vertical-align: middle;
+    }
+
     .management-cell, .detail-actions {
       display: flex;
       align-items: center;
@@ -1576,13 +1611,13 @@
               <tbody>
                 ${products.map((product) => `
                   <tr>
-                    <td>${shippingBadge(product.shippingRequest)}</td>
+                    <td>${shippingCellHtml(product)}</td>
                     <td>${productNameCell(product)}</td>
                     <td>${productNumberingCell(product)}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                    <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                    <td><span class="status-pill yellow">未発送</span></td>
+                    <td>${shippingInfoButtonHtml(member.uid, product)}</td>
+                    <td>${shippingStatusCellHtml(product, "unshipped")}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -1619,8 +1654,8 @@
                   <td>${productNumberingCell(product)}</td>
                   <td>${escapeHtml(product.workRequest || "-")}</td>
                   <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                  <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                  <td><span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}</td>
+                  <td>${shippingInfoButtonHtml(member.uid, product)}</td>
+                  <td>${shippingStatusCellHtml(product, "shipped")}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1680,7 +1715,7 @@
       const singles = [];
 
       products.forEach((product) => {
-        const groupId = product.shipmentGroupId || "";
+        const groupId = shipmentDisplayGroupKey(product);
         if (!groupId) {
           singles.push(product);
           return;
@@ -1690,31 +1725,71 @@
         groups.get(groupId).push(product);
       });
 
-      const grouped = [...groups.entries()].map(([groupId, groupProducts]) => {
+      const grouped = [...groups.entries()].flatMap(([groupId, groupProducts]) => {
         const sortedProducts = groupProducts.slice().sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
-        const representative = sortedProducts[0] || {};
 
-        return {
-          ...representative,
-          id: representative.id,
+        return sortedProducts.map((product, index) => ({
+          ...product,
           shipmentGroupId: groupId,
-          shipmentProducts: sortedProducts,
           shipmentGroupCount: sortedProducts.length,
-          name: sortedProducts.map((product) => product.name || "-").join(" / "),
-          numbering: sortedProducts.map((product) => product.numbering || "-").join(" / "),
-          workRequest: sortedProducts.map((product) => product.workRequest || "-").filter((value, index, array) => array.indexOf(value) === index).join(" / ")
-        };
+          bundleRole: index === 0 ? "parent" : "child"
+        }));
       });
 
       return [...grouped, ...singles];
     }
 
     function productNameCell(product) {
-      return `${escapeHtml(product.name || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}`;
+      return escapeHtml(product.name || "-");
     }
 
     function productNumberingCell(product) {
-      return `${escapeHtml(product.numbering || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}`;
+      return escapeHtml(product.numbering || "-");
+    }
+
+    function shippingCellHtml(product) {
+      return product.bundleRole === "child" ? `<span class="bundle-label">同梱</span>` : shippingBadge(product.shippingRequest);
+    }
+
+    function shippingInfoButtonHtml(uid, product) {
+      return product.bundleRole === "child"
+        ? `<span class="dash-mark" aria-label="同梱"></span>`
+        : `<button class="mini-btn" onclick="openShippingInfo('${escapeAttr(uid)}','${escapeAttr(product.id)}')">詳細</button>`;
+    }
+
+    function shippingStatusCellHtml(product, view) {
+      if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
+      if (view === "unshipped") return `<span class="status-pill yellow">未発送</span>`;
+      return `<span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}`;
+    }
+
+    function shipmentDisplayGroupKey(product) {
+      if (product.shipmentGroupId) return `group_${product.shipmentGroupId}`;
+
+      if (isShippedStatus(product.shippingStatus) && hasValue(product.shippedDate)) {
+        return [
+          "shipped",
+          product.shippedDate || "",
+          product.shippingRequest || "",
+          compactAddressKey(product.shippingDestination),
+          compactAddressKey(product.shippingOrigin)
+        ].join("_");
+      }
+
+      return "";
+    }
+
+    function compactAddressKey(value) {
+      if (!value || typeof value !== "object") return "";
+      return [
+        value.name,
+        value.postalCode,
+        value.prefecture,
+        value.address,
+        value.building,
+        value.phone,
+        value.senderName
+      ].map((item) => String(item || "").trim()).join("|");
     }
 
     function setStatCard(card, value, type, active) {
@@ -1809,15 +1884,8 @@
       const member = findMember(uid);
 
       if (!product || !member) return;
-      const shipmentProducts = shipmentProductsFor(member, product);
 
       infoModalTitle.textContent = "商品情報";
-      if (shipmentProducts.length > 1) {
-        infoModalBody.innerHTML = shipmentProductsInfoHtml(uid, shipmentProducts);
-        infoModalBackdrop.classList.add("show");
-        return;
-      }
-
       infoModalBody.innerHTML = `
         <div class="info-box">
           <div class="info-box-title">
@@ -1937,10 +2005,11 @@
     }
 
     function shipmentProductsFor(member, product) {
-      if (!product.shipmentGroupId) return [product];
+      const groupKey = shipmentDisplayGroupKey(product);
+      if (!groupKey) return [product];
 
       const products = member.products
-        .filter((item) => item.shipmentGroupId === product.shipmentGroupId)
+        .filter((item) => shipmentDisplayGroupKey(item) === groupKey)
         .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
 
       return products.length ? products : [product];
@@ -2638,7 +2707,7 @@ function buildInvoiceItems(member, month) {
       if (!inspectionInMonth && !shippingInMonth) return null;
 
       const inspectionFee = inspectionInMonth ? inspectionFeeFor(product, member) : 0;
-      const isBundledShipping = shippingInMonth && product.shipmentGroupId && !shippingChargeProductIds.has(product.id);
+      const isBundledShipping = shippingInMonth && shipmentDisplayGroupKey(product) && !shippingChargeProductIds.has(product.id);
       const shippingFee = shippingInMonth
         ? isBundledShipping ? 0 : shippingFeeFor(product, member)
         : 0;
@@ -2676,9 +2745,7 @@ function chargedShippingProductIds(products, month) {
   products
     .filter((product) => matchesMonth(product.shippedDate, month))
     .forEach((product) => {
-      const groupKey = product.shipmentGroupId
-        ? `${product.shipmentGroupId}_${product.shippedDate || ""}`
-        : product.id;
+      const groupKey = shipmentDisplayGroupKey(product) || product.id;
 
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey).push(product);

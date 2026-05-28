@@ -51,6 +51,9 @@ textarea{min-height:88px;resize:vertical}
 .products-table tr:nth-child(even){background:#fafafa}
 .shipping-cell{background:#fffde7;text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:6px!important;padding-right:6px!important}
 .member-meta{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35}
+.bundle-note{display:inline-flex;align-items:center;border-radius:999px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:3px 8px;font-size:12px;font-weight:800;margin-top:5px;white-space:nowrap}
+.bundle-label{display:inline-flex;align-items:center;justify-content:center;border:3px solid #111;color:#111;background:#fff;padding:3px 12px;font-weight:900;line-height:1}
+.dash-mark{display:inline-block;width:32px;height:4px;background:#111;border-radius:999px;vertical-align:middle}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -883,7 +886,7 @@ function groupedShippingItems(products) {
   const singles = [];
 
   products.forEach((product) => {
-    const groupId = product.shipmentGroupId || "";
+    const groupId = shipmentDisplayGroupKey(product);
     if (!groupId) {
       singles.push(product);
       return;
@@ -893,19 +896,15 @@ function groupedShippingItems(products) {
     groups.get(groupId).push(product);
   });
 
-  const grouped = [...groups.entries()].map(([groupId, groupProducts]) => {
+  const grouped = [...groups.entries()].flatMap(([groupId, groupProducts]) => {
     const sortedProducts = groupProducts.slice().sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
-    const representative = sortedProducts[0] || {};
 
-    return {
-      ...representative,
-      id: representative.id,
+    return sortedProducts.map((product, index) => ({
+      ...product,
       shipmentGroupId: groupId,
-      shipmentProducts: sortedProducts,
       shipmentGroupCount: sortedProducts.length,
-      name: sortedProducts.map((product) => product.name || "-").join(" / "),
-      numbering: sortedProducts.map((product) => product.numbering || "-").join(" / ")
-    };
+      bundleRole: index === 0 ? "parent" : "child"
+    }));
   });
 
   return [...grouped, ...singles];
@@ -1078,15 +1077,15 @@ function productRow(product, mode = "registered") {
           <input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">
         </td>
       ` : ""}
-      ${isShipping ? `<td>${shippingPill(product.shippingRequest)}</td>` : ""}
-      <td>${escapeHtml(product.name)}${shipmentGroupNote(product, isShipping)}</td>
-      <td>${escapeHtml(product.numbering || "-")}${shipmentGroupNote(product, isShipping)}</td>
-      ${isShipping ? `<td><button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button></td>` : ""}
+      ${isShipping ? `<td>${shippingCellHtml(product)}</td>` : ""}
+      <td>${escapeHtml(product.name)}</td>
+      <td>${escapeHtml(product.numbering || "-")}</td>
+      ${isShipping ? `<td>${shippingInfoButtonHtml(product)}</td>` : ""}
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td>` : ""}
-      ${isShipping ? `<td>${escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${shippingView === "shipped" ? trackingNumberHtml(product) : inquiryControl(product)}</td>` : ""}
+      ${isShipping ? `<td>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${shippingView === "shipped" ? trackingNumberHtml(product) : inquiryControl(product)}</td>` : ""}
     </tr>
   `;
 }
@@ -1113,13 +1112,57 @@ function inquiryControl(product) {
 }
 
 function trackingNumberHtml(product) {
+  if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
   const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
   return hasValue(trackingNumber) ? escapeHtml(trackingNumber) : "-";
 }
 
+function shippingCellHtml(product) {
+  return product.bundleRole === "child" ? `<span class="bundle-label">同梱</span>` : shippingPill(product.shippingRequest);
+}
+
+function shippingInfoButtonHtml(product) {
+  return product.bundleRole === "child"
+    ? `<span class="dash-mark" aria-label="同梱"></span>`
+    : `<button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button>`;
+}
+
+function bundleChildDash(product) {
+  return product.bundleRole === "child" ? `<span class="dash-mark" aria-label="同梱"></span>` : "";
+}
+
+function shipmentDisplayGroupKey(product) {
+  if (product.shipmentGroupId) return `group_${product.shipmentGroupId}`;
+
+  if (product.shippingStatus === "shipped" && hasValue(product.shippedDate)) {
+    return [
+      "shipped",
+      product.shippedDate || "",
+      product.shippingRequest || "",
+      compactAddressKey(product.shippingDestination),
+      compactAddressKey(product.shippingOrigin)
+    ].join("_");
+  }
+
+  return "";
+}
+
+function compactAddressKey(value) {
+  if (!value || typeof value !== "object") return "";
+  return [
+    value.name,
+    value.postalCode,
+    value.prefecture,
+    value.address,
+    value.building,
+    value.phone,
+    value.senderName
+  ].map((item) => String(item || "").trim()).join("|");
+}
+
 function shipmentGroupNote(product, enabled) {
   return enabled && product.shipmentGroupCount > 1
-    ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>`
+    ? `<div class="bundle-note">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>`
     : "";
 }
 
@@ -1171,6 +1214,7 @@ function shippingPill(value) {
 }
 
 function shippingStatusText(product) {
+  if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
   return product.shippingStatus === "shipped"
     ? `<span class="status-pill domestic">発送済み</span>`
     : `<span class="status-pill none">未発送</span>`;
@@ -1215,8 +1259,17 @@ function workRequestOptions(current) {
 }
 
 function sortByShippingDateAndNumbering(a, b) {
+  const groupCompare = String(a.shipmentGroupId || a.id || "").localeCompare(String(b.shipmentGroupId || b.id || ""), "ja", { numeric: true });
+  if (a.shipmentGroupId && a.shipmentGroupId === b.shipmentGroupId) {
+    if (a.bundleRole !== b.bundleRole) return a.bundleRole === "parent" ? -1 : 1;
+  }
+
   const dateCompare = String(a.shippedDate || "9999-99-99").localeCompare(String(b.shippedDate || "9999-99-99"));
   if (dateCompare !== 0) return dateCompare;
+
+  if (a.shipmentGroupId || b.shipmentGroupId) {
+    if (groupCompare !== 0) return groupCompare;
+  }
 
   return String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
 }
@@ -1288,7 +1341,7 @@ window.showInfo = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
-  openModal("商品情報", productInfoHtml(product), true);
+  openModal("商品情報", productDetailHtml(product), true);
 };
 
 window.openProductEdit = function(productId) {
@@ -1600,16 +1653,6 @@ function productDetailHtml(product) {
   `;
 }
 
-function productInfoHtml(product) {
-  const shipmentProducts = shipmentProductsFor(product);
-
-  if (shipmentProducts.length <= 1) {
-    return productDetailHtml(product);
-  }
-
-  return shipmentProductsDetailHtml(shipmentProducts);
-}
-
 function shippingDetailHtml(product) {
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
@@ -1654,10 +1697,11 @@ function shippingDetailHtml(product) {
 }
 
 function shipmentProductsFor(product) {
-  if (!product.shipmentGroupId) return [product];
+  const groupKey = shipmentDisplayGroupKey(product);
+  if (!groupKey) return [product];
 
   const products = productsCache
-    .filter((item) => item.shipmentGroupId === product.shipmentGroupId)
+    .filter((item) => shipmentDisplayGroupKey(item) === groupKey)
     .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
 
   return products.length ? products : [product];
