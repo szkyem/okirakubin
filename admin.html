@@ -2628,6 +2628,8 @@ function feeValue(value) {
 }
 
 function buildInvoiceItems(member, month) {
+  const shippingChargeProductIds = chargedShippingProductIds(member.products, month);
+
   return member.products
     .map((product) => {
       const inspectionInMonth = matchesMonth(product.shootingDate, month);
@@ -2636,10 +2638,15 @@ function buildInvoiceItems(member, month) {
       if (!inspectionInMonth && !shippingInMonth) return null;
 
       const inspectionFee = inspectionInMonth ? inspectionFeeFor(product, member) : 0;
-      const shippingFee = shippingInMonth ? shippingFeeFor(product, member) : 0;
+      const isBundledShipping = shippingInMonth && product.shipmentGroupId && !shippingChargeProductIds.has(product.id);
+      const shippingFee = shippingInMonth
+        ? isBundledShipping ? 0 : shippingFeeFor(product, member)
+        : 0;
 
       return {
         productId: product.id,
+        shipmentGroupId: product.shipmentGroupId || "",
+        shipmentGroupCount: product.shipmentGroupCount || "",
         name: product.name || "",
         numbering: product.numbering || "",
         workRequest: product.workRequest || "",
@@ -2650,11 +2657,48 @@ function buildInvoiceItems(member, month) {
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
         shippingFee: shippingInMonth ? shippingFee : "-",
+        shippingNote: isBundledShipping ? "同梱" : "",
         total: inspectionFee + shippingFee
       };
     })
     .filter(Boolean)
-    .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+    .sort((a, b) => {
+      const dateCompare = String(firstInvoiceDate(a) || "").localeCompare(String(firstInvoiceDate(b) || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+    });
+}
+
+function chargedShippingProductIds(products, month) {
+  const groups = new Map();
+  const chargedIds = new Set();
+
+  products
+    .filter((product) => matchesMonth(product.shippedDate, month))
+    .forEach((product) => {
+      const groupKey = product.shipmentGroupId
+        ? `${product.shipmentGroupId}_${product.shippedDate || ""}`
+        : product.id;
+
+      if (!groups.has(groupKey)) groups.set(groupKey, []);
+      groups.get(groupKey).push(product);
+    });
+
+  groups.forEach((groupProducts) => {
+    const first = groupProducts
+      .slice()
+      .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }))[0];
+
+    if (first?.id) chargedIds.add(first.id);
+  });
+
+  return chargedIds;
+}
+
+function firstInvoiceDate(item) {
+  return [item.inspectionDate, item.shippingDate]
+    .filter((date) => hasValue(date) && date !== "-")
+    .sort()[0] || "";
 }
 
     function inspectionFeeFor(product, member) {
@@ -2781,8 +2825,8 @@ function buildInvoiceItems(member, month) {
         <tr>
           <td>${escapeHtml(row.date || "-")}</td>
           <td>${escapeHtml(row.numbering || "-")}</td>
-          <td class="num">${row.inspectionFee ? yen(row.inspectionFee) : "-"}</td>
-          <td class="num">${row.shippingFee ? yen(row.shippingFee) : "-"}</td>
+          <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
+          <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
           <td class="num">${yen(row.total)}</td>
           <td class="num">10%</td>
           <td>${escapeHtml(row.note || "-")}</td>
@@ -2907,20 +2951,27 @@ function buildInvoiceItems(member, month) {
     function buildPdfInvoiceRows(items) {
       return items
         .map((item) => {
-          const inspectionFee = item.inspectionFee !== "-" ? feeValue(item.inspectionFee) : 0;
-          const shippingFee = item.shippingFee !== "-" ? feeValue(item.shippingFee) : 0;
+          const hasInspection = item.inspectionFee !== "-";
+          const hasShipping = item.shippingFee !== "-";
+          const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
+          const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
+          const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
+          if (item.shippingNote) noteParts.push(item.shippingNote);
+          if (item.options && item.options !== "-") noteParts.push(item.options);
 
           return {
             date: dates[0] || "-",
             numbering: item.numbering || "-",
+            hasInspection,
             inspectionFee,
+            hasShipping,
             shippingFee,
             total: inspectionFee + shippingFee,
-            note: `${item.name || "-"} / ${item.numbering || "-"}${item.options && item.options !== "-" ? " / " + item.options : ""}`
+            note: noteParts.join(" / ")
           };
         })
-        .filter((row) => row.total > 0)
+        .filter((row) => row.total > 0 || row.hasShipping)
         .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
     }
 
