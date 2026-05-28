@@ -889,6 +889,56 @@
       </div>
 
       <div class="section-title-row">
+        <h2>会員仮登録</h2>
+      </div>
+      <form id="pendingMemberForm" class="announcement-form">
+        <div class="form-grid">
+          <label>
+            氏名
+            <input id="pendingMemberName" type="text" required placeholder="例：鈴木康将" />
+          </label>
+          <label>
+            メールアドレス
+            <input id="pendingMemberEmail" type="email" required placeholder="example@gmail.com" />
+          </label>
+          <label>
+            管理番号
+            <input id="pendingMemberManagementNumber" type="text" placeholder="例：20260528" />
+          </label>
+          <label>
+            プラン
+            <select id="pendingMemberPlanType">
+              <option value="">選択してください</option>
+              <option value="standard">スタンダード</option>
+              <option value="premium">プレミアム</option>
+              <option value="consulting">コンサル生</option>
+            </select>
+          </label>
+          <label class="full">
+            Google Drive URL置き場
+            <input id="pendingMemberDriveBaseUrl" type="url" placeholder="https://drive.google.com/drive/folders/..." />
+          </label>
+        </div>
+        <div class="announcement-actions">
+          <button class="primary-btn" type="submit">仮登録する</button>
+        </div>
+      </form>
+      <div class="table-wrap inquiry-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>氏名</th>
+              <th>メール</th>
+              <th>プラン</th>
+              <th>登録日</th>
+            </tr>
+          </thead>
+          <tbody id="pendingMemberListBody"></tbody>
+        </table>
+      </div>
+
+      <div class="section-title-row">
         <h2>お問い合わせ</h2>
       </div>
       <div class="table-wrap inquiry-table-wrap">
@@ -1334,6 +1384,13 @@
     const totalUnshipped = document.getElementById("totalUnshipped");
     const memberListBody = document.getElementById("memberListBody");
     const inquiryListBody = document.getElementById("inquiryListBody");
+    const pendingMemberForm = document.getElementById("pendingMemberForm");
+    const pendingMemberListBody = document.getElementById("pendingMemberListBody");
+    const pendingMemberName = document.getElementById("pendingMemberName");
+    const pendingMemberEmail = document.getElementById("pendingMemberEmail");
+    const pendingMemberManagementNumber = document.getElementById("pendingMemberManagementNumber");
+    const pendingMemberPlanType = document.getElementById("pendingMemberPlanType");
+    const pendingMemberDriveBaseUrl = document.getElementById("pendingMemberDriveBaseUrl");
     const memberSearchInput = document.getElementById("memberSearchInput");
 
     const detailMemberName = document.getElementById("detailMemberName");
@@ -1379,6 +1436,7 @@
     let invoicesCache = {};
     let announcementsCache = {};
     let memberSettingsCache = {};
+    let pendingMembersCache = {};
     let companyInfoCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
@@ -1405,6 +1463,7 @@
 
     memberSearchInput.addEventListener("input", renderMembers);
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
+    pendingMemberForm.addEventListener("submit", savePendingMember);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -1416,6 +1475,7 @@
         invoicesCache = {};
         announcementsCache = {};
         memberSettingsCache = {};
+        pendingMembersCache = {};
         selectedMemberUid = null;
         loginView.classList.remove("hidden");
         appView.classList.add("hidden");
@@ -1461,14 +1521,15 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, pendingMembersSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
           get(ref(db, "announcements")),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
-          get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) }))
+          get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
+          get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) }))
         ]);
 
         const membersRaw = membersSnap.val() || {};
@@ -1478,6 +1539,7 @@
         announcementsCache = announcementsSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
         companyInfoCache = companyInfoSnap.val() || {};
+        pendingMembersCache = pendingMembersSnap.val() || {};
 
         membersCache = Object.keys(membersRaw)
           .filter((uid) => membersRaw[uid] === true)
@@ -1509,6 +1571,7 @@
         }
 
         setDefaultMonths();
+        renderPendingMembers();
         renderMembers();
         renderInquiries();
         renderMemberDetail();
@@ -1524,6 +1587,67 @@
       const month = todayString().slice(0, 7);
       if (invoiceMonthInput) invoiceMonthInput.value = month;
       if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
+    }
+
+    async function savePendingMember(event) {
+      event.preventDefault();
+      hideError(appError);
+
+      const name = pendingMemberName.value.trim();
+      const email = pendingMemberEmail.value.trim().toLowerCase();
+      const managementNumber = pendingMemberManagementNumber.value.trim();
+      const planType = pendingMemberPlanType.value;
+      const driveBaseUrl = pendingMemberDriveBaseUrl.value.trim();
+
+      if (!name || !email) {
+        showError(appError, "氏名とメールアドレスを入力してください。");
+        return;
+      }
+
+      try {
+        const key = emailKey(email);
+        const now = Date.now();
+
+        await set(ref(db, `pendingMembers/${key}`), {
+          key,
+          name,
+          email,
+          managementNumber,
+          planType,
+          driveBaseUrl,
+          status: "pending",
+          createdAt: pendingMembersCache?.[key]?.createdAt || now,
+          updatedAt: now,
+          createdBy: currentUser?.uid || "",
+          createdByEmail: currentUser?.email || ""
+        });
+
+        pendingMemberForm.reset();
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "会員の仮登録に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    function renderPendingMembers() {
+      const pendingMembers = Object.values(pendingMembersCache || {})
+        .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
+
+      if (!pendingMembers.length) {
+        pendingMemberListBody.innerHTML = `<tr><td colspan="5"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
+        return;
+      }
+
+      pendingMemberListBody.innerHTML = pendingMembers.map((member) => `
+        <tr>
+          <td>${escapeHtml(member.managementNumber || "-")}</td>
+          <td>${escapeHtml(member.name || "-")}</td>
+          <td>${escapeHtml(member.email || "-")}</td>
+          <td>${escapeHtml(planTypeLabel(member.planType))}</td>
+          <td>${escapeHtml(formatDateTime(member.createdAt))}</td>
+        </tr>
+      `).join("");
     }
 
     function renderMembers() {
@@ -3592,6 +3716,13 @@ function firstInvoiceDate(item) {
       return String(value || "")
         .toLocaleLowerCase("ja-JP")
         .replace(/\s+/g, "");
+    }
+
+    function emailKey(email) {
+      return String(email || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[.#$/\[\]]/g, "_");
     }
 
     function showError(element, message) {
