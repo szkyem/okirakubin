@@ -2341,7 +2341,7 @@
           </label>
         </div>
 
-        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと価格表から値段を自動入力します。海外発送は500円固定、着払い発送は0円です。</p>
+        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から値段を自動入力します。発送サイズで海外発送を選ぶと海外発送固定料金、着払い発送は0円です。</p>
 
         <div class="modal-actions">
           <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
@@ -2915,7 +2915,7 @@ function firstInvoiceDate(item) {
 
       const normalizedSize = String(size || "").trim();
       if (!normalizedSize) return "";
-      if (normalizedSize === "海外発送" || shippingKey(product?.shippingRequest) === "international") {
+      if (normalizedSize === "海外発送") {
         return priceTableForMember(member).overseasHandling;
       }
 
