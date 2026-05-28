@@ -1274,7 +1274,7 @@ window.showShippingInfo = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
-  openModal("発送情報", shippingDetailHtml(product), true);
+  openModal("発送情報", shippingDetailHtml(product, shipmentProductsFor(product)), true);
 };
 
 window.showInfo = function(productId) {
@@ -1594,6 +1594,7 @@ function productDetailHtml(product) {
 }
 
 function shippingDetailHtml(product) {
+  const shipmentProducts = arguments.length > 1 && Array.isArray(arguments[1]) && arguments[1].length ? arguments[1] : [product];
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
 
@@ -1633,7 +1634,28 @@ function shippingDetailHtml(product) {
         <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
       </div>
     </div>
+
+    ${shipmentProductsDetailHtml(shipmentProducts)}
   `;
+}
+
+function shipmentProductsFor(product) {
+  if (!product.shipmentGroupId) return [product];
+
+  const products = productsCache
+    .filter((item) => item.shipmentGroupId === product.shipmentGroupId)
+    .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+
+  return products.length ? products : [product];
+}
+
+function shipmentProductsDetailHtml(products) {
+  return products.map((product, index) => `
+    <div class="detail-section">
+      <div class="detail-heading">同梱商品 ${index + 1} / ${escapeHtml(product.name || "-")} / ${escapeHtml(product.numbering || "-")}</div>
+    </div>
+    ${productDetailHtml(product)}
+  `).join("");
 }
 
 function openModal(title, body, isHtml = false) {

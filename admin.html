@@ -1833,6 +1833,7 @@
       const member = findMember(uid);
 
       if (!product || !member) return;
+      const shipmentProducts = shipmentProductsFor(member, product);
 
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
@@ -1870,9 +1871,91 @@
           </div>
           <div class="info-value">${formatShippingInfo(product.shippingOrigin)}</div>
         </div>
+
+        ${shipmentProductsInfoHtml(uid, shipmentProducts)}
       `;
 
       infoModalBackdrop.classList.add("show");
+    }
+
+    function shipmentProductsFor(member, product) {
+      if (!product.shipmentGroupId) return [product];
+
+      const products = member.products
+        .filter((item) => item.shipmentGroupId === product.shipmentGroupId)
+        .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+
+      return products.length ? products : [product];
+    }
+
+    function shipmentProductsInfoHtml(uid, products) {
+      return products.map((product, index) => `
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>同梱商品 ${index + 1} / ${escapeHtml(product.name || "-")} / ${escapeHtml(product.numbering || "-")}</span>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">商品名</div>
+            <div class="info-value">${escapeHtml(product.name || "-")}</div>
+
+            <div class="info-label">ナンバリング</div>
+            <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
+
+            <div class="info-label">作業依頼</div>
+            <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
+
+            <div class="info-label">ボディ本数</div>
+            <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
+
+            <div class="info-label">レンズ本数</div>
+            <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
+
+            <div class="info-label">オプション</div>
+            <div class="info-value">${escapeHtml(optionSummary(product))}</div>
+
+            <div class="info-label">オプションコメント</div>
+            <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
+
+            <div class="info-label">備考欄</div>
+            <div class="info-value">${escapeHtml(product.note || "-")}</div>
+
+            <div class="info-label">購入先URL</div>
+            <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>管理者記載情報</span>
+            <button class="mini-btn" onclick="openAdminFieldsEdit('${escapeAttr(uid)}','${escapeAttr(product.id)}')">編集</button>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">確認日</div>
+            <div class="info-value">${escapeHtml(product.confirmationDate || "-")}</div>
+
+            <div class="info-label">確認結果</div>
+            <div class="info-value">${escapeHtml(product.confirmationResult || "-")}</div>
+
+            <div class="info-label">写真URL</div>
+            <div class="info-value">${linkOrDash(product.photoUrl)}</div>
+
+            <div class="info-label">予想サイズ</div>
+            <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
+
+            <div class="info-label">保管場所作成</div>
+            <div class="info-value">${storageLocationControl(uid, product.id, product)}</div>
+
+            <div class="info-label">写真撮影日</div>
+            <div class="info-value">${escapeHtml(product.shootingDate || "-")}</div>
+
+            <div class="info-label">フォルダ状態</div>
+            <div class="info-value">${escapeHtml(folderStatusText(product))}</div>
+
+            <div class="info-label">作成予定名</div>
+            <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
+          </div>
+        </div>
+      `).join("");
     }
 
     function openPreferenceModal(uid, productId) {
