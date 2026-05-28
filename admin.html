@@ -1786,6 +1786,7 @@
           <table>
             <thead>
               <tr>
+                <th>発送</th>
                 <th>商品名</th>
                 <th>ナンバリング</th>
                 <th>作業依頼</th>
@@ -1797,6 +1798,7 @@
             <tbody>
               ${filteredProducts.map((product) => `
                 <tr class="${bundleRowClass(product)}">
+                  <td>${shippingCellHtml(product)}</td>
                   <td>${productNameCell(product)}</td>
                   <td>${productNumberingCell(product)}</td>
                   <td>${escapeHtml(product.workRequest || "-")}</td>
