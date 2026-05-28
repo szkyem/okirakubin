@@ -1616,6 +1616,13 @@
         return;
       }
 
+      const filteredProducts = filterDetailProducts(products);
+
+      if (!filteredProducts.length) {
+        detailTableArea.innerHTML = `<div class="empty">検索条件に一致する商品がありません。</div>`;
+        return;
+      }
+
       if (detailView === "registered") {
         detailTableArea.innerHTML = `
           <div class="table-wrap">
@@ -1630,7 +1637,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${products.map((product) => `
+                ${filteredProducts.map((product) => `
                   <tr class="${bundleRowClass(product)}">
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
@@ -1668,7 +1675,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${products.map((product) => `
+                ${filteredProducts.map((product) => `
                   <tr class="${bundleRowClass(product)}">
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
@@ -1701,7 +1708,7 @@
                 </tr>
               </thead>
               <tbody>
-                ${products.map((product) => `
+                ${filteredProducts.map((product) => `
                   <tr>
                     <td>${shippingCellHtml(product)}</td>
                     <td>${productNameCell(product)}</td>
@@ -1740,7 +1747,7 @@
               </tr>
             </thead>
             <tbody>
-              ${products.map((product) => `
+              ${filteredProducts.map((product) => `
                 <tr>
                   <td>${productNameCell(product)}</td>
                   <td>${productNumberingCell(product)}</td>
@@ -1800,6 +1807,16 @@
       }
 
       return products;
+    }
+
+    function filterDetailProducts(products) {
+      const keyword = normalizeSearch(detailProductSearchInput?.value || "");
+      if (!keyword) return products;
+
+      return products.filter((product) => {
+        const target = normalizeSearch(`${product.name || ""} ${product.numbering || ""}`);
+        return target.includes(keyword);
+      });
     }
 
     function groupedShipmentProducts(products) {
@@ -1903,12 +1920,14 @@
     function selectMember(uid) {
       selectedMemberUid = uid;
       detailView = "registered";
+      if (detailProductSearchInput) detailProductSearchInput.value = "";
       renderMemberDetail();
       setMainTab("detail");
     }
 
     function setDetailView(view) {
       detailView = view;
+      if (detailProductSearchInput) detailProductSearchInput.value = "";
       renderMemberDetail();
     }
 
