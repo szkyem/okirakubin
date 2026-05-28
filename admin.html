@@ -335,12 +335,15 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border: 3px solid #111;
+      border-radius: 999px;
+      border: 1px solid #111;
       color: #111;
-      background: #fff;
-      padding: 3px 12px;
-      font-weight: 900;
+      background: #f3f4f6;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 800;
       line-height: 1;
+      white-space: nowrap;
     }
 
     .dash-mark {
@@ -351,6 +354,15 @@
       border-radius: 999px;
       vertical-align: middle;
     }
+
+    tr.bundle-first td { border-top: 2px solid #111; }
+    tr.bundle-last td { border-bottom: 2px solid #111; }
+    tr.bundle-first td:first-child,
+    tr.bundle-middle td:first-child,
+    tr.bundle-last td:first-child { border-left: 2px solid #111; }
+    tr.bundle-first td:last-child,
+    tr.bundle-middle td:last-child,
+    tr.bundle-last td:last-child { border-right: 2px solid #111; }
 
     .management-cell, .detail-actions {
       display: flex;
@@ -1539,7 +1551,7 @@
               </thead>
               <tbody>
                 ${products.map((product) => `
-                  <tr>
+                  <tr class="${bundleRowClass(product)}">
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(product.workRequest || "-")}</td>
@@ -1566,7 +1578,7 @@
           <div class="table-wrap">
             <table>
               <thead>
-                <tr>
+                <tr class="${bundleRowClass(product)}">
                   <th>商品名</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
@@ -1732,7 +1744,8 @@
           ...product,
           shipmentGroupId: groupId,
           shipmentGroupCount: sortedProducts.length,
-          bundleRole: index === 0 ? "parent" : "child"
+          bundleRole: index === 0 ? "parent" : "child",
+          bundlePosition: sortedProducts.length === 1 ? "" : index === 0 ? "first" : index === sortedProducts.length - 1 ? "last" : "middle"
         }));
       });
 
@@ -1761,6 +1774,10 @@
       if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
       if (view === "unshipped") return `<span class="status-pill yellow">未発送</span>`;
       return `<span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}`;
+    }
+
+    function bundleRowClass(product) {
+      return product.bundlePosition ? `bundle-${product.bundlePosition}` : "";
     }
 
     function shipmentDisplayGroupKey(product) {

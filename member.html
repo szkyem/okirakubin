@@ -52,8 +52,12 @@ textarea{min-height:88px;resize:vertical}
 .shipping-cell{background:#fffde7;text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:6px!important;padding-right:6px!important}
 .member-meta{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35}
 .bundle-note{display:inline-flex;align-items:center;border-radius:999px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:3px 8px;font-size:12px;font-weight:800;margin-top:5px;white-space:nowrap}
-.bundle-label{display:inline-flex;align-items:center;justify-content:center;border:3px solid #111;color:#111;background:#fff;padding:3px 12px;font-weight:900;line-height:1}
+.bundle-label{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid #111;color:#111;background:#f3f4f6;padding:5px 10px;font-size:12px;font-weight:800;line-height:1;white-space:nowrap}
 .dash-mark{display:inline-block;width:32px;height:4px;background:#111;border-radius:999px;vertical-align:middle}
+.products-table tr.bundle-first td{border-top:2px solid #111}
+.products-table tr.bundle-last td{border-bottom:2px solid #111}
+.products-table tr.bundle-first td:first-child,.products-table tr.bundle-middle td:first-child,.products-table tr.bundle-last td:first-child{border-left:2px solid #111}
+.products-table tr.bundle-first td:last-child,.products-table tr.bundle-middle td:last-child,.products-table tr.bundle-last td:last-child{border-right:2px solid #111}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -903,7 +907,8 @@ function groupedShippingItems(products) {
       ...product,
       shipmentGroupId: groupId,
       shipmentGroupCount: sortedProducts.length,
-      bundleRole: index === 0 ? "parent" : "child"
+      bundleRole: index === 0 ? "parent" : "child",
+      bundlePosition: sortedProducts.length === 1 ? "" : index === 0 ? "first" : index === sortedProducts.length - 1 ? "last" : "middle"
     }));
   });
 
@@ -1071,7 +1076,7 @@ function productRow(product, mode = "registered") {
   const isShipping = mode === "shipping";
 
   return `
-    <tr>
+    <tr class="${bundleRowClass(product)}">
       ${isStored ? `
         <td class="shipping-cell">
           <input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">
@@ -1129,6 +1134,10 @@ function shippingInfoButtonHtml(product) {
 
 function bundleChildDash(product) {
   return product.bundleRole === "child" ? `<span class="dash-mark" aria-label="同梱"></span>` : "";
+}
+
+function bundleRowClass(product) {
+  return product.bundlePosition ? `bundle-${product.bundlePosition}` : "";
 }
 
 function shipmentDisplayGroupKey(product) {
