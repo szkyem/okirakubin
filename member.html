@@ -568,8 +568,7 @@ registerProductsBtn.addEventListener("click", async () => {
       lensCount: entry.querySelector('[data-field="lensCount"]').value.trim(),
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
-      optionOkirakuThanksCard: entry.querySelector('[data-field="optionOkirakuThanksCard"]').checked,
-      optionFlyer: entry.querySelector('[data-field="optionFlyer"]').checked,
+      optionOkirakuInsert: entry.querySelector('[data-field="optionOkirakuInsert"]').checked,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
       note: entry.querySelector('[data-field="note"]').value.trim(),
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
@@ -603,17 +602,19 @@ registerProductsBtn.addEventListener("click", async () => {
         lensCount: item.lensCount,
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
-        optionOkirakuThanksCard: item.optionOkirakuThanksCard,
-        optionFlyer: item.optionFlyer,
+        optionOkirakuThanksCard: item.optionOkirakuInsert,
+        optionFlyer: item.optionOkirakuInsert,
+        optionOkirakuInsert: item.optionOkirakuInsert,
         optionComment: item.optionComment,
         options: {
           video: item.optionVideo,
           thanksCard: item.optionThanksCard,
-          okirakuThanksCard: item.optionOkirakuThanksCard,
-          flyer: item.optionFlyer,
+          okirakuThanksCard: item.optionOkirakuInsert,
+          flyer: item.optionOkirakuInsert,
+          okirakuInsert: item.optionOkirakuInsert,
           comment: item.optionComment
         },
-        optionLabels: optionLabelsFromValues(item.optionVideo, item.optionThanksCard, item.optionOkirakuThanksCard, item.optionFlyer),
+        optionLabels: optionLabelsFromValues(item.optionVideo, item.optionThanksCard, item.optionOkirakuInsert),
         note: item.note,
         purchaseUrl: item.purchaseUrl,
         shippingRequest: "",
@@ -721,13 +722,23 @@ shippingForm.addEventListener("submit", async (event) => {
   try {
     const now = Date.now();
     const requestType = shippingRequestType.value;
+    const selectedIds = [...selectedProductIds];
+    const selectedProducts = productsCache.filter((product) => selectedProductIds.has(product.id));
+    const shipmentGroupId = `${now}_${requestType}`;
+    const shipmentGroupCount = selectedIds.length;
+    const shipmentGroupNames = selectedProducts.map((product) => product.name || "").filter(Boolean).join(" / ");
+    const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
-    await Promise.all([...selectedProductIds].map((productId) => {
+    await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${currentUser.uid}/${productId}`), {
         shippingRequest: requestType,
         shippingStatus: "unshipped",
         shippingDestination: destination,
         shippingOrigin: selectedOrigin,
+        shipmentGroupId,
+        shipmentGroupCount,
+        shipmentGroupNames,
+        shipmentGroupNumberings,
         updatedAt: now
       });
     }));
@@ -797,8 +808,8 @@ async function loadData() {
 
     document.getElementById("productCount").textContent = registeredProducts.length;
     document.getElementById("storedCount").textContent = storedProducts.length;
-    document.getElementById("unshippedCount").textContent = productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped").length;
-    document.getElementById("shippedCount").textContent = productsCache.filter((product) => product.shippingStatus === "shipped").length;
+    document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped")).length;
+    document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => product.shippingStatus === "shipped")).length;
 
     document.getElementById("recentAnnouncements").innerHTML = recentAnnouncementsHtml();
 
@@ -858,11 +869,45 @@ function renderShippingList() {
     .filter((product) => {
       if (!searchKeyword) return true;
       return normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword);
-    })
+    });
+  const shippingItems = groupedShippingItems(filtered)
     .sort((a, b) => sortByShippingDateAndNumbering(a, b));
 
   document.getElementById("shippingList").innerHTML =
-    filtered.length ? productTable(filtered, { mode: "shipping" }) : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : (shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません"));
+    shippingItems.length ? productTable(shippingItems, { mode: "shipping" }) : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : (shippingView === "shipped" ? "発送済みの商品はありません" : "未発送の商品はありません"));
+}
+
+function groupedShippingItems(products) {
+  const groups = new Map();
+  const singles = [];
+
+  products.forEach((product) => {
+    const groupId = product.shipmentGroupId || "";
+    if (!groupId) {
+      singles.push(product);
+      return;
+    }
+
+    if (!groups.has(groupId)) groups.set(groupId, []);
+    groups.get(groupId).push(product);
+  });
+
+  const grouped = [...groups.entries()].map(([groupId, groupProducts]) => {
+    const sortedProducts = groupProducts.slice().sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+    const representative = sortedProducts[0] || {};
+
+    return {
+      ...representative,
+      id: representative.id,
+      shipmentGroupId: groupId,
+      shipmentProducts: sortedProducts,
+      shipmentGroupCount: sortedProducts.length,
+      name: sortedProducts.map((product) => product.name || "-").join(" / "),
+      numbering: sortedProducts.map((product) => product.numbering || "-").join(" / ")
+    };
+  });
+
+  return [...grouped, ...singles];
 }
 
 function renderOriginList() {
@@ -962,8 +1007,7 @@ function addProductEntry() {
         <label>オプション</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionVideo"> 動画撮影</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionThanksCard"> Thanksカード同梱</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuThanksCard" checked> お気楽便Thanksカード同梱</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionFlyer" checked> チラシ同梱</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked> お気楽便Thanksカード・チラシ同梱</label>
       </div>
 
       <div class="form-group full">
@@ -982,8 +1026,7 @@ function addProductEntry() {
     if (document.querySelectorAll(".product-entry").length === 1) {
       entry.querySelectorAll("input,textarea").forEach((input) => input.value = "");
       entry.querySelectorAll('input[type="checkbox"]').forEach((input) => input.checked = false);
-      entry.querySelector('[data-field="optionOkirakuThanksCard"]').checked = true;
-      entry.querySelector('[data-field="optionFlyer"]').checked = true;
+      entry.querySelector('[data-field="optionOkirakuInsert"]').checked = true;
       entry.querySelector("select").selectedIndex = 0;
       return;
     }
@@ -1035,7 +1078,7 @@ function productRow(product, mode = "registered") {
         </td>
       ` : ""}
       ${isShipping ? `<td>${shippingPill(product.shippingRequest)}</td>` : ""}
-      <td>${escapeHtml(product.name)}</td>
+      <td>${escapeHtml(product.name)}${isShipping && product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}</td>
       <td>${escapeHtml(product.numbering || "-")}</td>
       ${isShipping ? `<td><button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button></td>` : ""}
       <td>
@@ -1092,12 +1135,11 @@ function recentAnnouncementsHtml() {
   `;
 }
 
-function optionLabelsFromValues(optionVideo, optionThanksCard, optionOkirakuThanksCard, optionFlyer) {
+function optionLabelsFromValues(optionVideo, optionThanksCard, optionOkirakuInsert) {
   const labels = [];
   if (isOptionEnabled(optionVideo)) labels.push("動画撮影");
   if (isOptionEnabled(optionThanksCard)) labels.push("Thanksカード同梱");
-  if (isOptionEnabled(optionOkirakuThanksCard)) labels.push("お気楽便Thanksカード同梱");
-  if (isOptionEnabled(optionFlyer)) labels.push("チラシ同梱");
+  if (isOptionEnabled(optionOkirakuInsert)) labels.push("お気楽便Thanksカード・チラシ同梱");
   return labels;
 }
 
@@ -1138,8 +1180,9 @@ function optionSummary(product) {
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
   if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
-  if (isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(optionObject.okirakuThanksCard)) options.push("お気楽便Thanksカード同梱");
-  if (isOptionEnabled(product.optionFlyer) || isOptionEnabled(optionObject.flyer)) options.push("チラシ同梱");
+  if (isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(optionObject.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(optionObject.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(optionObject.flyer)) {
+    options.push("お気楽便Thanksカード・チラシ同梱");
+  }
 
   optionLabels.forEach((label) => {
     if (label && !options.includes(label)) options.push(label);
@@ -1284,8 +1327,7 @@ window.openProductEdit = function(productId) {
           <label>オプション</label>
           <label><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}> 動画撮影</label>
           <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}> Thanksカード同梱</label>
-          <label><input class="shipping-check" type="checkbox" name="optionOkirakuThanksCard" ${isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) ? "checked" : ""}> お気楽便Thanksカード同梱</label>
-          <label><input class="shipping-check" type="checkbox" name="optionFlyer" ${isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> チラシ同梱</label>
+          <label><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> お気楽便Thanksカード・チラシ同梱</label>
         </div>
 
         <div class="form-group full">
@@ -1319,8 +1361,7 @@ window.saveProductEdit = async function(event, productId) {
     lensCount: String(formData.get("lensCount") || "").trim(),
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
-    optionOkirakuThanksCard: formData.get("optionOkirakuThanksCard") === "on",
-    optionFlyer: formData.get("optionFlyer") === "on",
+    optionOkirakuInsert: formData.get("optionOkirakuInsert") === "on",
     optionComment: String(formData.get("optionComment") || "").trim(),
     purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
     note: String(formData.get("note") || "").trim(),
@@ -1335,11 +1376,14 @@ window.saveProductEdit = async function(event, productId) {
   data.options = {
     video: data.optionVideo,
     thanksCard: data.optionThanksCard,
-    okirakuThanksCard: data.optionOkirakuThanksCard,
-    flyer: data.optionFlyer,
+    okirakuThanksCard: data.optionOkirakuInsert,
+    flyer: data.optionOkirakuInsert,
+    okirakuInsert: data.optionOkirakuInsert,
     comment: data.optionComment
   };
-  data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard, data.optionOkirakuThanksCard, data.optionFlyer);
+  data.optionOkirakuThanksCard = data.optionOkirakuInsert;
+  data.optionFlyer = data.optionOkirakuInsert;
+  data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard, data.optionOkirakuInsert);
 
   try {
     await update(ref(database, `products/${currentUser.uid}/${productId}`), data);
