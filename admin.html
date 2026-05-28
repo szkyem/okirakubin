@@ -386,35 +386,40 @@
     }
 
     tr.bundle-first td:first-child {
-      box-shadow: inset 3px 0 0 #2563eb;
+      background-image: linear-gradient(90deg, #2563eb 0, #2563eb 4px, transparent 4px);
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+      padding-left: 22px;
     }
 
     tr.bundle-middle td:first-child,
     tr.bundle-last td:first-child {
       position: relative;
-      padding-left: 30px;
+      padding-left: 42px;
     }
 
     tr.bundle-middle td:first-child::before,
     tr.bundle-last td:first-child::before {
       content: "";
       position: absolute;
-      left: 14px;
-      top: 0;
-      bottom: 0;
-      width: 1px;
+      left: 20px;
+      top: -1px;
+      bottom: -1px;
+      width: 2px;
       background: #cbd5e1;
+      z-index: 1;
     }
 
     tr.bundle-middle td:first-child::after,
     tr.bundle-last td:first-child::after {
       content: "";
       position: absolute;
-      left: 14px;
+      left: 20px;
       top: 50%;
-      width: 12px;
-      height: 1px;
+      width: 16px;
+      height: 2px;
       background: #cbd5e1;
+      z-index: 1;
     }
 
     tr.bundle-last td:first-child::before {
