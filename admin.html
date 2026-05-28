@@ -852,6 +852,20 @@
         <button class="primary-btn" onclick="createInvoicesForMonth()">全会員の請求書作成</button>
       </div>
 
+      <div class="announcement-form">
+        <label>
+          会社情報
+          <textarea id="companyInfoInput" placeholder="会社名、住所、電話番号、登録番号など"></textarea>
+        </label>
+        <label>
+          振込先情報
+          <textarea id="bankInfoInput" placeholder="銀行名、支店名、種別、口座番号、名義など"></textarea>
+        </label>
+        <div class="announcement-actions">
+          <button class="secondary-btn" onclick="saveCompanyInfo()">会社情報を保存</button>
+        </div>
+      </div>
+
       <div class="invoice-summary">
         <div class="invoice-summary-item">
           会員
@@ -1209,6 +1223,8 @@
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
     const announcementInput = document.getElementById("announcementInput");
     const announcementList = document.getElementById("announcementList");
+    const companyInfoInput = document.getElementById("companyInfoInput");
+    const bankInfoInput = document.getElementById("bankInfoInput");
 
     const infoModalBackdrop = document.getElementById("infoModalBackdrop");
     const infoModalBody = document.getElementById("infoModalBody");
@@ -1224,6 +1240,7 @@
     let invoicesCache = {};
     let announcementsCache = {};
     let memberSettingsCache = {};
+    let companyInfoCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -1304,13 +1321,14 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
           get(ref(db, "announcements")),
-          get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) }))
+          get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
+          get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) }))
         ]);
 
         const membersRaw = membersSnap.val() || {};
@@ -1319,6 +1337,7 @@
         invoicesCache = invoicesSnap.val() || {};
         announcementsCache = announcementsSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
+        companyInfoCache = companyInfoSnap.val() || {};
 
         membersCache = Object.keys(membersRaw)
           .filter((uid) => membersRaw[uid] === true)
@@ -2207,6 +2226,9 @@
       const month = invoiceMonthInput.value || todayString().slice(0, 7);
       const invoices = [];
 
+      if (companyInfoInput) companyInfoInput.value = companyInfoCache.companyText || "";
+      if (bankInfoInput) bankInfoInput.value = companyInfoCache.bankText || "";
+
       Object.entries(invoicesCache || {}).forEach(([uid, monthMap]) => {
         const invoice = monthMap && monthMap[month];
         if (invoice) invoices.push(invoice);
@@ -2597,18 +2619,22 @@ function buildInvoiceItems(member, month) {
       if (!invoice) return;
 
       const items = Object.values(invoice.items || {});
-      const rowsHtml = items.map((item) => `
+      const issueDate = todayString();
+      const invoiceNumber = `${invoice.managementNumber || uid}_${issueDate}`;
+      const taxableAmount = feeValue(invoice.grandTotal);
+      const taxAmount = Math.floor(taxableAmount * 0.1);
+      const billedAmount = taxableAmount + taxAmount;
+      const companyText = companyInfoCache.companyText || "おきらく便\n会社情報を設定してください";
+      const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
+      const detailRows = buildPdfInvoiceRows(items);
+      const rowsHtml = detailRows.map((row) => `
         <tr>
-          <td>${escapeHtml(item.name || "")}</td>
-          <td>${escapeHtml(item.numbering || "")}</td>
-          <td>${escapeHtml(item.bodyCount || "")}</td>
-          <td>${escapeHtml(item.lensCount || "")}</td>
-          <td>${escapeHtml(item.options || "")}</td>
-          <td>${escapeHtml(item.inspectionDate || "-")}</td>
-          <td>${escapeHtml(item.inspectionFee ?? "-")}</td>
-          <td>${escapeHtml(item.shippingDate || "-")}</td>
-          <td>${escapeHtml(item.shippingFee ?? "-")}</td>
-          <td>${escapeHtml(item.total || 0)}</td>
+          <td>${escapeHtml(row.date || "-")}</td>
+          <td>${escapeHtml(row.numbering || "-")}</td>
+          <td>${escapeHtml(row.item || "-")}</td>
+          <td class="num">${yen(row.amount)}</td>
+          <td class="num">10%</td>
+          <td>${escapeHtml(row.note || "-")}</td>
         </tr>
       `).join("");
 
@@ -2619,40 +2645,100 @@ function buildInvoiceItems(member, month) {
           <meta charset="UTF-8">
           <title>請求書 ${escapeHtml(month)}</title>
           <style>
-            body{font-family:Arial,"Yu Gothic",sans-serif;padding:28px;color:#111827}
-            h1{font-size:24px;margin-bottom:8px}
-            .meta{margin-bottom:20px;line-height:1.8}
+            *{box-sizing:border-box}
+            body{font-family:"Yu Gothic","Meiryo",Arial,sans-serif;color:#111;padding:10mm 12mm;font-size:12px}
+            .invoice{max-width:190mm;margin:0 auto}
+            .top-line,.title-line{border-top:1px solid #222}
+            h1{font-size:20px;text-align:center;letter-spacing:.18em;font-weight:500;margin:4px 0 16px;padding-top:4px}
+            .title-line{margin-bottom:18px}
+            .head{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px}
+            .meta-right{text-align:right;line-height:1.8}
+            .client{line-height:1.7}
+            .client-name{font-size:14px;margin:4px 0}
+            .message{margin:14px 0 10px}
+            .amount{display:inline-block;min-width:95mm;border-bottom:2px solid #333;font-size:17px;font-weight:700;padding:3px 0}
+            .company{text-align:right;white-space:pre-line;line-height:1.55;margin-top:8px}
+            .section-title{text-align:center;margin:26px 0 8px;font-size:13px}
             table{width:100%;border-collapse:collapse}
-            th,td{border:1px solid #d1d5db;padding:8px;font-size:12px;text-align:left}
-            th{background:#f3f4f6}
-            .total{margin-top:18px;font-size:18px;font-weight:800;text-align:right}
+            th,td{border:1px solid #222;padding:4px 6px;font-size:10px;vertical-align:top}
+            th{background:#ddd;text-align:center;font-weight:600}
+            .num{text-align:right;white-space:nowrap}
+            .bottom{display:grid;grid-template-columns:80mm 1fr;gap:18px;margin-top:14px;align-items:start}
+            .tax-table th,.tax-table td{font-size:11px}
+            .bank-box{border:1px solid #222;padding:8px;white-space:pre-line;line-height:1.55;min-height:42mm}
+            .bank-title{font-weight:700;margin-bottom:4px}
+            @media print{body{padding:0}.invoice{max-width:none}}
           </style>
         </head>
         <body onload="window.print()">
-          <h1>請求書</h1>
-          <div class="meta">
-            対象月：${escapeHtml(invoice.month || "-")}<br>
-            会員：${escapeHtml(invoice.memberName || "-")}<br>
-            管理番号：${escapeHtml(invoice.managementNumber || "-")}
+          <div class="invoice">
+            <div class="top-line"></div>
+            <h1>御請求書</h1>
+            <div class="title-line"></div>
+
+            <div class="head">
+              <div class="client">
+                <div>個人</div>
+                <div class="client-name">${escapeHtml(invoice.memberName || "-")} 様</div>
+                <div>件名：おきらく便 ${escapeHtml(invoice.month || "-")} ご利用分</div>
+              </div>
+              <div>
+                <div class="meta-right">
+                  請求日：${escapeHtml(issueDate)}<br>
+                  請求管理番号：${escapeHtml(invoiceNumber)}
+                </div>
+                <div class="company">${lineBreaks(companyText)}</div>
+              </div>
+            </div>
+
+            <div class="message">以下の通りご請求申し上げます。</div>
+            <div class="amount">ご請求金額 ￥${yen(billedAmount)}.-</div>
+
+            <div class="section-title">ご利用明細</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th>
+                  <th>管理番号</th>
+                  <th>品目</th>
+                  <th>金額</th>
+                  <th>税率</th>
+                  <th>適用</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+
+            <div class="bottom">
+              <table class="tax-table">
+                <thead>
+                  <tr>
+                    <th>税率区分</th>
+                    <th>金額</th>
+                    <th>消費税</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>10%対象</td>
+                    <td class="num">${yen(taxableAmount)}</td>
+                    <td class="num">${yen(taxAmount)}</td>
+                  </tr>
+                  <tr>
+                    <td>非課税</td>
+                    <td class="num">0</td>
+                    <td class="num">0</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="bank-box">
+                <div class="bank-title">お振込み先</div>
+                ${lineBreaks(bankText)}
+                <br><br>内容をご確認の上、上記口座に5日までにお振込お願い致します。
+              </div>
+            </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>商品名</th>
-                <th>ナンバリング</th>
-                <th>ボディ本数</th>
-                <th>レンズ本数</th>
-                <th>オプション</th>
-                <th>検品日</th>
-                <th>検品料金</th>
-                <th>発送日</th>
-                <th>発送料金</th>
-                <th>合計</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-          <div class="total">合計 ${escapeHtml(invoice.grandTotal || 0)}</div>
         </body>
         </html>
       `;
@@ -2665,6 +2751,57 @@ function buildInvoiceItems(member, month) {
       win.document.open();
       win.document.write(html);
       win.document.close();
+    }
+
+    function buildPdfInvoiceRows(items) {
+      return items.flatMap((item) => {
+        const rows = [];
+        const note = `${item.name || "-"} / ${item.numbering || "-"}${item.options ? " / " + item.options : ""}`;
+
+        if (item.inspectionFee !== "-" && feeValue(item.inspectionFee) > 0) {
+          rows.push({
+            date: item.inspectionDate || "-",
+            numbering: item.numbering || "-",
+            item: item.workRequest || "検品",
+            amount: feeValue(item.inspectionFee),
+            note
+          });
+        }
+
+        if (item.shippingFee !== "-" && feeValue(item.shippingFee) > 0) {
+          rows.push({
+            date: item.shippingDate || "-",
+            numbering: item.numbering || "-",
+            item: "送料",
+            amount: feeValue(item.shippingFee),
+            note
+          });
+        }
+
+        return rows;
+      });
+    }
+
+    async function saveCompanyInfo() {
+      hideError(appError);
+
+      try {
+        const companyText = companyInfoInput?.value || "";
+        const bankText = bankInfoInput?.value || "";
+
+        await set(ref(db, "settings/companyInfo"), {
+          companyText,
+          bankText,
+          updatedAt: Date.now(),
+          updatedBy: currentUser?.uid || "",
+          updatedByEmail: currentUser?.email || ""
+        });
+
+        await loadAllData();
+        setMainTab("invoices");
+      } catch (error) {
+        showError(appError, "会社情報の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
     }
 
     async function deleteInvoice(uid, month) {
@@ -2850,6 +2987,7 @@ function buildInvoiceItems(member, month) {
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
+    window.saveCompanyInfo = saveCompanyInfo;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
@@ -2971,6 +3109,14 @@ function buildInvoiceItems(member, month) {
 
     function hasValue(value) {
       return value !== undefined && value !== null && String(value).trim() !== "";
+    }
+
+    function yen(value) {
+      return Number(feeValue(value)).toLocaleString("ja-JP");
+    }
+
+    function lineBreaks(value) {
+      return escapeHtml(value || "").replace(/\n/g, "<br>");
     }
 
     function normalizeSearch(value) {
