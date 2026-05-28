@@ -898,10 +898,15 @@
           <table class="price-table">
             <tbody>
               <tr>
-                <td class="group-cell" rowspan="2">作業料</td>
-                <td>検品代</td>
+                <td class="group-cell" rowspan="3">作業料</td>
+                <td>検品＋写真</td>
                 <td>1,300円</td>
                 <td>ボディまたはレンズ1点目を含む基本料金</td>
+              </tr>
+              <tr>
+                <td>検品のみ</td>
+                <td>1,000円</td>
+                <td>検品のみの場合</td>
               </tr>
               <tr>
                 <td>レンズキット検品追加料金</td>
@@ -917,7 +922,7 @@
               <tr>
                 <td>海外送料（作業代）</td>
                 <td>500円</td>
-                <td>お客様によるラベル発行。発送情報の値段に作業代500円を加算</td>
+                <td>お客様によるラベル発行。海外発送は500円固定</td>
               </tr>
             </tbody>
           </table>
@@ -1038,6 +1043,7 @@
 
     const PRICE_TABLE = {
       inspectionBase: 1300,
+      inspectionOnly: 1000,
       additionalKitItem: 300,
       photoOnly: 500,
       returnHandling: 700,
@@ -1492,7 +1498,7 @@
                   <td>${escapeHtml(product.workRequest || "-")}</td>
                   <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                   <td><button class="mini-btn" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                  <td><span class="status-pill blue">発送済み</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}</td>
+                  <td><span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1510,7 +1516,7 @@
       member.products.forEach((product) => {
         const hasShippingRequest = hasValue(product.shippingRequest);
         const hasShootingDate = hasValue(product.shootingDate);
-        const isShipped = product.shippingStatus === "shipped";
+        const isShipped = isShippedStatus(product.shippingStatus);
 
         if (isShipped) {
           shipped.push(product);
@@ -1594,6 +1600,15 @@
       if (text === "speedpak" || text === "SpeedPAK") return "speedpak";
 
       return "none";
+    }
+
+    function isShippedStatus(value) {
+      return value === "shipped" || value === "cash_on_delivery";
+    }
+
+    function shippingStatusLabel(value) {
+      if (value === "cash_on_delivery") return "着払い発送";
+      return value === "shipped" ? "発送済み" : "未発送";
     }
 
     function preferenceButton(uid, product) {
@@ -1707,7 +1722,7 @@
           </div>
           <div class="info-grid">
             <div class="info-label">状態</div>
-            <div class="info-value">${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+            <div class="info-value">${shippingStatusLabel(product.shippingStatus)}</div>
 
             <div class="info-label">発送サイズ</div>
             <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
@@ -1845,8 +1860,10 @@
       if (!product) return;
 
       activeEdit = { type: "status", uid, productId };
-      const calculatedPrice = autoShippingPriceFor(product, product.shippingSize);
-      const initialShippingPrice = hasValue(product.shippingPrice) ? product.shippingPrice : calculatedPrice;
+      const calculatedPrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus);
+      const initialShippingPrice = product.shippingStatus === "cash_on_delivery"
+        ? calculatedPrice
+        : hasValue(product.shippingPrice) ? product.shippingPrice : calculatedPrice;
       const destinationPrefecture = product.shippingDestination?.prefecture || "";
 
       editModalTitle.textContent = "発送状態を編集";
@@ -1855,8 +1872,9 @@
           <label>
             状態
             <select name="shippingStatus">
-              <option value="unshipped" ${product.shippingStatus !== "shipped" ? "selected" : ""}>未発送</option>
+              <option value="unshipped" ${!isShippedStatus(product.shippingStatus) ? "selected" : ""}>未発送</option>
               <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
+              <option value="cash_on_delivery" ${product.shippingStatus === "cash_on_delivery" ? "selected" : ""}>着払い発送</option>
             </select>
           </label>
 
@@ -1869,11 +1887,11 @@
 
           <label>
             値段
-            <input name="shippingPrice" type="number" min="0" value="${escapeAttr(initialShippingPrice || "")}" />
+            <input name="shippingPrice" type="number" min="0" value="${escapeAttr(hasValue(initialShippingPrice) ? initialShippingPrice : "")}" />
           </label>
         </div>
 
-        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと価格表から値段を自動入力します。</p>
+        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと価格表から値段を自動入力します。海外発送は500円固定、着払い発送は0円です。</p>
 
         <div class="modal-actions">
           <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
@@ -1882,12 +1900,15 @@
       `;
 
       const sizeSelect = editForm.querySelector('[name="shippingSize"]');
+      const statusSelect = editForm.querySelector('[name="shippingStatus"]');
       const priceInput = editForm.querySelector('[name="shippingPrice"]');
-      if (sizeSelect && priceInput) {
-        sizeSelect.addEventListener("change", () => {
-          const nextPrice = autoShippingPriceFor(product, sizeSelect.value);
+      if (sizeSelect && statusSelect && priceInput) {
+        const updateAutoPrice = () => {
+          const nextPrice = autoShippingPriceFor(product, sizeSelect.value, statusSelect.value);
           priceInput.value = hasValue(nextPrice) ? nextPrice : "";
-        });
+        };
+        sizeSelect.addEventListener("change", updateAutoPrice);
+        statusSelect.addEventListener("change", updateAutoPrice);
       }
 
       editModalBackdrop.classList.add("show");
@@ -1945,12 +1966,14 @@
 
         if (activeEdit.type === "status") {
           const status = getFormValue(formData, "shippingStatus");
+          const shippingSize = getFormValue(formData, "shippingSize");
+          const shippingPrice = status === "cash_on_delivery" ? "0" : getFormValue(formData, "shippingPrice");
           await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
             updatedAt: now,
             shippingStatus: status,
-            shippedDate: status === "shipped" ? todayString() : "",
-            shippingSize: getFormValue(formData, "shippingSize"),
-            shippingPrice: getFormValue(formData, "shippingPrice")
+            shippedDate: isShippedStatus(status) ? todayString() : "",
+            shippingSize,
+            shippingPrice
           });
         }
 
@@ -2276,31 +2299,34 @@ function buildInvoiceItems(member, month) {
 
     function inspectionFeeFor(product) {
       if (product.workRequest === "保管のみ") return 0;
+      if (product.workRequest === "返品対応" || shippingKey(product.shippingRequest) === "return") return PRICE_TABLE.returnHandling;
+      if (product.workRequest === "写真のみ") return PRICE_TABLE.photoOnly;
+      if (product.workRequest === "検品のみ") return PRICE_TABLE.inspectionOnly;
 
-      let fee = product.workRequest === "写真のみ"
-        ? PRICE_TABLE.photoOnly
-        : PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
+      let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
         fee += PRICE_TABLE.video;
-      }
-
-      if (product.workRequest === "返品対応" || product.shippingRequest === "返品依頼") {
-        fee += PRICE_TABLE.returnHandling;
       }
 
       return fee;
     }
 
     function shippingFeeFor(product) {
-      const baseFee = numberValue(product.shippingPrice);
-      const overseasHandling = shippingKey(product.shippingRequest) === "international" ? PRICE_TABLE.overseasHandling : 0;
-      return baseFee + overseasHandling;
+      if (product.shippingStatus === "cash_on_delivery") return 0;
+      if (String(product.shippingSize || "").trim() === "海外発送" || shippingKey(product.shippingRequest) === "international") {
+        return PRICE_TABLE.overseasHandling;
+      }
+
+      return numberValue(product.shippingPrice);
     }
 
-    function autoShippingPriceFor(product, size) {
+    function autoShippingPriceFor(product, size, status = product?.shippingStatus) {
+      if (status === "cash_on_delivery") return 0;
+
       const normalizedSize = String(size || "").trim();
-      if (!normalizedSize || normalizedSize === "海外発送") return "";
+      if (!normalizedSize) return "";
+      if (normalizedSize === "海外発送") return PRICE_TABLE.overseasHandling;
 
       const rates = SHIPPING_RATE_TABLE[normalizedSize];
       const region = shippingRegionFor(product?.shippingDestination?.prefecture);
