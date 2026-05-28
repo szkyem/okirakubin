@@ -1836,12 +1836,17 @@
       });
 
       const sorter = (a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+      const shippedSorter = (a, b) => {
+        const dateCompare = String(a.shippedDate || "0000-00-00").localeCompare(String(b.shippedDate || "0000-00-00"));
+        if (dateCompare !== 0) return dateCompare;
+        return sorter(a, b);
+      };
 
       return {
         registered: registered.sort(sorter),
         stored: stored.sort(sorter),
         unshipped: unshipped.sort(sorter),
-        shipped: shipped.sort(sorter)
+        shipped: shipped.sort(shippedSorter)
       };
     }
 
@@ -2335,11 +2340,6 @@
           </label>
 
           <label>
-            写真URL
-            <input name="photoUrl" value="${escapeAttr(product.photoUrl || "")}" />
-          </label>
-
-          <label>
             予想サイズ
             <input name="expectedSize" value="${escapeAttr(product.expectedSize || "")}" />
           </label>
@@ -2468,7 +2468,6 @@
             confirmationDate,
             shootingDate: confirmationDate,
             confirmationResult: getFormValue(formData, "confirmationResult"),
-            photoUrl: getFormValue(formData, "photoUrl"),
             expectedSize: getFormValue(formData, "expectedSize"),
             storageLocation: getFormValue(formData, "storageLocation"),
             folderUrl: getFormValue(formData, "storageLocation"),

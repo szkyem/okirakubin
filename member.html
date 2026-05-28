@@ -1118,7 +1118,6 @@ function inquiryControl(product) {
   return `
     <label class="inquiry-box">
       <input class="shipping-check" type="checkbox" onchange="if(this.checked){openInquiryModal('${escapeAttr(product.id)}'); this.checked=false;}">
-      お問い合わせ
     </label>
   `;
 }
@@ -1281,7 +1280,8 @@ function sortByShippingDateAndNumbering(a, b) {
     if (a.bundleRole !== b.bundleRole) return a.bundleRole === "parent" ? -1 : 1;
   }
 
-  const dateCompare = String(a.shippedDate || "9999-99-99").localeCompare(String(b.shippedDate || "9999-99-99"));
+  const fallbackDate = shippingView === "shipped" ? "0000-00-00" : "9999-99-99";
+  const dateCompare = String(a.shippedDate || fallbackDate).localeCompare(String(b.shippedDate || fallbackDate));
   if (dateCompare !== 0) return dateCompare;
 
   if (a.shipmentGroupId || b.shipmentGroupId) {
