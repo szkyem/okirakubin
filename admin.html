@@ -758,6 +758,7 @@
       <button class="tab active" data-main-tab="members">会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
+      <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
     </nav>
@@ -852,20 +853,6 @@
         <button class="primary-btn" onclick="createInvoicesForMonth()">全会員の請求書作成</button>
       </div>
 
-      <div class="announcement-form">
-        <label>
-          会社情報
-          <textarea id="companyInfoInput" placeholder="会社名、住所、電話番号、登録番号など"></textarea>
-        </label>
-        <label>
-          振込先情報
-          <textarea id="bankInfoInput" placeholder="銀行名、支店名、種別、口座番号、名義など"></textarea>
-        </label>
-        <div class="announcement-actions">
-          <button class="secondary-btn" onclick="saveCompanyInfo()">会社情報を保存</button>
-        </div>
-      </div>
-
       <div class="invoice-summary">
         <div class="invoice-summary-item">
           会員
@@ -902,6 +889,23 @@
           </thead>
           <tbody id="invoiceListBody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="companySection" class="section hidden">
+      <h2>会社情報</h2>
+      <div class="announcement-form">
+        <label>
+          会社情報
+          <textarea id="companyInfoInput" placeholder="会社名、住所、電話番号、登録番号など"></textarea>
+        </label>
+        <label>
+          振込先情報
+          <textarea id="bankInfoInput" placeholder="銀行名、支店名、種別、口座番号、名義など"></textarea>
+        </label>
+        <div class="announcement-actions">
+          <button class="primary-btn" onclick="saveCompanyInfo()">保存する</button>
+        </div>
       </div>
     </section>
 
@@ -1187,6 +1191,7 @@
     const membersSection = document.getElementById("membersSection");
     const detailSection = document.getElementById("detailSection");
     const invoicesSection = document.getElementById("invoicesSection");
+    const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
     const announcementsSection = document.getElementById("announcementsSection");
     const detailEmpty = document.getElementById("detailEmpty");
@@ -1372,6 +1377,7 @@
         renderMembers();
         renderMemberDetail();
         renderInvoices();
+        renderCompanyInfo();
         renderAnnouncements();
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
@@ -1688,6 +1694,7 @@
       membersSection.classList.toggle("hidden", tabName !== "members");
       detailSection.classList.toggle("hidden", tabName !== "detail");
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
+      companySection.classList.toggle("hidden", tabName !== "company");
       pricesSection.classList.toggle("hidden", tabName !== "prices");
       announcementsSection.classList.toggle("hidden", tabName !== "announcements");
     }
@@ -2226,9 +2233,6 @@
       const month = invoiceMonthInput.value || todayString().slice(0, 7);
       const invoices = [];
 
-      if (companyInfoInput) companyInfoInput.value = companyInfoCache.companyText || "";
-      if (bankInfoInput) bankInfoInput.value = companyInfoCache.bankText || "";
-
       Object.entries(invoicesCache || {}).forEach(([uid, monthMap]) => {
         const invoice = monthMap && monthMap[month];
         if (invoice) invoices.push(invoice);
@@ -2267,6 +2271,11 @@
             <td><button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button></td>
           </tr>
         `).join("");
+    }
+
+    function renderCompanyInfo() {
+      if (companyInfoInput) companyInfoInput.value = companyInfoCache.companyText || "";
+      if (bankInfoInput) bankInfoInput.value = companyInfoCache.bankText || "";
     }
 
     async function createInvoicesForMonth() {
@@ -2662,7 +2671,7 @@ function buildInvoiceItems(member, month) {
             .section-title{text-align:center;margin:26px 0 8px;font-size:13px}
             table{width:100%;border-collapse:collapse}
             th,td{border:1px solid #222;padding:4px 6px;font-size:10px;vertical-align:top}
-            th{background:#bfbfbf;text-align:center;font-weight:600}
+            thead th{background:#e5e7eb !important;text-align:center;font-weight:600}
             .num{text-align:right;white-space:nowrap}
             .bottom{display:grid;grid-template-columns:80mm 1fr;gap:18px;margin-top:14px;align-items:start}
             .tax-table th,.tax-table td{font-size:11px}
@@ -2790,7 +2799,7 @@ function buildInvoiceItems(member, month) {
         });
 
         await loadAllData();
-        setMainTab("invoices");
+        setMainTab("company");
       } catch (error) {
         showError(appError, "会社情報の保存に失敗しました。Realtime Databaseのルールを確認してください。");
       }
