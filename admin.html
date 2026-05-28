@@ -1535,6 +1535,8 @@
     function renderInquiries() {
       const inquiries = membersCache.flatMap((member) => {
         return member.products.flatMap((product) => {
+          if (isShippedStatus(product.shippingStatus)) return [];
+
           const inquiryMap = product.inquiries || {};
 
           return Object.entries(inquiryMap).map(([id, inquiry]) => ({
