@@ -45,11 +45,12 @@ label{display:block;margin-bottom:8px;font-weight:700}
 input,textarea,select{width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:14px;background:#fff}
 textarea{min-height:88px;resize:vertical}
 .table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px}
-.products-table{width:100%;border-collapse:collapse;min-width:980px}
-.products-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:10px 12px;white-space:nowrap}
-.products-table td{border-top:1px solid #e5e7eb;padding:10px 12px;vertical-align:middle;font-size:14px}
+.products-table{width:100%;border-collapse:collapse;min-width:760px}
+.products-table th{background:#6b7280;color:#fff;text-align:left;font-size:13px;padding:8px 10px;white-space:nowrap}
+.products-table td{border-top:1px solid #e5e7eb;padding:8px 10px;vertical-align:middle;font-size:14px}
 .products-table tr:nth-child(even){background:#fafafa}
 .shipping-cell{background:#fffde7;text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:6px!important;padding-right:6px!important}
+.member-meta{font-size:12px;color:#64748b;margin-top:4px;line-height:1.35}
 .shipping-check{width:auto}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -133,8 +134,8 @@ textarea{min-height:88px;resize:vertical}
   .section-tools{justify-content:stretch}
   .section-search{width:100%}
   .table-wrap{overflow-x:auto}
-  .products-table{min-width:760px}
-  .products-table th,.products-table td{padding:9px 10px;font-size:13px}
+  .products-table{min-width:640px}
+  .products-table th,.products-table td{padding:7px 8px;font-size:13px}
   .bulk-action-bar{grid-template-columns:1fr;position:static}
   .bulk-btn{padding:14px 10px;font-size:14px}
   .invoice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1078,8 +1079,8 @@ function productRow(product, mode = "registered") {
         </td>
       ` : ""}
       ${isShipping ? `<td>${shippingPill(product.shippingRequest)}</td>` : ""}
-      <td>${escapeHtml(product.name)}${isShipping && product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}</td>
-      <td>${escapeHtml(product.numbering || "-")}</td>
+      <td>${escapeHtml(product.name)}${shipmentGroupNote(product, isShipping)}</td>
+      <td>${escapeHtml(product.numbering || "-")}${shipmentGroupNote(product, isShipping)}</td>
       ${isShipping ? `<td><button class="secondary compact-btn" type="button" onclick="showShippingInfo('${escapeAttr(product.id)}')">詳細</button></td>` : ""}
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
@@ -1114,6 +1115,12 @@ function inquiryControl(product) {
 function trackingNumberHtml(product) {
   const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
   return hasValue(trackingNumber) ? escapeHtml(trackingNumber) : "-";
+}
+
+function shipmentGroupNote(product, enabled) {
+  return enabled && product.shipmentGroupCount > 1
+    ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>`
+    : "";
 }
 
 function recentAnnouncementsHtml() {

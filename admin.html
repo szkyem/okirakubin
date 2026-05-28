@@ -1452,6 +1452,8 @@
       }
 
       const groups = getProductGroups(member);
+      const groupedUnshippedCount = groupedShipmentProducts(groups.unshipped).length;
+      const groupedShippedCount = groupedShipmentProducts(groups.shipped).length;
 
       detailEmpty.classList.add("hidden");
       detailContent.classList.remove("hidden");
@@ -1468,13 +1470,13 @@
 
       detailRegisteredCount.textContent = groups.registered.length;
       detailStoredCount.textContent = groups.stored.length;
-      detailUnshippedCount.textContent = groupedShipmentProducts(groups.unshipped).length;
-      detailShippedCount.textContent = groupedShipmentProducts(groups.shipped).length;
+      detailUnshippedCount.textContent = groupedUnshippedCount;
+      detailShippedCount.textContent = groupedShippedCount;
 
       setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
       setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
-      setStatCard(detailUnshippedCard, groups.unshipped.length, "issue", detailView === "unshipped");
-      setStatCard(detailShippedCard, groups.shipped.length, "neutral-hi", detailView === "shipped");
+      setStatCard(detailUnshippedCard, groupedUnshippedCount, "issue", detailView === "unshipped");
+      setStatCard(detailShippedCard, groupedShippedCount, "neutral-hi", detailView === "shipped");
 
       renderDetailTable(member, groups);
     }
@@ -1712,7 +1714,7 @@
     }
 
     function productNumberingCell(product) {
-      return `${escapeHtml(product.numbering || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱ナンバリング</div>` : ""}`;
+      return `${escapeHtml(product.numbering || "-")}${product.shipmentGroupCount > 1 ? `<div class="member-meta">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>` : ""}`;
     }
 
     function setStatCard(card, value, type, active) {
