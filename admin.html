@@ -1014,6 +1014,7 @@
               <th>検品料金</th>
               <th>発送料金</th>
               <th>合計</th>
+              <th>作成日</th>
               <th>明細</th>
               <th>操作</th>
             </tr>
@@ -2624,7 +2625,7 @@
       invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="9"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="10"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
         return;
       }
 
@@ -2642,6 +2643,7 @@
             <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
             <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
             <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
+            <td>${escapeHtml(formatDateTime(invoice.createdAt))}</td>
             <td>
               <div class="inline-actions">
                 <button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV</button>
@@ -3046,11 +3048,16 @@ function firstInvoiceDate(item) {
     }
 
     function downloadInvoicePdf(uid, month) {
+      try {
       const invoice = invoicesCache?.[uid]?.[month];
-      if (!invoice) return;
+      if (!invoice) {
+        showError(appError, "請求書データが見つかりません。再読み込みしてください。");
+        return;
+      }
 
       const items = Object.values(invoice.items || {});
       const issueDate = todayString();
+      const createdDate = formatDateOnly(invoice.createdAt);
       const invoiceNumber = `${invoice.managementNumber || uid}_${issueDate}`;
       const billedAmount = feeValue(invoice.grandTotal);
       const taxableAmount = Math.floor(billedAmount / 1.1);
@@ -3116,6 +3123,7 @@ function firstInvoiceDate(item) {
               <div>
                 <div class="meta-right">
                   請求日：${escapeHtml(issueDate)}<br>
+                  作成日：${escapeHtml(createdDate)}<br>
                   請求管理番号：${escapeHtml(invoiceNumber)}
                 </div>
                 <div class="company">${lineBreaks(companyText)}</div>
@@ -3144,14 +3152,14 @@ function firstInvoiceDate(item) {
             <div class="bottom">
               <table class="tax-table">
                 <thead>
-                  <tr class="${bundleRowClass(product)}">
+                  <tr>
                     <th>税率区分</th>
                     <th>金額</th>
                     <th>消費税</th>
                   </tr>
                 </thead>
                 <tbody>
-                <tr class="${bundleRowClass(product)}">
+                <tr>
                     <td>10%対象</td>
                     <td class="num">${yen(taxableAmount)}</td>
                     <td class="num">${yen(taxAmount)}</td>
@@ -3183,6 +3191,10 @@ function firstInvoiceDate(item) {
       win.document.open();
       win.document.write(html);
       win.document.close();
+      } catch (error) {
+        console.error(error);
+        showError(appError, `PDFの作成に失敗しました。${error && error.message ? error.message : error}`);
+      }
     }
 
     function buildPdfInvoiceRows(items) {
