@@ -2624,15 +2624,16 @@ function buildInvoiceItems(member, month) {
       const taxableAmount = feeValue(invoice.grandTotal);
       const taxAmount = Math.floor(taxableAmount * 0.1);
       const billedAmount = taxableAmount + taxAmount;
-      const companyText = companyInfoCache.companyText || "おきらく便\n会社情報を設定してください";
+      const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
       const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
       const detailRows = buildPdfInvoiceRows(items);
       const rowsHtml = detailRows.map((row) => `
         <tr>
           <td>${escapeHtml(row.date || "-")}</td>
           <td>${escapeHtml(row.numbering || "-")}</td>
-          <td>${escapeHtml(row.item || "-")}</td>
-          <td class="num">${yen(row.amount)}</td>
+          <td class="num">${row.inspectionFee ? yen(row.inspectionFee) : "-"}</td>
+          <td class="num">${row.shippingFee ? yen(row.shippingFee) : "-"}</td>
+          <td class="num">${yen(row.total)}</td>
           <td class="num">10%</td>
           <td>${escapeHtml(row.note || "-")}</td>
         </tr>
@@ -2661,7 +2662,7 @@ function buildInvoiceItems(member, month) {
             .section-title{text-align:center;margin:26px 0 8px;font-size:13px}
             table{width:100%;border-collapse:collapse}
             th,td{border:1px solid #222;padding:4px 6px;font-size:10px;vertical-align:top}
-            th{background:#ddd;text-align:center;font-weight:600}
+            th{background:#bfbfbf;text-align:center;font-weight:600}
             .num{text-align:right;white-space:nowrap}
             .bottom{display:grid;grid-template-columns:80mm 1fr;gap:18px;margin-top:14px;align-items:start}
             .tax-table th,.tax-table td{font-size:11px}
@@ -2678,9 +2679,8 @@ function buildInvoiceItems(member, month) {
 
             <div class="head">
               <div class="client">
-                <div>個人</div>
                 <div class="client-name">${escapeHtml(invoice.memberName || "-")} 様</div>
-                <div>件名：おきらく便 ${escapeHtml(invoice.month || "-")} ご利用分</div>
+                <div>件名：お気楽便 ${escapeHtml(invoice.month || "-")} ご利用分</div>
               </div>
               <div>
                 <div class="meta-right">
@@ -2700,8 +2700,9 @@ function buildInvoiceItems(member, month) {
                 <tr>
                   <th>日付</th>
                   <th>管理番号</th>
-                  <th>品目</th>
-                  <th>金額</th>
+                  <th>検品</th>
+                  <th>送料</th>
+                  <th>合計</th>
                   <th>税率</th>
                   <th>適用</th>
                 </tr>
@@ -2754,32 +2755,23 @@ function buildInvoiceItems(member, month) {
     }
 
     function buildPdfInvoiceRows(items) {
-      return items.flatMap((item) => {
-        const rows = [];
-        const note = `${item.name || "-"} / ${item.numbering || "-"}${item.options ? " / " + item.options : ""}`;
+      return items
+        .map((item) => {
+          const inspectionFee = item.inspectionFee !== "-" ? feeValue(item.inspectionFee) : 0;
+          const shippingFee = item.shippingFee !== "-" ? feeValue(item.shippingFee) : 0;
+          const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
 
-        if (item.inspectionFee !== "-" && feeValue(item.inspectionFee) > 0) {
-          rows.push({
-            date: item.inspectionDate || "-",
+          return {
+            date: dates[0] || "-",
             numbering: item.numbering || "-",
-            item: item.workRequest || "検品",
-            amount: feeValue(item.inspectionFee),
-            note
-          });
-        }
-
-        if (item.shippingFee !== "-" && feeValue(item.shippingFee) > 0) {
-          rows.push({
-            date: item.shippingDate || "-",
-            numbering: item.numbering || "-",
-            item: "送料",
-            amount: feeValue(item.shippingFee),
-            note
-          });
-        }
-
-        return rows;
-      });
+            inspectionFee,
+            shippingFee,
+            total: inspectionFee + shippingFee,
+            note: `${item.name || "-"} / ${item.numbering || "-"}${item.options && item.options !== "-" ? " / " + item.options : ""}`
+          };
+        })
+        .filter((row) => row.total > 0)
+        .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
     }
 
     async function saveCompanyInfo() {
