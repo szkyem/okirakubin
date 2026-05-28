@@ -358,12 +358,12 @@ textarea{min-height:88px;resize:vertical}
           <input id="destPhone" type="text">
         </div>
 
-        <div class="form-group">
+        <div class="form-group delivery-option-field">
           <label>配送希望日</label>
           <input id="deliveryDate" type="date">
         </div>
 
-        <div class="form-group">
+        <div class="form-group delivery-option-field">
           <label>配送希望時間</label>
           <select id="deliveryTime">
             <option value="">なし</option>
@@ -1328,6 +1328,13 @@ window.openShippingModal = function(type) {
 
   clearError();
   shippingRequestType.value = type;
+  document.querySelectorAll(".delivery-option-field").forEach((field) => {
+    field.style.display = type === "海外発送" ? "none" : "";
+  });
+  if (type === "海外発送") {
+    document.getElementById("deliveryDate").value = "";
+    document.getElementById("deliveryTime").value = "";
+  }
   document.getElementById("shippingModalTitle").textContent = `${type}の発送先情報`;
   shippingModalBackdrop.classList.add("show");
 };

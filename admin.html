@@ -3524,8 +3524,34 @@ function firstInvoiceDate(item) {
         note: "備考"
       };
 
+      const order = [
+        "name",
+        "recipientName",
+        "postalCode",
+        "zip",
+        "prefecture",
+        "address",
+        "address1",
+        "building",
+        "address2",
+        "company",
+        "phone",
+        "phoneNumber",
+        "deliveryDate",
+        "deliveryTime",
+        "note"
+      ];
+
       const rows = Object.entries(value)
         .filter(([key, item]) => key !== "updatedAt" && hasValue(item))
+        .sort(([a], [b]) => {
+          const ai = order.indexOf(a);
+          const bi = order.indexOf(b);
+          if (ai === -1 && bi === -1) return a.localeCompare(b);
+          if (ai === -1) return 1;
+          if (bi === -1) return -1;
+          return ai - bi;
+        })
         .map(([key, item]) => {
           const label = labelMap[key] || key;
           return `${escapeHtml(label)}：${escapeHtml(item)}`;
