@@ -649,6 +649,61 @@
       resize: vertical;
     }
 
+    .confirmation-table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+    }
+
+    .confirmation-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .confirmation-table th {
+      padding: 7px 9px;
+      background: #475569;
+      color: white;
+      text-align: left;
+    }
+
+    .confirmation-table td {
+      border-top: 1px solid var(--border);
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+
+    .confirmation-table .confirmation-section td {
+      background: #f4d2cc;
+      color: #111827;
+      font-weight: 800;
+      border-top: 1px solid #1f2937;
+      border-bottom: 1px solid #1f2937;
+      padding: 6px 8px;
+    }
+
+    .confirmation-table select,
+    .confirmation-table input {
+      min-height: 32px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .confirmation-item-cell {
+      width: 180px;
+      font-weight: 700;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    .confirmation-select-cell {
+      width: 170px;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -2600,38 +2655,12 @@
             <input name="confirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}" />
           </label>
 
-          <label>
-            確認結果
-            <select name="confirmationAppearance">
-              ${confirmationOptionHtml(product.confirmationAppearance)}
-            </select>
-          </label>
-
-          <label>
-            光学コンディション
-            <select name="confirmationOptical">
-              ${confirmationOptionHtml(product.confirmationOptical)}
-            </select>
-          </label>
-
-          <label>
-            動作コンディション
-            <select name="confirmationOperation">
-              ${confirmationOptionHtml(product.confirmationOperation)}
-            </select>
-          </label>
-
-          <label>
-            付属品
-            <select name="confirmationAccessories">
-              ${confirmationOptionHtml(product.confirmationAccessories)}
-            </select>
-          </label>
-
-          <label class="full">
-            確認コメント
-            <textarea name="confirmationComment" placeholder="必要な場合のみ自由コメントを入力">${escapeHtml(product.confirmationComment || product.confirmationResult || "")}</textarea>
-          </label>
+          <div class="full">
+            <label>
+              確認結果
+              ${confirmationTableHtml(product)}
+            </label>
+          </div>
 
           <label>
             予想サイズ
@@ -2771,11 +2800,7 @@
             confirmationDate,
             shootingDate: confirmationDate,
             confirmationResult,
-            confirmationAppearance: getFormValue(formData, "confirmationAppearance"),
-            confirmationOptical: getFormValue(formData, "confirmationOptical"),
-            confirmationOperation: getFormValue(formData, "confirmationOperation"),
-            confirmationAccessories: getFormValue(formData, "confirmationAccessories"),
-            confirmationComment: getFormValue(formData, "confirmationComment"),
+            confirmationTemplate: buildConfirmationTemplateData(formData),
             expectedSize: getFormValue(formData, "expectedSize"),
             storageLocation: getFormValue(formData, "storageLocation"),
             folderUrl: getFormValue(formData, "storageLocation"),
@@ -4009,26 +4034,126 @@ function firstInvoiceDate(item) {
       return String(formData.get(key) || "").trim();
     }
 
+    function confirmationRows() {
+      return [
+        {
+          section: "外観コンディション",
+          rows: [
+            ["appearanceScratch", "キズ、凹み、塗装剥がれは"],
+            ["appearanceDamage", "欠損や破損は"],
+            ["appearanceOther", "その他は"]
+          ]
+        },
+        {
+          section: "光学コンディション",
+          rows: [
+            ["opticalMirror", "ミラー部は"],
+            ["opticalSensor", "センサー部は"],
+            ["opticalFinder", "ファインダー部は"],
+            ["opticalLens", "レンズ部は"],
+            ["opticalOther", "その他は"]
+          ]
+        },
+        {
+          section: "動作コンディション",
+          rows: [
+            ["operationCheck", "動作確認は"],
+            ["operationPhoto", "写真撮影は"],
+            ["operationMovie", "動画撮影は"],
+            ["operationZoom", "ズームは"],
+            ["operationFlash", "フラッシュは"],
+            ["operationWheel", "コントロールホイールは"],
+            ["operationCursor", "カーソルボタンは"],
+            ["operationSave", "保存は"],
+            ["operationOther", "その他は"]
+          ]
+        },
+        {
+          section: "その他",
+          rows: [
+            ["otherAccessories", "付属品"]
+          ]
+        }
+      ];
+    }
+
     function confirmationOptionHtml(current) {
-      const options = ["", "問題なし", "キズあり", "欠損あり", "カビあり", "曇りあり", "チリあり", "動作確認済み", "不具合あり", "付属品あり", "付属品なし", "その他"];
+      const options = ["", "ある。", "ない。", "した。", "できる。", "できない。", "良好。", "使用感あり。", "要確認。", "その他。"];
       return options.map((option) => {
         const label = option || "選択してください";
         return `<option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(label)}</option>`;
       }).join("");
     }
 
-    function buildConfirmationResult(formData) {
-      const rows = [
-        ["外観", getFormValue(formData, "confirmationAppearance")],
-        ["光学", getFormValue(formData, "confirmationOptical")],
-        ["動作", getFormValue(formData, "confirmationOperation")],
-        ["付属品", getFormValue(formData, "confirmationAccessories")]
-      ]
-        .filter(([, value]) => hasValue(value))
-        .map(([label, value]) => `${label}：${value}`);
+    function confirmationTableHtml(product) {
+      const values = product.confirmationTemplate || {};
+      const body = confirmationRows().map((group) => `
+        <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+        ${group.rows.map(([key, label]) => `
+          <tr>
+            <td class="confirmation-item-cell">${escapeHtml(label)}</td>
+            <td class="confirmation-select-cell">
+              <select name="confirmation_${escapeAttr(key)}">
+                ${confirmationOptionHtml(values[key]?.value || "")}
+              </select>
+            </td>
+            <td>
+              <input name="confirmation_${escapeAttr(key)}_comment" value="${escapeAttr(values[key]?.comment || "")}" placeholder="コメントが必要な場合のみ記入">
+            </td>
+          </tr>
+        `).join("")}
+      `).join("");
 
-      const comment = getFormValue(formData, "confirmationComment");
-      if (comment) rows.push(`コメント：${comment}`);
+      return `
+        <div class="confirmation-table-wrap">
+          <table class="confirmation-table">
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>結果</th>
+                <th>コメント</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function buildConfirmationTemplateData(formData) {
+      const data = {};
+
+      confirmationRows().forEach((group) => {
+        group.rows.forEach(([key, label]) => {
+          const value = getFormValue(formData, `confirmation_${key}`);
+          const comment = getFormValue(formData, `confirmation_${key}_comment`);
+          if (value || comment) {
+            data[key] = { label, value, comment };
+          }
+        });
+      });
+
+      return data;
+    }
+
+    function buildConfirmationResult(formData) {
+      const rows = [];
+
+      confirmationRows().forEach((group) => {
+        const groupRows = group.rows
+          .map(([key, label]) => {
+            const value = getFormValue(formData, `confirmation_${key}`);
+            const comment = getFormValue(formData, `confirmation_${key}_comment`);
+            if (!value && !comment) return "";
+            return `${label}${value ? value : ""}${comment ? ` ${comment}` : ""}`;
+          })
+          .filter(Boolean);
+
+        if (groupRows.length) {
+          rows.push(`＜${group.section}＞`);
+          rows.push(...groupRows);
+        }
+      });
 
       return rows.join("\n");
     }
