@@ -1198,6 +1198,7 @@
           <textarea id="confirmationBaseInput" placeholder="＜外観コンディション＞&#10;キズ、凹み、塗装剥がれは&#10;欠損や破損は"></textarea>
         </label>
         <div class="announcement-actions">
+          <button class="secondary-btn" type="button" onclick="resetConfirmationBaseToDefault()">前回の項目に戻す</button>
           <button class="primary-btn" onclick="saveConfirmationBase()">保存する</button>
         </div>
       </div>
@@ -3851,6 +3852,25 @@ function firstInvoiceDate(item) {
       }
     }
 
+    async function resetConfirmationBaseToDefault() {
+      hideError(appError);
+
+      try {
+        const payload = {
+          ...defaultConfirmationBase(),
+          updatedAt: Date.now(),
+          updatedBy: currentUser?.uid || ""
+        };
+
+        await set(ref(db, "settings/confirmationTemplateBase"), payload);
+        confirmationBaseCache = payload;
+        renderConfirmationBase();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "確認結果ベースの初期化に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     async function deleteInvoice(uid, month) {
       hideError(appError);
 
@@ -4039,6 +4059,7 @@ function firstInvoiceDate(item) {
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveConfirmationBase = saveConfirmationBase;
+    window.resetConfirmationBaseToDefault = resetConfirmationBaseToDefault;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
