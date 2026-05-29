@@ -2707,10 +2707,11 @@
           </label>
 
           <div class="full">
-            <label>
-              確認結果
-              ${confirmationTableHtml(product)}
-            </label>
+            <div class="info-box-title" style="margin-bottom:8px;">
+              <span>確認結果</span>
+              <button class="mini-btn" type="button" onclick="setConfirmationNotRequired()">確認不要</button>
+            </div>
+            ${confirmationTableHtml(product)}
           </div>
 
           <label>
@@ -3916,7 +3917,7 @@ function firstInvoiceDate(item) {
                     <td class="confirmation-select-cell">
                       <input data-confirmation-row-options="${groupIndex}-${rowIndex}" value="${escapeAttr((row.options || []).join(" / "))}" placeholder="例：ある。 / ない。">
                     </td>
-                    <td><input disabled placeholder="コメントが必要な場合のみ記入"></td>
+                    <td><input data-confirmation-row-comment="${groupIndex}-${rowIndex}" value="${escapeAttr(row.defaultComment || "")}" placeholder="コメント初期値を入力"></td>
                     <td><button class="danger-btn" type="button" onclick="removeConfirmationRow(${groupIndex},${rowIndex})">削除</button></td>
                   </tr>
                 `).join("")}
@@ -3934,12 +3935,15 @@ function firstInvoiceDate(item) {
         const rows = [...document.querySelectorAll(`[data-confirmation-row^="${groupIndex}-"]`)].map((rowEl, rowIndex) => {
           const labelInput = rowEl.querySelector(`[data-confirmation-row-label]`);
           const optionsInput = rowEl.querySelector(`[data-confirmation-row-options]`);
+          const commentInput = rowEl.querySelector(`[data-confirmation-row-comment]`);
           const label = labelInput?.value.trim() || "";
           const options = splitConfirmationOptions(optionsInput?.value || "");
+          const defaultComment = commentInput?.value.trim() || "";
           return label ? {
             key: makeConfirmationKey(titleInput?.value || "確認項目", label, rowIndex),
             label,
-            options: options.length ? options : ["ある。", "ない。"]
+            options: options.length ? options : ["ある。", "ない。"],
+            defaultComment
           } : null;
         }).filter(Boolean);
 
@@ -3960,7 +3964,7 @@ function firstInvoiceDate(item) {
       syncConfirmationBaseCacheFromEditor();
       confirmationBaseCache.groups.push({
         section: "新しいカテゴリ",
-        rows: [{ key: `base_${Date.now()}`, label: "新しい項目", options: ["ある。", "ない。"] }]
+        rows: [{ key: `base_${Date.now()}`, label: "新しい項目", options: ["ある。", "ない。"], defaultComment: "" }]
       });
       renderConfirmationBase();
     }
@@ -3976,7 +3980,8 @@ function firstInvoiceDate(item) {
       confirmationBaseCache.groups[groupIndex]?.rows.push({
         key: `base_${Date.now()}`,
         label: "新しい項目",
-        options: ["ある。", "ない。"]
+        options: ["ある。", "ない。"],
+        defaultComment: ""
       });
       renderConfirmationBase();
     }
@@ -4180,6 +4185,7 @@ function firstInvoiceDate(item) {
     window.removeConfirmationSection = removeConfirmationSection;
     window.addConfirmationRow = addConfirmationRow;
     window.removeConfirmationRow = removeConfirmationRow;
+    window.setConfirmationNotRequired = setConfirmationNotRequired;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
@@ -4252,39 +4258,39 @@ function firstInvoiceDate(item) {
         {
           section: "外観コンディション",
           rows: [
-            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは", options: ["ある。", "ない。", "使用感あり。"] },
-            { key: "appearanceDamage", label: "欠損や破損は", options: ["ある。", "ない。"] },
-            { key: "appearanceOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
+            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは", options: ["ある。", "ない。", "使用感あり。"], defaultComment: "" },
+            { key: "appearanceDamage", label: "欠損や破損は", options: ["ある。", "ない。"], defaultComment: "" },
+            { key: "appearanceOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
           ]
         },
         {
           section: "光学コンディション",
           rows: [
-            { key: "opticalMirror", label: "ミラー部は", options: ["ある。", "ない。"] },
-            { key: "opticalSensor", label: "センサー部は", options: ["ある。", "ない。"] },
-            { key: "opticalFinder", label: "ファインダー部は", options: ["ある。", "ない。"] },
-            { key: "opticalLens", label: "レンズ部は", options: ["ある。", "ない。", "カビあり。", "曇りあり。", "チリあり。"] },
-            { key: "opticalOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
+            { key: "opticalMirror", label: "ミラー部は", options: ["ある。", "ない。"], defaultComment: "" },
+            { key: "opticalSensor", label: "センサー部は", options: ["ある。", "ない。"], defaultComment: "" },
+            { key: "opticalFinder", label: "ファインダー部は", options: ["ある。", "ない。"], defaultComment: "" },
+            { key: "opticalLens", label: "レンズ部は", options: ["ある。", "ない。", "カビあり。", "曇りあり。", "チリあり。"], defaultComment: "" },
+            { key: "opticalOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
           ]
         },
         {
           section: "動作コンディション",
           rows: [
-            { key: "operationCheck", label: "動作確認は", options: ["した。", "していない。", "できる。", "できない。"] },
-            { key: "operationPhoto", label: "写真撮影は", options: ["できる。", "できない。"] },
-            { key: "operationMovie", label: "動画撮影は", options: ["できる。", "できない。"] },
-            { key: "operationZoom", label: "ズームは", options: ["できる。", "できない。"] },
-            { key: "operationFlash", label: "フラッシュは", options: ["できる。", "できない。"] },
-            { key: "operationWheel", label: "コントロールホイールは", options: ["できる。", "できない。"] },
-            { key: "operationCursor", label: "カーソルボタンは", options: ["できる。", "できない。"] },
-            { key: "operationSave", label: "保存は", options: ["できる。", "できない。"] },
-            { key: "operationOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
+            { key: "operationCheck", label: "動作確認は", options: ["した。", "していない。", "できる。", "できない。"], defaultComment: "" },
+            { key: "operationPhoto", label: "写真撮影は", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationMovie", label: "動画撮影は", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationZoom", label: "ズームは", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationFlash", label: "フラッシュは", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationWheel", label: "コントロールホイールは", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationCursor", label: "カーソルボタンは", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationSave", label: "保存は", options: ["できる。", "できない。"], defaultComment: "" },
+            { key: "operationOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
           ]
         },
         {
           section: "その他",
           rows: [
-            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"] }
+            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"], defaultComment: "" }
           ]
         }
       ]};
@@ -4315,7 +4321,7 @@ function firstInvoiceDate(item) {
               </select>
             </td>
             <td>
-              <input name="confirmation_${escapeAttr(row.key)}_comment" value="${escapeAttr(values[row.key]?.comment || "")}" placeholder="コメントが必要な場合のみ記入">
+              <input name="confirmation_${escapeAttr(row.key)}_comment" value="${escapeAttr(values[row.key]?.comment ?? row.defaultComment ?? "")}" placeholder="コメントが必要な場合のみ記入">
             </td>
           </tr>
         `).join("")}
@@ -4346,7 +4352,7 @@ function firstInvoiceDate(item) {
           const value = getFormValue(formData, `confirmation_${key}`);
           const comment = getFormValue(formData, `confirmation_${key}_comment`);
           if (value || comment) {
-            data[key] = { label: row.label, value, comment };
+            data[key] = { label: row.label, value, comment, defaultComment: row.defaultComment || "" };
           }
         });
       });
@@ -4421,6 +4427,18 @@ function firstInvoiceDate(item) {
         .split(/[\/、,\n]/)
         .map((item) => item.trim())
         .filter(Boolean);
+    }
+
+    function setConfirmationNotRequired() {
+      document.querySelectorAll('[name^="confirmation_"]').forEach((field) => {
+        if (field.tagName === "SELECT") {
+          const hasDash = [...field.options].some((option) => option.value === "-");
+          if (!hasDash) field.add(new Option("-", "-"));
+          field.value = "-";
+        } else {
+          field.value = "-";
+        }
+      });
     }
 
     function formatShippingInfo(value) {
