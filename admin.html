@@ -924,6 +924,7 @@
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
+      <button class="tab" data-main-tab="confirmationBase">確認結果ベース</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
       <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
@@ -1182,6 +1183,23 @@
           </thead>
           <tbody id="discordNotificationListBody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="confirmationBaseSection" class="section hidden">
+      <h2>確認結果ベース</h2>
+      <div class="announcement-form">
+        <label>
+          プルダウン項目
+          <textarea id="confirmationOptionsInput" placeholder="1行に1項目ずつ入力"></textarea>
+        </label>
+        <label>
+          確認項目ベース
+          <textarea id="confirmationBaseInput" placeholder="＜外観コンディション＞&#10;キズ、凹み、塗装剥がれは&#10;欠損や破損は"></textarea>
+        </label>
+        <div class="announcement-actions">
+          <button class="primary-btn" onclick="saveConfirmationBase()">保存する</button>
+        </div>
       </div>
     </section>
 
@@ -1470,6 +1488,7 @@
     const invoicesSection = document.getElementById("invoicesSection");
     const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
+    const confirmationBaseSection = document.getElementById("confirmationBaseSection");
     const announcementsSection = document.getElementById("announcementsSection");
     const discordSection = document.getElementById("discordSection");
     const detailEmpty = document.getElementById("detailEmpty");
@@ -1520,6 +1539,8 @@
     const announcementList = document.getElementById("announcementList");
     const companyInfoInput = document.getElementById("companyInfoInput");
     const bankInfoInput = document.getElementById("bankInfoInput");
+    const confirmationOptionsInput = document.getElementById("confirmationOptionsInput");
+    const confirmationBaseInput = document.getElementById("confirmationBaseInput");
     const discordNotifyDateInput = document.getElementById("discordNotifyDateInput");
     const discordNotificationListBody = document.getElementById("discordNotificationListBody");
 
@@ -1540,6 +1561,7 @@
     let pendingMembersCache = {};
     let activePendingMemberKey = null;
     let companyInfoCache = {};
+    let confirmationBaseCache = null;
     let discordNotificationQueueCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
@@ -1628,7 +1650,7 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
@@ -1636,6 +1658,7 @@
           get(ref(db, "announcements")),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
+          get(ref(db, "settings/confirmationTemplateBase")).catch(() => ({ val: () => null })),
           get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "discordNotificationQueue")).catch(() => ({ val: () => ({}) }))
         ]);
@@ -1647,6 +1670,7 @@
         announcementsCache = announcementsSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
         companyInfoCache = companyInfoSnap.val() || {};
+        confirmationBaseCache = confirmationBaseSnap.val() || defaultConfirmationBase();
         pendingMembersCache = pendingMembersSnap.val() || {};
         discordNotificationQueueCache = discordQueueSnap.val() || {};
 
@@ -1687,6 +1711,7 @@
         renderMemberDetail();
         renderInvoices();
         renderCompanyInfo();
+        renderConfirmationBase();
         renderAnnouncements();
         renderDiscordNotifications();
       } catch (error) {
@@ -2305,6 +2330,7 @@
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
       companySection.classList.toggle("hidden", tabName !== "company");
       pricesSection.classList.toggle("hidden", tabName !== "prices");
+      confirmationBaseSection.classList.toggle("hidden", tabName !== "confirmationBase");
       announcementsSection.classList.toggle("hidden", tabName !== "announcements");
       discordSection.classList.toggle("hidden", tabName !== "discord");
     }
@@ -3781,6 +3807,50 @@ function firstInvoiceDate(item) {
       }
     }
 
+    function renderConfirmationBase() {
+      const base = confirmationBaseCache || defaultConfirmationBase();
+      if (confirmationOptionsInput) {
+        confirmationOptionsInput.value = (base.options || []).filter(Boolean).join("\n");
+      }
+      if (confirmationBaseInput) {
+        confirmationBaseInput.value = (base.groups || []).map((group) => {
+          const rows = (group.rows || []).map((row) => row.label || row).filter(Boolean).join("\n");
+          return `＜${group.section}＞\n${rows}`;
+        }).join("\n\n");
+      }
+    }
+
+    async function saveConfirmationBase() {
+      hideError(appError);
+
+      try {
+        const options = confirmationOptionsInput.value
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const groups = parseConfirmationBaseText(confirmationBaseInput.value);
+
+        if (!options.length || !groups.length) {
+          showError(appError, "プルダウン項目と確認項目ベースを入力してください。");
+          return;
+        }
+
+        const payload = {
+          options,
+          groups,
+          updatedAt: Date.now(),
+          updatedBy: currentUser?.uid || ""
+        };
+
+        await set(ref(db, "settings/confirmationTemplateBase"), payload);
+        confirmationBaseCache = payload;
+        renderConfirmationBase();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "確認結果ベースの保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     async function deleteInvoice(uid, month) {
       hideError(appError);
 
@@ -3968,6 +4038,7 @@ function firstInvoiceDate(item) {
     window.deleteInvoice = deleteInvoice;
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
     window.saveCompanyInfo = saveCompanyInfo;
+    window.saveConfirmationBase = saveConfirmationBase;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
@@ -4034,51 +4105,57 @@ function firstInvoiceDate(item) {
       return String(formData.get(key) || "").trim();
     }
 
-    function confirmationRows() {
-      return [
+    function defaultConfirmationBase() {
+      return {
+        options: ["ある。", "ない。", "した。", "できる。", "できない。", "良好。", "使用感あり。", "要確認。", "その他。"],
+        groups: [
         {
           section: "外観コンディション",
           rows: [
-            ["appearanceScratch", "キズ、凹み、塗装剥がれは"],
-            ["appearanceDamage", "欠損や破損は"],
-            ["appearanceOther", "その他は"]
+            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは" },
+            { key: "appearanceDamage", label: "欠損や破損は" },
+            { key: "appearanceOther", label: "その他は" }
           ]
         },
         {
           section: "光学コンディション",
           rows: [
-            ["opticalMirror", "ミラー部は"],
-            ["opticalSensor", "センサー部は"],
-            ["opticalFinder", "ファインダー部は"],
-            ["opticalLens", "レンズ部は"],
-            ["opticalOther", "その他は"]
+            { key: "opticalMirror", label: "ミラー部は" },
+            { key: "opticalSensor", label: "センサー部は" },
+            { key: "opticalFinder", label: "ファインダー部は" },
+            { key: "opticalLens", label: "レンズ部は" },
+            { key: "opticalOther", label: "その他は" }
           ]
         },
         {
           section: "動作コンディション",
           rows: [
-            ["operationCheck", "動作確認は"],
-            ["operationPhoto", "写真撮影は"],
-            ["operationMovie", "動画撮影は"],
-            ["operationZoom", "ズームは"],
-            ["operationFlash", "フラッシュは"],
-            ["operationWheel", "コントロールホイールは"],
-            ["operationCursor", "カーソルボタンは"],
-            ["operationSave", "保存は"],
-            ["operationOther", "その他は"]
+            { key: "operationCheck", label: "動作確認は" },
+            { key: "operationPhoto", label: "写真撮影は" },
+            { key: "operationMovie", label: "動画撮影は" },
+            { key: "operationZoom", label: "ズームは" },
+            { key: "operationFlash", label: "フラッシュは" },
+            { key: "operationWheel", label: "コントロールホイールは" },
+            { key: "operationCursor", label: "カーソルボタンは" },
+            { key: "operationSave", label: "保存は" },
+            { key: "operationOther", label: "その他は" }
           ]
         },
         {
           section: "その他",
           rows: [
-            ["otherAccessories", "付属品"]
+            { key: "otherAccessories", label: "付属品" }
           ]
         }
-      ];
+      ]};
+    }
+
+    function confirmationRows() {
+      return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
     }
 
     function confirmationOptionHtml(current) {
-      const options = ["", "ある。", "ない。", "した。", "できる。", "できない。", "良好。", "使用感あり。", "要確認。", "その他。"];
+      const options = ["", ...((confirmationBaseCache || defaultConfirmationBase()).options || [])];
       return options.map((option) => {
         const label = option || "選択してください";
         return `<option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -4089,16 +4166,16 @@ function firstInvoiceDate(item) {
       const values = product.confirmationTemplate || {};
       const body = confirmationRows().map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
-        ${group.rows.map(([key, label]) => `
+        ${group.rows.map((row) => `
           <tr>
-            <td class="confirmation-item-cell">${escapeHtml(label)}</td>
+            <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
             <td class="confirmation-select-cell">
-              <select name="confirmation_${escapeAttr(key)}">
-                ${confirmationOptionHtml(values[key]?.value || "")}
+              <select name="confirmation_${escapeAttr(row.key)}">
+                ${confirmationOptionHtml(values[row.key]?.value || "")}
               </select>
             </td>
             <td>
-              <input name="confirmation_${escapeAttr(key)}_comment" value="${escapeAttr(values[key]?.comment || "")}" placeholder="コメントが必要な場合のみ記入">
+              <input name="confirmation_${escapeAttr(row.key)}_comment" value="${escapeAttr(values[row.key]?.comment || "")}" placeholder="コメントが必要な場合のみ記入">
             </td>
           </tr>
         `).join("")}
@@ -4124,11 +4201,12 @@ function firstInvoiceDate(item) {
       const data = {};
 
       confirmationRows().forEach((group) => {
-        group.rows.forEach(([key, label]) => {
+        group.rows.forEach((row) => {
+          const key = row.key;
           const value = getFormValue(formData, `confirmation_${key}`);
           const comment = getFormValue(formData, `confirmation_${key}_comment`);
           if (value || comment) {
-            data[key] = { label, value, comment };
+            data[key] = { label: row.label, value, comment };
           }
         });
       });
@@ -4141,11 +4219,12 @@ function firstInvoiceDate(item) {
 
       confirmationRows().forEach((group) => {
         const groupRows = group.rows
-          .map(([key, label]) => {
+          .map((row) => {
+            const key = row.key;
             const value = getFormValue(formData, `confirmation_${key}`);
             const comment = getFormValue(formData, `confirmation_${key}_comment`);
             if (!value && !comment) return "";
-            return `${label}${value ? value : ""}${comment ? ` ${comment}` : ""}`;
+            return `${row.label}${value ? value : ""}${comment ? ` ${comment}` : ""}`;
           })
           .filter(Boolean);
 
@@ -4156,6 +4235,45 @@ function firstInvoiceDate(item) {
       });
 
       return rows.join("\n");
+    }
+
+    function parseConfirmationBaseText(text) {
+      const groups = [];
+      let current = null;
+
+      String(text || "").split(/\r?\n/).forEach((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) return;
+
+        const sectionMatch = line.match(/^＜(.+)＞$/) || line.match(/^<(.+)>$/);
+        if (sectionMatch) {
+          current = { section: sectionMatch[1].trim(), rows: [] };
+          groups.push(current);
+          return;
+        }
+
+        if (!current) {
+          current = { section: "確認項目", rows: [] };
+          groups.push(current);
+        }
+
+        current.rows.push({
+          key: makeConfirmationKey(current.section, line, current.rows.length),
+          label: line
+        });
+      });
+
+      return groups.filter((group) => group.section && group.rows.length);
+    }
+
+    function makeConfirmationKey(section, label, index) {
+      const source = `${section}_${label}_${index}`;
+      let hash = 0;
+      for (let i = 0; i < source.length; i++) {
+        hash = ((hash << 5) - hash) + source.charCodeAt(i);
+        hash |= 0;
+      }
+      return `base_${Math.abs(hash)}`;
     }
 
     function formatShippingInfo(value) {
