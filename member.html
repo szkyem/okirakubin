@@ -101,6 +101,11 @@ textarea{min-height:62px;resize:vertical}
 .detail-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800;color:#2563eb;margin-bottom:8px}
 .detail-grid{display:grid;grid-template-columns:130px 1fr;gap:5px 10px;font-size:14px}
 .detail-label{color:#6b7280;font-weight:700}
+.confirmation-table-wrap{overflow:auto;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+.confirmation-table{width:100%;min-width:560px;border-collapse:collapse;font-size:13px;line-height:1.45}
+.confirmation-table th{padding:7px 9px;background:#475569;color:#fff;text-align:left}
+.confirmation-table td{border-top:1px solid #e5e7eb;padding:6px 8px;vertical-align:middle}
+.confirmation-table .confirmation-section td{background:#f4d2cc;color:#111827;font-weight:800;border-top:1px solid #1f2937;border-bottom:1px solid #1f2937}
 .modal-form{display:grid;gap:14px}
 .modal-section-title{background:#eaf2ff;color:#1d4ed8;font-weight:800;padding:9px 12px;margin:8px 0}
 .required{display:inline-block;background:#ef4444;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:8px}
@@ -1887,13 +1892,115 @@ function productDetailHtml(product) {
       <div class="detail-heading">管理者記載情報</div>
       <div class="detail-grid">
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
-        <div class="detail-label">確認結果</div><div>${escapeHtml(product.confirmationResult || "-")}</div>
+        <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
         <div class="detail-label">保管場所</div><div>${linkOrDash(product.storageLocation || product.folderUrl)}</div>
       </div>
     </div>
   `;
+}
+
+function confirmationResultDisplayHtml(product) {
+  const values = product.confirmationTemplate || {};
+  const sectionMap = confirmationSectionMapFromText(product.confirmationResult);
+  const entries = Object.values(values).filter((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
+  });
+
+  if (!entries.length) {
+    return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+  }
+
+  const groups = [];
+  entries.forEach((entry) => {
+    const sectionName = entry.section || sectionMap.get(entry.label) || "確認結果";
+    let group = groups.find((item) => item.section === sectionName);
+    if (!group) {
+      group = { section: sectionName, rows: [] };
+      groups.push(group);
+    }
+    group.rows.push({
+      label: entry.label || "-",
+      value: entry.value || "-",
+      comment: entry.comment || entry.defaultComment || "-"
+    });
+  });
+
+  const body = groups.map((group) => `
+    <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+    ${group.rows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.label || "-")}</td>
+        <td>${escapeHtml(row.value || "-")}</td>
+        <td>${escapeHtml(row.comment || "-")}</td>
+      </tr>
+    `).join("")}
+  `).join("");
+
+  return `
+    <div class="confirmation-table-wrap">
+      <table class="confirmation-table">
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>結果</th>
+            <th>コメント</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function confirmationSectionMapFromText(text) {
+  const map = new Map();
+  let currentSection = "";
+
+  String(text || "").split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+
+    const sectionMatch = line.match(/^＜(.+)＞$/) || line.match(/^<(.+)>$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1].trim();
+      return;
+    }
+
+    if (!currentSection) return;
+    Object.values(currentProductConfirmationLabels()).forEach((label) => {
+      if (line.startsWith(label) && !map.has(label)) {
+        map.set(label, currentSection);
+      }
+    });
+  });
+
+  return map;
+}
+
+function currentProductConfirmationLabels() {
+  return {
+    exteriorScratch: "キズ、凹み、塗装剥がれは",
+    exteriorDamage: "欠損や破損は",
+    exteriorOther: "その他は",
+    opticalMirror: "ミラー部は",
+    opticalSensor: "センサー部は",
+    opticalFinder: "ファインダー部は",
+    opticalLens: "レンズ部は",
+    opticalOther: "その他は",
+    operationCheck: "動作確認は",
+    photoShoot: "写真撮影は",
+    videoShoot: "動画撮影は",
+    zoom: "ズームは",
+    flash: "フラッシュは",
+    controlWheel: "コントロールホイールは",
+    cursorButton: "カーソルボタンは",
+    save: "保存は",
+    operationOther: "その他は",
+    accessories: "付属品"
+  };
 }
 
 function shippingDetailHtml(product) {

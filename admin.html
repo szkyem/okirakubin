@@ -2543,7 +2543,7 @@
             <div class="info-value">${escapeHtml(product.confirmationDate || "-")}</div>
 
             <div class="info-label">確認結果</div>
-            <div class="info-value">${escapeHtml(product.confirmationResult || "-")}</div>
+            <div class="info-value">${confirmationResultDisplayHtml(product)}</div>
 
             <div class="info-label">写真URL</div>
             <div class="info-value">${linkOrDash(product.photoUrl)}</div>
@@ -2673,7 +2673,7 @@
             <div class="info-value">${escapeHtml(product.confirmationDate || "-")}</div>
 
             <div class="info-label">確認結果</div>
-            <div class="info-value">${escapeHtml(product.confirmationResult || "-")}</div>
+            <div class="info-value">${confirmationResultDisplayHtml(product)}</div>
 
             <div class="info-label">写真URL</div>
             <div class="info-value">${linkOrDash(product.photoUrl)}</div>
@@ -4412,6 +4412,85 @@ function firstInvoiceDate(item) {
       `;
     }
 
+    function confirmationResultDisplayHtml(product) {
+      const values = product.confirmationTemplate || {};
+      const savedEntries = Object.entries(values).filter(([, entry]) => {
+        if (!entry || typeof entry !== "object") return false;
+        return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
+      });
+
+      if (!savedEntries.length) {
+        return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+      }
+
+      const usedKeys = new Set();
+      const groups = confirmationRows()
+        .map((group) => {
+          const rows = group.rows
+            .map((row) => {
+              const entry = values[row.key];
+              if (!entry) return null;
+              usedKeys.add(row.key);
+              return {
+                label: entry.label || row.label,
+                value: entry.value || "-",
+                comment: entry.comment || entry.defaultComment || "-"
+              };
+            })
+            .filter(Boolean);
+          return rows.length ? { section: group.section, rows } : null;
+        })
+        .filter(Boolean);
+
+      const extraRows = savedEntries
+        .filter(([key]) => !usedKeys.has(key))
+        .map(([, entry]) => ({
+          section: entry.section || "その他",
+          label: entry.label || "-",
+          value: entry.value || "-",
+          comment: entry.comment || entry.defaultComment || "-"
+        }));
+
+      extraRows.forEach((row) => {
+        let group = groups.find((item) => item.section === row.section);
+        if (!group) {
+          group = { section: row.section, rows: [] };
+          groups.push(group);
+        }
+        group.rows.push(row);
+      });
+
+      if (!groups.length) {
+        return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+      }
+
+      const body = groups.map((group) => `
+        <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+        ${group.rows.map((row) => `
+          <tr>
+            <td class="confirmation-item-cell">${escapeHtml(row.label || "-")}</td>
+            <td>${escapeHtml(row.value || "-")}</td>
+            <td>${escapeHtml(row.comment || "-")}</td>
+          </tr>
+        `).join("")}
+      `).join("");
+
+      return `
+        <div class="confirmation-table-wrap">
+          <table class="confirmation-table">
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>結果</th>
+                <th>コメント</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
     function buildConfirmationTemplateData(formData) {
       const data = {};
 
@@ -4421,7 +4500,7 @@ function firstInvoiceDate(item) {
           const value = getFormValue(formData, `confirmation_${key}`);
           const comment = getFormValue(formData, `confirmation_${key}_comment`);
           if (value || comment) {
-            data[key] = { label: row.label, value, comment, defaultComment: row.defaultComment || "" };
+            data[key] = { section: group.section, label: row.label, value, comment, defaultComment: row.defaultComment || "" };
           }
         });
       });
