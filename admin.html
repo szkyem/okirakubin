@@ -1219,13 +1219,8 @@
       <div class="announcement-form">
         <div class="announcement-actions">
           <button class="secondary-btn" type="button" onclick="resetConfirmationBaseToDefault()">添付の項目に戻す</button>
-          <button class="secondary-btn" type="button" onclick="addConfirmationOption()">結果を追加</button>
           <button class="secondary-btn" type="button" onclick="addConfirmationSection()">カテゴリを追加</button>
           <button class="primary-btn" onclick="saveConfirmationBase()">保存する</button>
-        </div>
-        <div>
-          <strong>結果プルダウン</strong>
-          <div id="confirmationBaseOptions" class="confirmation-base-options" style="margin-top:10px;"></div>
         </div>
         <div>
           <strong>確認結果表</strong>
@@ -1570,7 +1565,6 @@
     const announcementList = document.getElementById("announcementList");
     const companyInfoInput = document.getElementById("companyInfoInput");
     const bankInfoInput = document.getElementById("bankInfoInput");
-    const confirmationBaseOptions = document.getElementById("confirmationBaseOptions");
     const confirmationBasePreview = document.getElementById("confirmationBasePreview");
     const discordNotifyDateInput = document.getElementById("discordNotifyDateInput");
     const discordNotificationListBody = document.getElementById("discordNotificationListBody");
@@ -3840,14 +3834,6 @@ function firstInvoiceDate(item) {
 
     function renderConfirmationBase() {
       const base = confirmationBaseCache || defaultConfirmationBase();
-      if (confirmationBaseOptions) {
-        confirmationBaseOptions.innerHTML = (base.options || []).map((option, index) => `
-          <div class="inline-actions">
-            <input data-confirmation-option-index="${index}" value="${escapeAttr(option)}">
-            <button class="danger-btn" type="button" onclick="removeConfirmationOption(${index})">削除</button>
-          </div>
-        `).join("");
-      }
       if (confirmationBasePreview) {
         confirmationBasePreview.innerHTML = confirmationBaseEditorHtml(base);
       }
@@ -3857,18 +3843,14 @@ function firstInvoiceDate(item) {
       hideError(appError);
 
       try {
-        const options = [...document.querySelectorAll("[data-confirmation-option-index]")]
-          .map((input) => input.value.trim())
-          .filter(Boolean);
         const groups = readConfirmationBaseEditor();
 
-        if (!options.length || !groups.length) {
-          showError(appError, "結果プルダウンと確認結果表を入力してください。");
+        if (!groups.length) {
+          showError(appError, "確認結果表を入力してください。");
           return;
         }
 
         const payload = {
-          options,
           groups,
           updatedAt: Date.now(),
           updatedBy: currentUser?.uid || ""
@@ -3932,9 +3914,7 @@ function firstInvoiceDate(item) {
                       <input data-confirmation-row-label="${groupIndex}-${rowIndex}" value="${escapeAttr(row.label || "")}">
                     </td>
                     <td class="confirmation-select-cell">
-                      <select disabled>
-                        ${confirmationOptionHtml("")}
-                      </select>
+                      <input data-confirmation-row-options="${groupIndex}-${rowIndex}" value="${escapeAttr((row.options || []).join(" / "))}" placeholder="例：ある。 / ない。">
                     </td>
                     <td><input disabled placeholder="コメントが必要な場合のみ記入"></td>
                     <td><button class="danger-btn" type="button" onclick="removeConfirmationRow(${groupIndex},${rowIndex})">削除</button></td>
@@ -3953,10 +3933,13 @@ function firstInvoiceDate(item) {
         const titleInput = document.querySelector(`[data-confirmation-section-title="${groupIndex}"]`);
         const rows = [...document.querySelectorAll(`[data-confirmation-row^="${groupIndex}-"]`)].map((rowEl, rowIndex) => {
           const labelInput = rowEl.querySelector(`[data-confirmation-row-label]`);
+          const optionsInput = rowEl.querySelector(`[data-confirmation-row-options]`);
           const label = labelInput?.value.trim() || "";
+          const options = splitConfirmationOptions(optionsInput?.value || "");
           return label ? {
             key: makeConfirmationKey(titleInput?.value || "確認項目", label, rowIndex),
-            label
+            label,
+            options: options.length ? options : ["ある。", "ない。"]
           } : null;
         }).filter(Boolean);
 
@@ -3969,30 +3952,15 @@ function firstInvoiceDate(item) {
 
     function syncConfirmationBaseCacheFromEditor() {
       confirmationBaseCache = {
-        options: [...document.querySelectorAll("[data-confirmation-option-index]")]
-          .map((input) => input.value.trim())
-          .filter(Boolean),
         groups: readConfirmationBaseEditor()
       };
-    }
-
-    function addConfirmationOption() {
-      syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.options.push("");
-      renderConfirmationBase();
-    }
-
-    function removeConfirmationOption(index) {
-      syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.options.splice(index, 1);
-      renderConfirmationBase();
     }
 
     function addConfirmationSection() {
       syncConfirmationBaseCacheFromEditor();
       confirmationBaseCache.groups.push({
         section: "新しいカテゴリ",
-        rows: [{ key: `base_${Date.now()}`, label: "新しい項目" }]
+        rows: [{ key: `base_${Date.now()}`, label: "新しい項目", options: ["ある。", "ない。"] }]
       });
       renderConfirmationBase();
     }
@@ -4007,7 +3975,8 @@ function firstInvoiceDate(item) {
       syncConfirmationBaseCacheFromEditor();
       confirmationBaseCache.groups[groupIndex]?.rows.push({
         key: `base_${Date.now()}`,
-        label: "新しい項目"
+        label: "新しい項目",
+        options: ["ある。", "ない。"]
       });
       renderConfirmationBase();
     }
@@ -4207,8 +4176,6 @@ function firstInvoiceDate(item) {
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveConfirmationBase = saveConfirmationBase;
     window.resetConfirmationBaseToDefault = resetConfirmationBaseToDefault;
-    window.addConfirmationOption = addConfirmationOption;
-    window.removeConfirmationOption = removeConfirmationOption;
     window.addConfirmationSection = addConfirmationSection;
     window.removeConfirmationSection = removeConfirmationSection;
     window.addConfirmationRow = addConfirmationRow;
@@ -4281,44 +4248,43 @@ function firstInvoiceDate(item) {
 
     function defaultConfirmationBase() {
       return {
-        options: ["ある。", "ない。", "した。", "できる。", "できない。", "良好。", "使用感あり。", "要確認。", "その他。"],
         groups: [
         {
           section: "外観コンディション",
           rows: [
-            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは" },
-            { key: "appearanceDamage", label: "欠損や破損は" },
-            { key: "appearanceOther", label: "その他は" }
+            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは", options: ["ある。", "ない。", "使用感あり。"] },
+            { key: "appearanceDamage", label: "欠損や破損は", options: ["ある。", "ない。"] },
+            { key: "appearanceOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
           ]
         },
         {
           section: "光学コンディション",
           rows: [
-            { key: "opticalMirror", label: "ミラー部は" },
-            { key: "opticalSensor", label: "センサー部は" },
-            { key: "opticalFinder", label: "ファインダー部は" },
-            { key: "opticalLens", label: "レンズ部は" },
-            { key: "opticalOther", label: "その他は" }
+            { key: "opticalMirror", label: "ミラー部は", options: ["ある。", "ない。"] },
+            { key: "opticalSensor", label: "センサー部は", options: ["ある。", "ない。"] },
+            { key: "opticalFinder", label: "ファインダー部は", options: ["ある。", "ない。"] },
+            { key: "opticalLens", label: "レンズ部は", options: ["ある。", "ない。", "カビあり。", "曇りあり。", "チリあり。"] },
+            { key: "opticalOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
           ]
         },
         {
           section: "動作コンディション",
           rows: [
-            { key: "operationCheck", label: "動作確認は" },
-            { key: "operationPhoto", label: "写真撮影は" },
-            { key: "operationMovie", label: "動画撮影は" },
-            { key: "operationZoom", label: "ズームは" },
-            { key: "operationFlash", label: "フラッシュは" },
-            { key: "operationWheel", label: "コントロールホイールは" },
-            { key: "operationCursor", label: "カーソルボタンは" },
-            { key: "operationSave", label: "保存は" },
-            { key: "operationOther", label: "その他は" }
+            { key: "operationCheck", label: "動作確認は", options: ["した。", "していない。", "できる。", "できない。"] },
+            { key: "operationPhoto", label: "写真撮影は", options: ["できる。", "できない。"] },
+            { key: "operationMovie", label: "動画撮影は", options: ["できる。", "できない。"] },
+            { key: "operationZoom", label: "ズームは", options: ["できる。", "できない。"] },
+            { key: "operationFlash", label: "フラッシュは", options: ["できる。", "できない。"] },
+            { key: "operationWheel", label: "コントロールホイールは", options: ["できる。", "できない。"] },
+            { key: "operationCursor", label: "カーソルボタンは", options: ["できる。", "できない。"] },
+            { key: "operationSave", label: "保存は", options: ["できる。", "できない。"] },
+            { key: "operationOther", label: "その他は", options: ["ある。", "ない。", "その他。"] }
           ]
         },
         {
           section: "その他",
           rows: [
-            { key: "otherAccessories", label: "付属品" }
+            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"] }
           ]
         }
       ]};
@@ -4328,8 +4294,8 @@ function firstInvoiceDate(item) {
       return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
     }
 
-    function confirmationOptionHtml(current) {
-      const options = ["", ...((confirmationBaseCache || defaultConfirmationBase()).options || [])];
+    function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
+      const options = ["", ...rowOptions];
       return options.map((option) => {
         const label = option || "選択してください";
         return `<option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -4345,7 +4311,7 @@ function firstInvoiceDate(item) {
             <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
             <td class="confirmation-select-cell">
               <select name="confirmation_${escapeAttr(row.key)}">
-                ${confirmationOptionHtml(values[row.key]?.value || "")}
+                ${confirmationOptionHtml(values[row.key]?.value || "", row.options || ["ある。", "ない。"])}
               </select>
             </td>
             <td>
@@ -4448,6 +4414,13 @@ function firstInvoiceDate(item) {
         hash |= 0;
       }
       return `base_${Math.abs(hash)}`;
+    }
+
+    function splitConfirmationOptions(value) {
+      return String(value || "")
+        .split(/[\/、,\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
 
     function formatShippingInfo(value) {
