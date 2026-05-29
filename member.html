@@ -91,13 +91,13 @@ textarea{min-height:88px;resize:vertical}
 .hidden{display:none}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
 .modal-backdrop.show{display:flex}
-.modal{background:#fff;border-radius:10px;max-width:760px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:24px}
-.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.modal{background:#fff;border-radius:10px;max-width:760px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:16px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .modal-title{font-size:20px;font-weight:800}
-.modal-body{line-height:1.8;white-space:pre-wrap}
-.detail-section{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
-.detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800;color:#2563eb;margin-bottom:8px}
-.detail-grid{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:14px}
+.modal-body{line-height:1.45;white-space:normal}
+.detail-section{border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.detail-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800;color:#2563eb;margin-bottom:8px}
+.detail-grid{display:grid;grid-template-columns:130px 1fr;gap:5px 10px;font-size:14px}
 .detail-label{color:#6b7280;font-weight:700}
 .modal-form{display:grid;gap:14px}
 .modal-section-title{background:#eaf2ff;color:#1d4ed8;font-weight:800;padding:9px 12px;margin:8px 0}
@@ -151,12 +151,13 @@ textarea{min-height:88px;resize:vertical}
   .invoice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .invoice-month-card{width:100%}
   .modal-backdrop{align-items:flex-start;padding:10px}
-  .modal{width:100%;max-width:none;min-width:0;max-height:calc(100vh - 20px);padding:16px}
+  .modal{width:100%;max-width:none;min-width:0;max-height:calc(100vh - 20px);padding:12px}
   .modal-head{align-items:stretch;flex-direction:column}
   .modal-title{font-size:18px}
   .detail-heading{align-items:stretch;flex-direction:column}
-  .detail-grid{grid-template-columns:1fr;gap:4px}
-  .detail-label{margin-top:8px}
+  .detail-grid{grid-template-columns:112px 1fr;gap:6px 10px;font-size:13px}
+  .detail-label{margin-top:0}
+  .detail-section{padding:9px 10px;margin-bottom:7px}
   .origin-card-head{align-items:stretch;flex-direction:column}
   button{min-height:40px}
 }
@@ -1328,7 +1329,7 @@ function sortByShippingDateAndNumbering(a, b) {
   }
 
   const fallbackDate = shippingView === "shipped" ? "0000-00-00" : "9999-99-99";
-  const dateCompare = String(a.shippedDate || fallbackDate).localeCompare(String(b.shippedDate || fallbackDate));
+  const dateCompare = String(b.shippedDate || fallbackDate).localeCompare(String(a.shippedDate || fallbackDate));
   if (dateCompare !== 0) return dateCompare;
 
   if (a.shipmentGroupId || b.shipmentGroupId) {

@@ -585,8 +585,8 @@
     .info-box {
       border: 1px solid var(--border);
       border-radius: 9px;
-      padding: 16px;
-      margin-top: 12px;
+      padding: 12px;
+      margin-top: 8px;
     }
 
     .info-box.highlight {
@@ -599,7 +599,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       color: var(--blue);
       font-weight: 800;
       font-size: 16px;
@@ -608,8 +608,8 @@
     .info-grid {
       display: grid;
       grid-template-columns: 130px minmax(0, 1fr);
-      gap: 12px;
-      line-height: 1.6;
+      gap: 6px 10px;
+      line-height: 1.45;
     }
 
     .info-label {
@@ -619,7 +619,7 @@
 
     .info-value {
       word-break: break-word;
-      white-space: pre-wrap;
+      white-space: normal;
     }
 
     .form-grid {
@@ -2083,7 +2083,7 @@
 
       const sorter = (a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
       const shippedSorter = (a, b) => {
-        const dateCompare = String(a.shippedDate || "0000-00-00").localeCompare(String(b.shippedDate || "0000-00-00"));
+        const dateCompare = String(b.shippedDate || "0000-00-00").localeCompare(String(a.shippedDate || "0000-00-00"));
         if (dateCompare !== 0) return dateCompare;
         return sorter(a, b);
       };
@@ -3849,7 +3849,7 @@ function firstInvoiceDate(item) {
       if (detailView === "shipped") {
         products = products
           .filter((product) => matchesMonth(product.shippedDate, selectedMonth))
-          .sort((a, b) => String(a.shippedDate || "").localeCompare(String(b.shippedDate || "")));
+          .sort((a, b) => String(b.shippedDate || "").localeCompare(String(a.shippedDate || "")));
 
         const rows = [
           ["商品名", "ナンバリング", "発送サイズ", "値段"],
