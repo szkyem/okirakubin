@@ -870,6 +870,7 @@
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
+      <button class="tab" data-main-tab="discord">Discord通知</button>
       <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
     </nav>
 
@@ -1093,6 +1094,34 @@
         <div class="announcement-actions">
           <button class="primary-btn" onclick="saveCompanyInfo()">保存する</button>
         </div>
+      </div>
+    </section>
+
+    <section id="discordSection" class="section hidden">
+      <div class="section-title-row">
+        <h2>Discord通知</h2>
+        <button class="secondary-btn" onclick="loadAllData()">再読み込み</button>
+      </div>
+      <div class="invoice-actions">
+        <label>
+          通知対象日
+          <input id="discordNotifyDateInput" type="date" />
+        </label>
+        <button class="primary-btn" onclick="sendDiscordNotificationsForDate()">この日の通知を送信</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>会員</th>
+              <th>Webhook</th>
+              <th>未送信</th>
+              <th>送信済み</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody id="discordNotificationListBody"></tbody>
+        </table>
       </div>
     </section>
 
@@ -1382,6 +1411,7 @@
     const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
     const announcementsSection = document.getElementById("announcementsSection");
+    const discordSection = document.getElementById("discordSection");
     const detailEmpty = document.getElementById("detailEmpty");
     const detailContent = document.getElementById("detailContent");
 
@@ -1429,6 +1459,8 @@
     const announcementList = document.getElementById("announcementList");
     const companyInfoInput = document.getElementById("companyInfoInput");
     const bankInfoInput = document.getElementById("bankInfoInput");
+    const discordNotifyDateInput = document.getElementById("discordNotifyDateInput");
+    const discordNotificationListBody = document.getElementById("discordNotificationListBody");
 
     const infoModalBackdrop = document.getElementById("infoModalBackdrop");
     const infoModalBody = document.getElementById("infoModalBody");
@@ -1447,6 +1479,7 @@
     let pendingMembersCache = {};
     let activePendingMemberKey = null;
     let companyInfoCache = {};
+    let discordNotificationQueueCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -1474,6 +1507,7 @@
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
     pendingMemberForm.addEventListener("submit", savePendingMember);
     pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
+    discordNotifyDateInput.addEventListener("change", renderDiscordNotifications);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -1486,6 +1520,7 @@
         announcementsCache = {};
         memberSettingsCache = {};
         pendingMembersCache = {};
+        discordNotificationQueueCache = {};
         activePendingMemberKey = null;
         selectedMemberUid = null;
         loginView.classList.remove("hidden");
@@ -1532,7 +1567,7 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, pendingMembersSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
@@ -1540,7 +1575,8 @@
           get(ref(db, "announcements")),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
-          get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) }))
+          get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) })),
+          get(ref(db, "discordNotificationQueue")).catch(() => ({ val: () => ({}) }))
         ]);
 
         const membersRaw = membersSnap.val() || {};
@@ -1551,6 +1587,7 @@
         memberSettingsCache = memberSettingsSnap.val() || {};
         companyInfoCache = companyInfoSnap.val() || {};
         pendingMembersCache = pendingMembersSnap.val() || {};
+        discordNotificationQueueCache = discordQueueSnap.val() || {};
 
         membersCache = Object.keys(membersRaw)
           .filter((uid) => membersRaw[uid] === true)
@@ -1571,6 +1608,7 @@
               lastLoginAt: user.lastLoginAt || "",
               managementNumber: memberSettings.managementNumber || user.managementNumber || "",
               driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
+              discordWebhookUrl: memberSettings.discordWebhookUrl || "",
               planType: memberSettings.planType || user.planType || "",
               products
             };
@@ -1589,6 +1627,7 @@
         renderInvoices();
         renderCompanyInfo();
         renderAnnouncements();
+        renderDiscordNotifications();
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -1598,6 +1637,7 @@
       const month = todayString().slice(0, 7);
       if (invoiceMonthInput) invoiceMonthInput.value = month;
       if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
+      if (discordNotifyDateInput && !discordNotifyDateInput.value) discordNotifyDateInput.value = todayString();
     }
 
     async function savePendingMember(event) {
@@ -2201,6 +2241,7 @@
       companySection.classList.toggle("hidden", tabName !== "company");
       pricesSection.classList.toggle("hidden", tabName !== "prices");
       announcementsSection.classList.toggle("hidden", tabName !== "announcements");
+      discordSection.classList.toggle("hidden", tabName !== "discord");
     }
 
     function shippingBadge(value) {
@@ -2214,6 +2255,19 @@
       };
 
       return `<span class="ship-badge ${key}">${textMap[key] || "なし"}</span>`;
+    }
+
+    function shippingRequestLabel(value) {
+      const key = shippingKey(value);
+      const textMap = {
+        domestic: "国内発送",
+        international: "海外発送",
+        return: "返品依頼",
+        speedpak: "SpeedPAK",
+        none: "-"
+      };
+
+      return textMap[key] || "-";
     }
 
     function shippingKey(value) {
@@ -2498,6 +2552,11 @@
           </label>
 
           <label>
+            Discord Webhook URL
+            <input name="discordWebhookUrl" value="${escapeAttr(member.discordWebhookUrl || "")}" />
+          </label>
+
+          <label>
             プラン
             <select name="planType">
               <option value="">選択してください</option>
@@ -2591,6 +2650,11 @@
             値段
             <input name="shippingPrice" type="number" min="0" value="${escapeAttr(hasValue(initialShippingPrice) ? initialShippingPrice : "")}" />
           </label>
+
+          <label>
+            追跡番号
+            <input name="trackingNumber" value="${escapeAttr(product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "")}" />
+          </label>
         </div>
 
         <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から値段を自動入力します。発送サイズで海外発送を選ぶと海外発送固定料金、着払い発送は0円です。</p>
@@ -2637,11 +2701,13 @@
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
+          const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
             driveBaseUrl,
+            discordWebhookUrl,
             planType,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
@@ -2659,6 +2725,7 @@
           const confirmationDate = getFormValue(formData, "confirmationDate");
           const product = findProduct(activeEdit.uid, activeEdit.productId);
           const member = findMember(activeEdit.uid);
+          const shouldNotifyStored = product && !hasValue(product.shootingDate) && hasValue(confirmationDate);
 
           await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
             updatedAt: now,
@@ -2671,19 +2738,59 @@
             driveBaseUrl: member?.driveBaseUrl || "",
             folderName: makeFolderName(product?.numbering, product?.name)
           });
+
+          if (shouldNotifyStored) {
+            queueDiscordNotification({
+              uid: activeEdit.uid,
+              eventType: "stored",
+              title: "保管商品へ移動",
+              member,
+              product: {
+                ...product,
+                confirmationDate,
+                shootingDate: confirmationDate,
+                confirmationResult: getFormValue(formData, "confirmationResult"),
+                expectedSize: getFormValue(formData, "expectedSize")
+              }
+            });
+          }
         }
 
         if (activeEdit.type === "status") {
           const status = getFormValue(formData, "shippingStatus");
           const shippingSize = getFormValue(formData, "shippingSize");
           const shippingPrice = status === "cash_on_delivery" ? "0" : getFormValue(formData, "shippingPrice");
+          const trackingNumber = getFormValue(formData, "trackingNumber");
+          const product = findProduct(activeEdit.uid, activeEdit.productId);
+          const member = findMember(activeEdit.uid);
+          const shouldNotifyShipped = product && !isShippedStatus(product.shippingStatus) && isShippedStatus(status);
+          const shippedDate = isShippedStatus(status) ? todayString() : "";
+
           await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
             updatedAt: now,
             shippingStatus: status,
-            shippedDate: isShippedStatus(status) ? todayString() : "",
+            shippedDate,
             shippingSize,
-            shippingPrice
+            shippingPrice,
+            trackingNumber,
+            shippingTrackingNumber: trackingNumber
           });
+
+          if (shouldNotifyShipped) {
+            queueDiscordNotification({
+              uid: activeEdit.uid,
+              eventType: "shipped",
+              title: "発送完了",
+              member,
+              product: {
+                ...product,
+                shippingStatus: status,
+                shippedDate,
+                shippingSize,
+                shippingPrice
+              }
+            });
+          }
         }
 
         if (activeEdit.type === "announcement") {
@@ -2806,6 +2913,160 @@
       }
 
       return result;
+    }
+
+    async function queueDiscordNotification({ uid, eventType, title, member, product }) {
+      if (!uid || !product?.id) return;
+      const date = todayString();
+      const queueId = `${product.id}_${eventType}`;
+      const message = [
+        `【${title}】`,
+        `会員：${member?.name || "-"}`,
+        `メール：${member?.email || "-"}`,
+        `管理番号：${member?.managementNumber || "-"}`,
+        `商品名：${product?.name || "-"}`,
+        `ナンバリング：${product?.numbering || "-"}`,
+        eventType === "stored" ? `確認日：${product?.confirmationDate || "-"}` : "",
+        eventType === "stored" ? `確認結果：${product?.confirmationResult || "-"}` : "",
+        eventType === "shipped" ? `発送種別：${shippingRequestLabel(product?.shippingRequest)}` : "",
+        eventType === "shipped" ? `発送状態：${shippingStatusLabel(product?.shippingStatus)}` : "",
+        eventType === "shipped" ? `発送日：${product?.shippedDate || "-"}` : "",
+        eventType === "shipped" ? `発送サイズ：${product?.shippingSize || "-"}` : "",
+        eventType === "shipped" ? `送料：${product?.shippingPrice || "-"}` : ""
+      ].filter(Boolean).join("\n");
+
+      try {
+        await set(ref(db, `discordNotificationQueue/${uid}/${date}/${queueId}`), {
+          id: queueId,
+          uid,
+          productId: product.id,
+          eventType,
+          title,
+          message,
+          productName: product.name || "",
+          numbering: product.numbering || "",
+          shippingRequest: product.shippingRequest || "",
+          shippingStatus: product.shippingStatus || "",
+          createdAt: Date.now(),
+          sent: false
+        });
+      } catch (error) {
+        console.warn("Discord通知候補の保存に失敗しました。", error);
+      }
+    }
+
+    function renderDiscordNotifications() {
+      const date = discordNotifyDateInput?.value || todayString();
+      const rows = membersCache.map((member) => {
+        const items = Object.values(discordNotificationQueueCache?.[member.uid]?.[date] || {});
+        const unsent = items.filter((item) => item && item.sent !== true);
+        const sent = items.filter((item) => item && item.sent === true);
+        const summary = items.length
+          ? items
+              .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
+              .map((item) => `${item.sent ? "送信済" : "未送信"}：${item.title || "-"} / ${item.productName || "-"} / ${item.numbering || "-"}`)
+              .join("<br>")
+          : "-";
+
+        return `
+          <tr>
+            <td>
+              <div class="member-name">${escapeHtml(member.name || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.managementNumber || "-")}</div>
+            </td>
+            <td>${member.discordWebhookUrl ? '<span class="status-pill blue">設定済み</span>' : '<span class="status-pill gray">未設定</span>'}</td>
+            <td>${countPill(unsent.length, "issue")}</td>
+            <td>${countPill(sent.length, "neutral-hi")}</td>
+            <td>${summary}</td>
+          </tr>
+        `;
+      });
+
+      discordNotificationListBody.innerHTML = rows.length
+        ? rows.join("")
+        : `<tr><td colspan="5"><div class="empty">会員が登録されていません。</div></td></tr>`;
+    }
+
+    async function sendDiscordNotificationsForDate() {
+      hideError(appError);
+      const date = discordNotifyDateInput.value || todayString();
+      const updates = {};
+      let sentCount = 0;
+      let skippedCount = 0;
+
+      try {
+        for (const member of membersCache) {
+          const items = Object.values(discordNotificationQueueCache?.[member.uid]?.[date] || {})
+            .filter((item) => item && item.sent !== true)
+            .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+
+          if (!items.length) continue;
+
+          if (!member.discordWebhookUrl) {
+            skippedCount += items.length;
+            continue;
+          }
+
+          const message = buildDiscordDailyMessage(member, date, items);
+          await sendDiscordMessageWithGas(member.discordWebhookUrl, message);
+
+          items.forEach((item) => {
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentAt`] = Date.now();
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
+          });
+          sentCount += items.length;
+        }
+
+        if (Object.keys(updates).length) {
+          await update(ref(db), updates);
+        }
+
+        await loadAllData();
+        if (skippedCount > 0) {
+          showError(appError, `Discord通知を送信しました。Webhook未設定のため ${skippedCount} 件は未送信です。`);
+        } else {
+          showError(appError, `Discord通知を送信しました。送信件数：${sentCount}件`);
+        }
+      } catch (error) {
+        console.error(error);
+        showError(appError, "Discord通知の送信に失敗しました。GASまたはWebhook URLを確認してください。");
+      }
+    }
+
+    function buildDiscordDailyMessage(member, date, items) {
+      const storedItems = items.filter((item) => item.eventType === "stored");
+      const shippedItems = items.filter((item) => item.eventType === "shipped");
+      const lines = [
+        `【お気楽便 本日の更新】`,
+        `■ 保管商品へ移動：${storedItems.length}件`,
+        "",
+        `■ 発送完了：${shippedItems.length}件`
+      ];
+
+      return lines.join("\n").trim();
+    }
+
+    async function sendDiscordMessageWithGas(webhookUrl, message) {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
+        throw new Error("GAS_WEB_APP_URLが未設定です。");
+      }
+
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "discordNotify",
+          token: GAS_WEB_APP_TOKEN,
+          webhookUrl,
+          message
+        })
+      });
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || "Discord通知に失敗しました。");
+      }
     }
 
     function renderInvoices() {
@@ -3629,6 +3890,7 @@ function firstInvoiceDate(item) {
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
+    window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
     window.saveCompanyInfo = saveCompanyInfo;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
