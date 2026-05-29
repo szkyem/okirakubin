@@ -961,6 +961,10 @@
             Google Drive URL置き場
             <input id="pendingMemberDriveBaseUrl" type="url" placeholder="https://drive.google.com/drive/folders/..." />
           </label>
+          <label class="full">
+            Discord Webhook URL
+            <input id="pendingMemberDiscordWebhookUrl" type="url" placeholder="https://discord.com/api/webhooks/..." />
+          </label>
         </div>
         <div class="announcement-actions">
           <button id="pendingMemberSubmitBtn" class="primary-btn" type="submit">仮登録する</button>
@@ -975,6 +979,7 @@
               <th>氏名</th>
               <th>メール</th>
               <th>プラン</th>
+              <th>Discord</th>
               <th>登録日</th>
               <th>操作</th>
             </tr>
@@ -1427,6 +1432,7 @@
     const pendingMemberManagementNumber = document.getElementById("pendingMemberManagementNumber");
     const pendingMemberPlanType = document.getElementById("pendingMemberPlanType");
     const pendingMemberDriveBaseUrl = document.getElementById("pendingMemberDriveBaseUrl");
+    const pendingMemberDiscordWebhookUrl = document.getElementById("pendingMemberDiscordWebhookUrl");
     const pendingMemberSubmitBtn = document.getElementById("pendingMemberSubmitBtn");
     const pendingMemberCancelBtn = document.getElementById("pendingMemberCancelBtn");
     const memberSearchInput = document.getElementById("memberSearchInput");
@@ -1649,6 +1655,7 @@
       const managementNumber = pendingMemberManagementNumber.value.trim();
       const planType = pendingMemberPlanType.value;
       const driveBaseUrl = pendingMemberDriveBaseUrl.value.trim();
+      const discordWebhookUrl = pendingMemberDiscordWebhookUrl.value.trim();
 
       if (!name || !email) {
         showError(appError, "氏名とメールアドレスを入力してください。");
@@ -1668,6 +1675,7 @@
           managementNumber,
           planType,
           driveBaseUrl,
+          discordWebhookUrl,
           status: "pending",
           createdAt: existing.createdAt || now,
           updatedAt: now,
@@ -1715,6 +1723,7 @@
       pendingMemberManagementNumber.value = member.managementNumber || "";
       pendingMemberPlanType.value = member.planType || "";
       pendingMemberDriveBaseUrl.value = member.driveBaseUrl || "";
+      pendingMemberDiscordWebhookUrl.value = member.discordWebhookUrl || "";
       pendingMemberSubmitBtn.textContent = "更新する";
       pendingMemberCancelBtn.classList.remove("hidden");
       pendingMemberEmail.disabled = false;
@@ -1743,7 +1752,7 @@
         .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
 
       if (!pendingMembers.length) {
-        pendingMemberListBody.innerHTML = `<tr><td colspan="6"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
+        pendingMemberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
         return;
       }
 
@@ -1753,6 +1762,7 @@
           <td>${escapeHtml(member.name || "-")}</td>
           <td>${escapeHtml(member.email || "-")}</td>
           <td>${escapeHtml(planTypeLabel(member.planType))}</td>
+          <td>${member.discordWebhookUrl ? '<span class="status-pill blue">設定済み</span>' : '<span class="status-pill gray">未設定</span>'}</td>
           <td>${escapeHtml(formatDateTime(member.createdAt))}</td>
           <td>
             <button class="mini-btn" onclick="openPendingMemberEdit('${escapeAttr(member.key)}')">編集</button>
