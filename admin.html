@@ -870,6 +870,7 @@
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
+      <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -888,6 +889,47 @@
         </div>
       </div>
 
+      <div class="section-title-row">
+        <h2>お問い合わせ</h2>
+      </div>
+      <div class="table-wrap inquiry-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>会員</th>
+              <th>商品名</th>
+              <th>ナンバリング</th>
+              <th>お問い合わせ内容</th>
+            </tr>
+          </thead>
+          <tbody id="inquiryListBody"></tbody>
+        </table>
+      </div>
+
+      <div class="section-title-row">
+        <h2>会員一覧</h2>
+        <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・会員氏名で検索" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>会員</th>
+              <th>登録済み商品</th>
+              <th>保管商品</th>
+              <th>未発送</th>
+              <th>発送済み</th>
+              <th>最終ログイン</th>
+            </tr>
+          </thead>
+          <tbody id="memberListBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pendingMembersSection" class="section hidden">
       <div class="section-title-row">
         <h2>会員仮登録</h2>
       </div>
@@ -935,45 +977,6 @@
             </tr>
           </thead>
           <tbody id="pendingMemberListBody"></tbody>
-        </table>
-      </div>
-
-      <div class="section-title-row">
-        <h2>お問い合わせ</h2>
-      </div>
-      <div class="table-wrap inquiry-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>管理番号</th>
-              <th>会員</th>
-              <th>商品名</th>
-              <th>ナンバリング</th>
-              <th>お問い合わせ内容</th>
-            </tr>
-          </thead>
-          <tbody id="inquiryListBody"></tbody>
-        </table>
-      </div>
-
-      <div class="section-title-row">
-        <h2>会員一覧</h2>
-        <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・会員氏名で検索" />
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>管理番号</th>
-              <th>会員</th>
-              <th>登録済み商品</th>
-              <th>保管商品</th>
-              <th>未発送</th>
-              <th>発送済み</th>
-              <th>最終ログイン</th>
-            </tr>
-          </thead>
-          <tbody id="memberListBody"></tbody>
         </table>
       </div>
     </section>
@@ -1371,6 +1374,7 @@
     const userEmail = document.getElementById("userEmail");
 
     const membersSection = document.getElementById("membersSection");
+    const pendingMembersSection = document.getElementById("pendingMembersSection");
     const detailSection = document.getElementById("detailSection");
     const invoicesSection = document.getElementById("invoicesSection");
     const companySection = document.getElementById("companySection");
@@ -2123,6 +2127,7 @@
       });
 
       membersSection.classList.toggle("hidden", tabName !== "members");
+      pendingMembersSection.classList.toggle("hidden", tabName !== "pendingMembers");
       detailSection.classList.toggle("hidden", tabName !== "detail");
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
       companySection.classList.toggle("hidden", tabName !== "company");
