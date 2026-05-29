@@ -1007,6 +1007,7 @@
               <th>未発送</th>
               <th>発送済み</th>
               <th>最終ログイン</th>
+              <th>代理修正</th>
             </tr>
           </thead>
           <tbody id="memberListBody"></tbody>
@@ -1940,7 +1941,7 @@
       totalUnshipped.textContent = totalUnshippedCount;
 
       if (!membersCache.length) {
-        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">会員が登録されていません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="8"><div class="empty">会員が登録されていません。</div></td></tr>`;
         return;
       }
 
@@ -1953,7 +1954,7 @@
         : membersCache;
 
       if (!displayMembers.length) {
-        memberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="8"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
         return;
       }
 
@@ -1978,9 +1979,21 @@
             <td>${countPill(groups.unshipped.length, "issue")}</td>
             <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
             <td>${formatDateTime(member.lastLoginAt)}</td>
+            <td><button class="mini-btn" onclick="event.stopPropagation(); openMemberProxyEdit('${escapeAttr(member.uid)}')">修正モード</button></td>
           </tr>
         `;
       }).join("");
+    }
+
+    function openMemberProxyEdit(uid) {
+      const member = findMember(uid);
+      if (!member) return;
+
+      const ok = confirm(`${member.name || member.email || uid} の代理修正モードに入りますか？`);
+      if (!ok) return;
+
+      const url = `member.html?proxyUid=${encodeURIComponent(uid)}&adminProxy=1`;
+      window.open(url, "_blank", "noopener");
     }
 
     function renderInquiries() {
@@ -4216,6 +4229,7 @@ function firstInvoiceDate(item) {
     window.closeEditModal = closeEditModal;
     window.selectMember = selectMember;
     window.setDetailView = setDetailView;
+    window.openMemberProxyEdit = openMemberProxyEdit;
     window.openInfoModal = openInfoModal;
     window.openShippingInfo = openShippingInfo;
     window.openPreferenceModal = openPreferenceModal;

@@ -433,6 +433,8 @@ const database = getDatabase(
 );
 
 let currentUser = null;
+let activeMemberUid = null;
+let isAdminProxyMode = false;
 let productsCache = [];
 let originsCache = [];
 let announcementsCache = [];
@@ -473,6 +475,10 @@ const originForm = document.getElementById("originForm");
 const clearOriginBtn = document.getElementById("clearOriginBtn");
 const invoiceList = document.getElementById("invoiceList");
 
+function dataUid() {
+  return activeMemberUid || currentUser?.uid || "";
+}
+
 loginBtn.addEventListener("click", async () => {
   clearLoginError();
 
@@ -499,11 +505,40 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    const memberSnapshot = await get(ref(database, `members/${user.uid}`));
-    let isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
+    const params = new URLSearchParams(location.search);
+    const proxyUid = params.get("proxyUid") || "";
+    const wantsAdminProxy = params.get("adminProxy") === "1" && proxyUid;
+    let isMember = false;
 
-    if (!isMember) {
-      isMember = await activatePendingMember(user);
+    if (wantsAdminProxy) {
+      const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
+      if (adminSnapshot.val() !== true) {
+        await signOut(auth);
+        showLoginUI();
+        showLoginError("管理者としてログインしてください。");
+        return;
+      }
+
+      const targetMemberSnapshot = await get(ref(database, `members/${proxyUid}`));
+      if (targetMemberSnapshot.val() !== true) {
+        await signOut(auth);
+        showLoginUI();
+        showLoginError("対象会員が見つかりません。");
+        return;
+      }
+
+      isAdminProxyMode = true;
+      activeMemberUid = proxyUid;
+      isMember = true;
+    } else {
+      const memberSnapshot = await get(ref(database, `members/${user.uid}`));
+      isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
+
+      if (!isMember) {
+        isMember = await activatePendingMember(user);
+      }
+
+      activeMemberUid = user.uid;
     }
 
     if (!isMember) {
@@ -526,9 +561,12 @@ onAuthStateChanged(auth, async (user) => {
       loginUpdate.name = user.displayName;
     }
 
-    await update(ref(database, `loginUsers/${user.uid}`), loginUpdate);
+    if (!isAdminProxyMode) {
+      await update(ref(database, `loginUsers/${user.uid}`), loginUpdate);
+    }
 
     showAppUI(user);
+    applyProxyModeBanner();
     resetEntries();
     await loadData();
   } catch (error) {
@@ -665,9 +703,9 @@ registerProductsBtn.addEventListener("click", async () => {
     await Promise.all(payloads.map((item, index) => {
       const productId = `${now}_${index}`;
 
-      return set(ref(database, `products/${currentUser.uid}/${productId}`), {
+      return set(ref(database, `products/${dataUid()}/${productId}`), {
         id: productId,
-        ownerUid: currentUser.uid,
+        ownerUid: dataUid(),
         ownerEmail: currentUser.email || "",
         name: item.name,
         numbering: item.numbering,
@@ -748,7 +786,7 @@ originForm.addEventListener("submit", async (event) => {
   }
 
   try {
-    await set(ref(database, `shippingOrigins/${currentUser.uid}/${originId}`), data);
+    await set(ref(database, `shippingOrigins/${dataUid()}/${originId}`), data);
     originForm.reset();
     document.getElementById("originId").value = "";
     await loadData();
@@ -804,7 +842,7 @@ shippingForm.addEventListener("submit", async (event) => {
     const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
     await Promise.all(selectedIds.map((productId) => {
-      return update(ref(database, `products/${currentUser.uid}/${productId}`), {
+      return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
         shippingStatus: "unshipped",
         shippingDestination: destination,
@@ -838,6 +876,14 @@ document.querySelectorAll(".tab").forEach((btn) => {
   });
 });
 
+function applyProxyModeBanner() {
+  if (!isAdminProxyMode) return;
+  const banner = document.createElement("div");
+  banner.className = "error show";
+  banner.textContent = `管理者代理修正モード：${activeMemberUid}`;
+  appArea.prepend(banner);
+}
+
 modalCloseBtn.addEventListener("click", closeModal);
 modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
@@ -852,10 +898,10 @@ async function loadData() {
   if (!currentUser) return;
 
   try {
-    const productsSnapshot = await get(ref(database, `products/${currentUser.uid}`));
-    const originsSnapshot = await get(ref(database, `shippingOrigins/${currentUser.uid}`));
+    const productsSnapshot = await get(ref(database, `products/${dataUid()}`));
+    const originsSnapshot = await get(ref(database, `shippingOrigins/${dataUid()}`));
     const announcementsSnapshot = await get(ref(database, "announcements"));
-    const invoicesSnapshot = await get(ref(database, `invoices/${currentUser.uid}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const invoicesSnapshot = await get(ref(database, `invoices/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     productsCache = productsSnapshot.exists()
@@ -1532,7 +1578,7 @@ window.saveProductEdit = async function(event, productId) {
   data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard, data.optionOkirakuInsert);
 
   try {
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), data);
+    await update(ref(database, `products/${dataUid()}/${productId}`), data);
     closeModal();
     await loadData();
   } catch (error) {
@@ -1583,7 +1629,7 @@ window.sendProductInquiry = async function(event, productId) {
     const now = Date.now();
     const inquiryId = `${now}`;
 
-    await set(ref(database, `products/${currentUser.uid}/${productId}/inquiries/${inquiryId}`), {
+    await set(ref(database, `products/${dataUid()}/${productId}/inquiries/${inquiryId}`), {
       id: inquiryId,
       title,
       message,
@@ -1592,7 +1638,7 @@ window.sendProductInquiry = async function(event, productId) {
       createdByEmail: currentUser.email || ""
     });
 
-    await update(ref(database, `products/${currentUser.uid}/${productId}`), {
+    await update(ref(database, `products/${dataUid()}/${productId}`), {
       latestInquiryAt: now,
       latestInquiryTitle: title,
       updatedAt: now
