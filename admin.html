@@ -704,6 +704,34 @@
       width: 170px;
     }
 
+    .confirmation-base-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .confirmation-base-editor input {
+      min-height: 32px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .confirmation-base-editor .mini-btn,
+    .confirmation-base-editor .danger-btn {
+      min-height: 30px;
+      padding: 0 9px;
+      font-size: 12px;
+    }
+
+    .confirmation-base-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -1189,21 +1217,19 @@
     <section id="confirmationBaseSection" class="section hidden">
       <h2>確認結果ベース</h2>
       <div class="announcement-form">
-        <label>
-          結果プルダウン項目
-          <textarea id="confirmationOptionsInput" placeholder="1行に1項目ずつ入力。ここが確認結果表の「結果」プルダウンになります。"></textarea>
-        </label>
-        <label>
-          項目ベース
-          <textarea id="confirmationBaseInput" placeholder="＜外観コンディション＞&#10;キズ、凹み、塗装剥がれは&#10;欠損や破損は&#10;その他は"></textarea>
-        </label>
         <div class="announcement-actions">
           <button class="secondary-btn" type="button" onclick="resetConfirmationBaseToDefault()">添付の項目に戻す</button>
+          <button class="secondary-btn" type="button" onclick="addConfirmationOption()">結果を追加</button>
+          <button class="secondary-btn" type="button" onclick="addConfirmationSection()">カテゴリを追加</button>
           <button class="primary-btn" onclick="saveConfirmationBase()">保存する</button>
         </div>
         <div>
-          <strong>確認結果表プレビュー</strong>
-          <div id="confirmationBasePreview" style="margin-top:10px;"></div>
+          <strong>結果プルダウン</strong>
+          <div id="confirmationBaseOptions" class="confirmation-base-options" style="margin-top:10px;"></div>
+        </div>
+        <div>
+          <strong>確認結果表</strong>
+          <div id="confirmationBasePreview" class="confirmation-base-editor" style="margin-top:10px;"></div>
         </div>
       </div>
     </section>
@@ -1544,8 +1570,7 @@
     const announcementList = document.getElementById("announcementList");
     const companyInfoInput = document.getElementById("companyInfoInput");
     const bankInfoInput = document.getElementById("bankInfoInput");
-    const confirmationOptionsInput = document.getElementById("confirmationOptionsInput");
-    const confirmationBaseInput = document.getElementById("confirmationBaseInput");
+    const confirmationBaseOptions = document.getElementById("confirmationBaseOptions");
     const confirmationBasePreview = document.getElementById("confirmationBasePreview");
     const discordNotifyDateInput = document.getElementById("discordNotifyDateInput");
     const discordNotificationListBody = document.getElementById("discordNotificationListBody");
@@ -3815,17 +3840,16 @@ function firstInvoiceDate(item) {
 
     function renderConfirmationBase() {
       const base = confirmationBaseCache || defaultConfirmationBase();
-      if (confirmationOptionsInput) {
-        confirmationOptionsInput.value = (base.options || []).filter(Boolean).join("\n");
-      }
-      if (confirmationBaseInput) {
-        confirmationBaseInput.value = (base.groups || []).map((group) => {
-          const rows = (group.rows || []).map((row) => row.label || row).filter(Boolean).join("\n");
-          return `＜${group.section}＞\n${rows}`;
-        }).join("\n\n");
+      if (confirmationBaseOptions) {
+        confirmationBaseOptions.innerHTML = (base.options || []).map((option, index) => `
+          <div class="inline-actions">
+            <input data-confirmation-option-index="${index}" value="${escapeAttr(option)}">
+            <button class="danger-btn" type="button" onclick="removeConfirmationOption(${index})">削除</button>
+          </div>
+        `).join("");
       }
       if (confirmationBasePreview) {
-        confirmationBasePreview.innerHTML = confirmationTableHtml({ confirmationTemplate: {} });
+        confirmationBasePreview.innerHTML = confirmationBaseEditorHtml(base);
       }
     }
 
@@ -3833,14 +3857,13 @@ function firstInvoiceDate(item) {
       hideError(appError);
 
       try {
-        const options = confirmationOptionsInput.value
-          .split(/\r?\n/)
-          .map((line) => line.trim())
+        const options = [...document.querySelectorAll("[data-confirmation-option-index]")]
+          .map((input) => input.value.trim())
           .filter(Boolean);
-        const groups = parseConfirmationBaseText(confirmationBaseInput.value);
+        const groups = readConfirmationBaseEditor();
 
         if (!options.length || !groups.length) {
-          showError(appError, "プルダウン項目と確認項目ベースを入力してください。");
+          showError(appError, "結果プルダウンと確認結果表を入力してください。");
           return;
         }
 
@@ -3877,6 +3900,122 @@ function firstInvoiceDate(item) {
         console.error(error);
         showError(appError, "確認結果ベースの初期化に失敗しました。Realtime Databaseのルールを確認してください。");
       }
+    }
+
+    function confirmationBaseEditorHtml(base) {
+      const groups = base.groups || [];
+      return `
+        <div class="confirmation-table-wrap">
+          <table class="confirmation-table">
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>結果</th>
+                <th>コメント</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groups.map((group, groupIndex) => `
+                <tr class="confirmation-section" data-confirmation-section="${groupIndex}">
+                  <td colspan="3">
+                    <input data-confirmation-section-title="${groupIndex}" value="${escapeAttr(group.section || "")}">
+                  </td>
+                  <td>
+                    <button class="mini-btn" type="button" onclick="addConfirmationRow(${groupIndex})">項目追加</button>
+                    <button class="danger-btn" type="button" onclick="removeConfirmationSection(${groupIndex})">削除</button>
+                  </td>
+                </tr>
+                ${(group.rows || []).map((row, rowIndex) => `
+                  <tr data-confirmation-row="${groupIndex}-${rowIndex}">
+                    <td class="confirmation-item-cell">
+                      <input data-confirmation-row-label="${groupIndex}-${rowIndex}" value="${escapeAttr(row.label || "")}">
+                    </td>
+                    <td class="confirmation-select-cell">
+                      <select disabled>
+                        ${confirmationOptionHtml("")}
+                      </select>
+                    </td>
+                    <td><input disabled placeholder="コメントが必要な場合のみ記入"></td>
+                    <td><button class="danger-btn" type="button" onclick="removeConfirmationRow(${groupIndex},${rowIndex})">削除</button></td>
+                  </tr>
+                `).join("")}
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function readConfirmationBaseEditor() {
+      return [...document.querySelectorAll("[data-confirmation-section]")].map((sectionRow) => {
+        const groupIndex = Number(sectionRow.dataset.confirmationSection);
+        const titleInput = document.querySelector(`[data-confirmation-section-title="${groupIndex}"]`);
+        const rows = [...document.querySelectorAll(`[data-confirmation-row^="${groupIndex}-"]`)].map((rowEl, rowIndex) => {
+          const labelInput = rowEl.querySelector(`[data-confirmation-row-label]`);
+          const label = labelInput?.value.trim() || "";
+          return label ? {
+            key: makeConfirmationKey(titleInput?.value || "確認項目", label, rowIndex),
+            label
+          } : null;
+        }).filter(Boolean);
+
+        return {
+          section: titleInput?.value.trim() || "確認項目",
+          rows
+        };
+      }).filter((group) => group.section && group.rows.length);
+    }
+
+    function syncConfirmationBaseCacheFromEditor() {
+      confirmationBaseCache = {
+        options: [...document.querySelectorAll("[data-confirmation-option-index]")]
+          .map((input) => input.value.trim())
+          .filter(Boolean),
+        groups: readConfirmationBaseEditor()
+      };
+    }
+
+    function addConfirmationOption() {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.options.push("");
+      renderConfirmationBase();
+    }
+
+    function removeConfirmationOption(index) {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.options.splice(index, 1);
+      renderConfirmationBase();
+    }
+
+    function addConfirmationSection() {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.groups.push({
+        section: "新しいカテゴリ",
+        rows: [{ key: `base_${Date.now()}`, label: "新しい項目" }]
+      });
+      renderConfirmationBase();
+    }
+
+    function removeConfirmationSection(index) {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.groups.splice(index, 1);
+      renderConfirmationBase();
+    }
+
+    function addConfirmationRow(groupIndex) {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.groups[groupIndex]?.rows.push({
+        key: `base_${Date.now()}`,
+        label: "新しい項目"
+      });
+      renderConfirmationBase();
+    }
+
+    function removeConfirmationRow(groupIndex, rowIndex) {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseCache.groups[groupIndex]?.rows.splice(rowIndex, 1);
+      renderConfirmationBase();
     }
 
     async function deleteInvoice(uid, month) {
@@ -4068,6 +4207,12 @@ function firstInvoiceDate(item) {
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveConfirmationBase = saveConfirmationBase;
     window.resetConfirmationBaseToDefault = resetConfirmationBaseToDefault;
+    window.addConfirmationOption = addConfirmationOption;
+    window.removeConfirmationOption = removeConfirmationOption;
+    window.addConfirmationSection = addConfirmationSection;
+    window.removeConfirmationSection = removeConfirmationSection;
+    window.addConfirmationRow = addConfirmationRow;
+    window.removeConfirmationRow = removeConfirmationRow;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
