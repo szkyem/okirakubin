@@ -31,6 +31,8 @@ button.danger:hover{background:#fecaca}
 .section.show{display:block}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
 .stat,.form{border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:20px}
+.stat{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.stat:hover{border-color:#bfdbfe;box-shadow:0 8px 22px rgba(37,99,235,.1);transform:translateY(-1px)}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
 .stat-value{font-size:32px;font-weight:800;color:#2563eb}
 .form{margin-top:16px}
@@ -195,10 +197,10 @@ textarea{min-height:88px;resize:vertical}
 
   <section class="section show" id="overview">
     <div class="grid">
-      <div class="stat"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
-      <div class="stat"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
-      <div class="stat"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
-      <div class="stat"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
+      <div class="stat" onclick="goToStoredView('registered')"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
+      <div class="stat" onclick="goToStoredView('stored')"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
+      <div class="stat" onclick="goToShippingView('unshipped')"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
+      <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
 
     <h2 style="margin-bottom:16px;">最近のお知らせ</h2>
@@ -264,7 +266,7 @@ textarea{min-height:88px;resize:vertical}
 
           <div class="form-group">
             <label>郵便番号 *</label>
-            <input id="originPostalCode" type="text" required placeholder="例：4370021">
+            <input id="originPostalCode" type="text" required placeholder="例：420-8601">
           </div>
 
           <div class="form-group">
@@ -274,7 +276,7 @@ textarea{min-height:88px;resize:vertical}
 
           <div class="form-group">
             <label>住所 *</label>
-            <input id="originAddress" type="text" required placeholder="例：袋井市広岡1290-8">
+            <input id="originAddress" type="text" required placeholder="例：静岡市葵区葵区追手町1-1">
           </div>
 
           <div class="form-group">
@@ -599,6 +601,18 @@ shippedFilterBtn.addEventListener("click", () => {
 });
 
 shippingSearchInput.addEventListener("input", renderShippingList);
+
+window.goToStoredView = function(view) {
+  storedView = view;
+  document.querySelector('[data-tab="stored"]').click();
+  renderStoredList();
+};
+
+window.goToShippingView = function(view) {
+  shippingView = view;
+  document.querySelector('[data-tab="shipping"]').click();
+  renderShippingList();
+};
 
 productForm.addEventListener("submit", (event) => {
   event.preventDefault();
