@@ -1190,16 +1190,20 @@
       <h2>確認結果ベース</h2>
       <div class="announcement-form">
         <label>
-          プルダウン項目
-          <textarea id="confirmationOptionsInput" placeholder="1行に1項目ずつ入力"></textarea>
+          結果プルダウン項目
+          <textarea id="confirmationOptionsInput" placeholder="1行に1項目ずつ入力。ここが確認結果表の「結果」プルダウンになります。"></textarea>
         </label>
         <label>
-          確認項目ベース
-          <textarea id="confirmationBaseInput" placeholder="＜外観コンディション＞&#10;キズ、凹み、塗装剥がれは&#10;欠損や破損は"></textarea>
+          項目ベース
+          <textarea id="confirmationBaseInput" placeholder="＜外観コンディション＞&#10;キズ、凹み、塗装剥がれは&#10;欠損や破損は&#10;その他は"></textarea>
         </label>
         <div class="announcement-actions">
-          <button class="secondary-btn" type="button" onclick="resetConfirmationBaseToDefault()">前回の項目に戻す</button>
+          <button class="secondary-btn" type="button" onclick="resetConfirmationBaseToDefault()">添付の項目に戻す</button>
           <button class="primary-btn" onclick="saveConfirmationBase()">保存する</button>
+        </div>
+        <div>
+          <strong>確認結果表プレビュー</strong>
+          <div id="confirmationBasePreview" style="margin-top:10px;"></div>
         </div>
       </div>
     </section>
@@ -1542,6 +1546,7 @@
     const bankInfoInput = document.getElementById("bankInfoInput");
     const confirmationOptionsInput = document.getElementById("confirmationOptionsInput");
     const confirmationBaseInput = document.getElementById("confirmationBaseInput");
+    const confirmationBasePreview = document.getElementById("confirmationBasePreview");
     const discordNotifyDateInput = document.getElementById("discordNotifyDateInput");
     const discordNotificationListBody = document.getElementById("discordNotificationListBody");
 
@@ -3818,6 +3823,9 @@ function firstInvoiceDate(item) {
           const rows = (group.rows || []).map((row) => row.label || row).filter(Boolean).join("\n");
           return `＜${group.section}＞\n${rows}`;
         }).join("\n\n");
+      }
+      if (confirmationBasePreview) {
+        confirmationBasePreview.innerHTML = confirmationTableHtml({ confirmationTemplate: {} });
       }
     }
 
