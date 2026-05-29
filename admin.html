@@ -1580,6 +1580,7 @@
 
     let currentUser = null;
     let membersCache = [];
+    let loginUsersCache = {};
     let invoicesCache = {};
     let announcementsCache = {};
     let memberSettingsCache = {};
@@ -1624,6 +1625,7 @@
       if (!user) {
         currentUser = null;
         membersCache = [];
+        loginUsersCache = {};
         invoicesCache = {};
         announcementsCache = {};
         memberSettingsCache = {};
@@ -1690,6 +1692,7 @@
 
         const membersRaw = membersSnap.val() || {};
         const usersRaw = usersSnap.val() || {};
+        loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
         announcementsCache = announcementsSnap.val() || {};
@@ -1851,6 +1854,56 @@
       }
     }
 
+    async function activatePendingMemberFromAdmin(key) {
+      const pending = pendingMembersCache?.[key];
+      if (!pending) return;
+
+      const email = String(pending.email || "").trim().toLowerCase();
+      const matchedEntry = Object.entries(loginUsersCache || {}).find(([, user]) => {
+        return String(user?.email || "").trim().toLowerCase() === email;
+      });
+
+      if (!matchedEntry) {
+        showError(appError, "この会員のUIDがまだ取得できていません。会員に一度ログインを試してもらってください。");
+        return;
+      }
+
+      const [uid, existingUser] = matchedEntry;
+      const ok = confirm(`${pending.name || email} を本登録しますか？`);
+      if (!ok) return;
+
+      try {
+        const now = Date.now();
+        await update(ref(db), {
+          [`members/${uid}`]: true,
+          [`memberSettings/${uid}`]: {
+            managementNumber: pending.managementNumber || "",
+            planType: pending.planType || "",
+            driveBaseUrl: pending.driveBaseUrl || "",
+            discordWebhookUrl: pending.discordWebhookUrl || "",
+            pendingEmailKey: key,
+            activatedAt: now,
+            updatedAt: now,
+            updatedBy: currentUser?.uid || ""
+          },
+          [`loginUsers/${uid}`]: {
+            uid,
+            name: pending.name || existingUser?.name || "",
+            email,
+            role: "member",
+            createdAt: existingUser?.createdAt || now,
+            lastLoginAt: existingUser?.lastLoginAt || now
+          },
+          [`pendingMembers/${key}`]: null
+        });
+
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "会員の本登録に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     function renderPendingMembers() {
       const pendingMembers = Object.entries(pendingMembersCache || {})
         .map(([key, value]) => ({ ...value, key }))
@@ -1870,6 +1923,7 @@
           <td>${member.discordWebhookUrl ? '<span class="status-pill blue">設定済み</span>' : '<span class="status-pill gray">未設定</span>'}</td>
           <td>${escapeHtml(formatDateTime(member.createdAt))}</td>
           <td>
+            <button class="primary-btn" onclick="activatePendingMemberFromAdmin('${escapeAttr(member.key)}')">本登録</button>
             <button class="mini-btn" onclick="openPendingMemberEdit('${escapeAttr(member.key)}')">編集</button>
             <button class="danger-btn" onclick="deletePendingMember('${escapeAttr(member.key)}')">削除</button>
           </td>
@@ -4168,6 +4222,7 @@ function firstInvoiceDate(item) {
     window.openMemberManagementEdit = openMemberManagementEdit;
     window.openPendingMemberEdit = openPendingMemberEdit;
     window.deletePendingMember = deletePendingMember;
+    window.activatePendingMemberFromAdmin = activatePendingMemberFromAdmin;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
