@@ -3031,7 +3031,7 @@
         }
       } catch (error) {
         console.error(error);
-        showError(appError, "Discord通知の送信に失敗しました。GASまたはWebhook URLを確認してください。");
+        showError(appError, `Discord通知の送信に失敗しました。${error && error.message ? error.message : "GASまたはWebhook URLを確認してください。"}`);
       }
     }
 
@@ -3063,7 +3063,14 @@
         })
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result = {};
+      try {
+        result = JSON.parse(responseText || "{}");
+      } catch (error) {
+        throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
+      }
+
       if (!result.ok) {
         throw new Error(result.error || "Discord通知に失敗しました。");
       }
