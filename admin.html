@@ -962,7 +962,8 @@
           </label>
         </div>
         <div class="announcement-actions">
-          <button class="primary-btn" type="submit">仮登録する</button>
+          <button id="pendingMemberSubmitBtn" class="primary-btn" type="submit">仮登録する</button>
+          <button id="pendingMemberCancelBtn" class="secondary-btn hidden" type="button">編集をキャンセル</button>
         </div>
       </form>
       <div class="table-wrap inquiry-table-wrap">
@@ -974,6 +975,7 @@
               <th>メール</th>
               <th>プラン</th>
               <th>登録日</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="pendingMemberListBody"></tbody>
@@ -1395,6 +1397,8 @@
     const pendingMemberManagementNumber = document.getElementById("pendingMemberManagementNumber");
     const pendingMemberPlanType = document.getElementById("pendingMemberPlanType");
     const pendingMemberDriveBaseUrl = document.getElementById("pendingMemberDriveBaseUrl");
+    const pendingMemberSubmitBtn = document.getElementById("pendingMemberSubmitBtn");
+    const pendingMemberCancelBtn = document.getElementById("pendingMemberCancelBtn");
     const memberSearchInput = document.getElementById("memberSearchInput");
 
     const detailMemberName = document.getElementById("detailMemberName");
@@ -1441,6 +1445,7 @@
     let announcementsCache = {};
     let memberSettingsCache = {};
     let pendingMembersCache = {};
+    let activePendingMemberKey = null;
     let companyInfoCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
@@ -1468,6 +1473,7 @@
     memberSearchInput.addEventListener("input", renderMembers);
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
     pendingMemberForm.addEventListener("submit", savePendingMember);
+    pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -1480,6 +1486,7 @@
         announcementsCache = {};
         memberSettingsCache = {};
         pendingMembersCache = {};
+        activePendingMemberKey = null;
         selectedMemberUid = null;
         loginView.classList.remove("hidden");
         appView.classList.add("hidden");
@@ -1610,9 +1617,11 @@
 
       try {
         const key = emailKey(email);
+        const previousKey = activePendingMemberKey;
+        const existing = pendingMembersCache?.[previousKey] || pendingMembersCache?.[key] || {};
         const now = Date.now();
 
-        await set(ref(db, `pendingMembers/${key}`), {
+        const payload = {
           key,
           name,
           email,
@@ -1620,13 +1629,24 @@
           planType,
           driveBaseUrl,
           status: "pending",
-          createdAt: pendingMembersCache?.[key]?.createdAt || now,
+          createdAt: existing.createdAt || now,
           updatedAt: now,
-          createdBy: currentUser?.uid || "",
-          createdByEmail: currentUser?.email || ""
-        });
+          createdBy: existing.createdBy || currentUser?.uid || "",
+          createdByEmail: existing.createdByEmail || currentUser?.email || "",
+          updatedBy: currentUser?.uid || "",
+          updatedByEmail: currentUser?.email || ""
+        };
 
-        pendingMemberForm.reset();
+        if (previousKey && previousKey !== key) {
+          await update(ref(db), {
+            [`pendingMembers/${previousKey}`]: null,
+            [`pendingMembers/${key}`]: payload
+          });
+        } else {
+          await set(ref(db, `pendingMembers/${key}`), payload);
+        }
+
+        resetPendingMemberForm();
         await loadAllData();
       } catch (error) {
         console.error(error);
@@ -1634,12 +1654,56 @@
       }
     }
 
+    function resetPendingMemberForm() {
+      activePendingMemberKey = null;
+      pendingMemberForm.reset();
+      pendingMemberSubmitBtn.textContent = "仮登録する";
+      pendingMemberCancelBtn.classList.add("hidden");
+      pendingMemberEmail.disabled = false;
+    }
+
+    function openPendingMemberEdit(key) {
+      const member = pendingMembersCache?.[key];
+      if (!member) {
+        showError(appError, "編集対象の仮登録データが見つかりません。");
+        return;
+      }
+
+      activePendingMemberKey = key;
+      pendingMemberName.value = member.name || "";
+      pendingMemberEmail.value = member.email || "";
+      pendingMemberManagementNumber.value = member.managementNumber || "";
+      pendingMemberPlanType.value = member.planType || "";
+      pendingMemberDriveBaseUrl.value = member.driveBaseUrl || "";
+      pendingMemberSubmitBtn.textContent = "更新する";
+      pendingMemberCancelBtn.classList.remove("hidden");
+      pendingMemberEmail.disabled = false;
+      pendingMemberForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function deletePendingMember(key) {
+      const member = pendingMembersCache?.[key];
+      if (!member) return;
+      const ok = confirm(`${member.name || member.email || "この仮登録"}を削除しますか？`);
+      if (!ok) return;
+
+      try {
+        await remove(ref(db, `pendingMembers/${key}`));
+        if (activePendingMemberKey === key) resetPendingMemberForm();
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "会員の仮登録削除に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     function renderPendingMembers() {
-      const pendingMembers = Object.values(pendingMembersCache || {})
+      const pendingMembers = Object.entries(pendingMembersCache || {})
+        .map(([key, value]) => ({ ...value, key }))
         .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
 
       if (!pendingMembers.length) {
-        pendingMemberListBody.innerHTML = `<tr><td colspan="5"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
+        pendingMemberListBody.innerHTML = `<tr><td colspan="6"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
         return;
       }
 
@@ -1650,6 +1714,10 @@
           <td>${escapeHtml(member.email || "-")}</td>
           <td>${escapeHtml(planTypeLabel(member.planType))}</td>
           <td>${escapeHtml(formatDateTime(member.createdAt))}</td>
+          <td>
+            <button class="mini-btn" onclick="openPendingMemberEdit('${escapeAttr(member.key)}')">編集</button>
+            <button class="danger-btn" onclick="deletePendingMember('${escapeAttr(member.key)}')">削除</button>
+          </td>
         </tr>
       `).join("");
     }
@@ -3550,6 +3618,8 @@ function firstInvoiceDate(item) {
     window.openShippingInfo = openShippingInfo;
     window.openPreferenceModal = openPreferenceModal;
     window.openMemberManagementEdit = openMemberManagementEdit;
+    window.openPendingMemberEdit = openPendingMemberEdit;
+    window.deletePendingMember = deletePendingMember;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
