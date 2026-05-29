@@ -2602,7 +2602,35 @@
 
           <label>
             確認結果
-            <textarea name="confirmationResult">${escapeHtml(product.confirmationResult || "")}</textarea>
+            <select name="confirmationAppearance">
+              ${confirmationOptionHtml(product.confirmationAppearance)}
+            </select>
+          </label>
+
+          <label>
+            光学コンディション
+            <select name="confirmationOptical">
+              ${confirmationOptionHtml(product.confirmationOptical)}
+            </select>
+          </label>
+
+          <label>
+            動作コンディション
+            <select name="confirmationOperation">
+              ${confirmationOptionHtml(product.confirmationOperation)}
+            </select>
+          </label>
+
+          <label>
+            付属品
+            <select name="confirmationAccessories">
+              ${confirmationOptionHtml(product.confirmationAccessories)}
+            </select>
+          </label>
+
+          <label class="full">
+            確認コメント
+            <textarea name="confirmationComment" placeholder="必要な場合のみ自由コメントを入力">${escapeHtml(product.confirmationComment || product.confirmationResult || "")}</textarea>
           </label>
 
           <label>
@@ -2733,6 +2761,7 @@
 
         if (activeEdit.type === "adminFields") {
           const confirmationDate = getFormValue(formData, "confirmationDate");
+          const confirmationResult = buildConfirmationResult(formData);
           const product = findProduct(activeEdit.uid, activeEdit.productId);
           const member = findMember(activeEdit.uid);
           const shouldNotifyStored = product && !hasValue(product.shootingDate) && hasValue(confirmationDate);
@@ -2741,7 +2770,12 @@
             updatedAt: now,
             confirmationDate,
             shootingDate: confirmationDate,
-            confirmationResult: getFormValue(formData, "confirmationResult"),
+            confirmationResult,
+            confirmationAppearance: getFormValue(formData, "confirmationAppearance"),
+            confirmationOptical: getFormValue(formData, "confirmationOptical"),
+            confirmationOperation: getFormValue(formData, "confirmationOperation"),
+            confirmationAccessories: getFormValue(formData, "confirmationAccessories"),
+            confirmationComment: getFormValue(formData, "confirmationComment"),
             expectedSize: getFormValue(formData, "expectedSize"),
             storageLocation: getFormValue(formData, "storageLocation"),
             folderUrl: getFormValue(formData, "storageLocation"),
@@ -2759,7 +2793,7 @@
                 ...product,
                 confirmationDate,
                 shootingDate: confirmationDate,
-                confirmationResult: getFormValue(formData, "confirmationResult"),
+                confirmationResult,
                 expectedSize: getFormValue(formData, "expectedSize")
               }
             });
@@ -3973,6 +4007,30 @@ function firstInvoiceDate(item) {
 
     function getFormValue(formData, key) {
       return String(formData.get(key) || "").trim();
+    }
+
+    function confirmationOptionHtml(current) {
+      const options = ["", "問題なし", "キズあり", "欠損あり", "カビあり", "曇りあり", "チリあり", "動作確認済み", "不具合あり", "付属品あり", "付属品なし", "その他"];
+      return options.map((option) => {
+        const label = option || "選択してください";
+        return `<option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(label)}</option>`;
+      }).join("");
+    }
+
+    function buildConfirmationResult(formData) {
+      const rows = [
+        ["外観", getFormValue(formData, "confirmationAppearance")],
+        ["光学", getFormValue(formData, "confirmationOptical")],
+        ["動作", getFormValue(formData, "confirmationOperation")],
+        ["付属品", getFormValue(formData, "confirmationAccessories")]
+      ]
+        .filter(([, value]) => hasValue(value))
+        .map(([label, value]) => `${label}：${value}`);
+
+      const comment = getFormValue(formData, "confirmationComment");
+      if (comment) rows.push(`コメント：${comment}`);
+
+      return rows.join("\n");
     }
 
     function formatShippingInfo(value) {
