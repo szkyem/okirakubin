@@ -1256,7 +1256,7 @@
                 <td class="group-cell" rowspan="2">送料</td>
                 <td>国内送料</td>
                 <td>1,000円〜</td>
-                <td>運賃表による。発送情報の値段を請求へ反映</td>
+                <td>運賃表による。発送情報の料金を請求へ反映</td>
               </tr>
               <tr>
                 <td>海外送料（作業代）</td>
@@ -2140,6 +2140,7 @@
                   <th>情報</th>
                   <th>こだわり欄</th>
                   <th>写真撮影日</th>
+                  <th>料金</th>
                 </tr>
               </thead>
               <tbody>
@@ -2151,6 +2152,7 @@
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
                     <td>${escapeHtml(product.shootingDate || "-")}</td>
+                    <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -2173,6 +2175,7 @@
                   <th>商品情報</th>
                   <th>発送情報</th>
                   <th>状態</th>
+                  <th>料金</th>
                   <th>発送依頼日時</th>
                 </tr>
               </thead>
@@ -2186,6 +2189,7 @@
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${shippingInfoButtonHtml(member.uid, product)}</td>
                     <td>${shippingStatusCellHtml(product, "unshipped")}</td>
+                    <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${escapeHtml(productTimestampText(product.shippingRequestedAt || product.shippingRequestAt || product.shipmentRequestedAt || product.updatedAt || timestampFromId(product.shipmentGroupId)))}</td>
                   </tr>
                 `).join("")}
@@ -2215,6 +2219,7 @@
                 <th>商品情報</th>
                 <th>発送情報</th>
                 <th>状態</th>
+                <th>料金</th>
               </tr>
             </thead>
             <tbody>
@@ -2227,6 +2232,7 @@
                   <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                   <td>${shippingInfoButtonHtml(member.uid, product)}</td>
                   <td>${shippingStatusCellHtml(product, "shipped")}</td>
+                  <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                 </tr>
               `).join("")}
             </tbody>
@@ -2606,7 +2612,7 @@
             <div class="info-label">発送サイズ</div>
             <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
 
-            <div class="info-label">値段</div>
+            <div class="info-label">料金</div>
             <div class="info-value">${escapeHtml(product.shippingPrice || "-")}</div>
 
             <div class="info-label">発送日</div>
@@ -2631,6 +2637,126 @@
       `;
 
       infoModalBackdrop.classList.add("show");
+    }
+
+    function openFeeDetailModal(uid, productId) {
+      const member = findMember(uid);
+      const product = findProduct(uid, productId);
+
+      if (!member || !product) return;
+
+      infoModalTitle.textContent = "料金詳細";
+      infoModalBody.innerHTML = feeDetailHtml(member, product);
+      infoModalBackdrop.classList.add("show");
+    }
+
+    function feeDetailHtml(member, product) {
+      const rows = [
+        feeDetailLine(member, product, "inspection"),
+        feeDetailLine(member, product, "shipping")
+      ];
+
+      return `
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>商品情報</span>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">商品名</div>
+            <div class="info-value">${escapeHtml(product.name || "-")}</div>
+
+            <div class="info-label">ナンバリング</div>
+            <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>対象日</th>
+                <th>請求月</th>
+                <th>料金</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => `
+                <tr>
+                  <td>${escapeHtml(row.label)}</td>
+                  <td>${escapeHtml(row.date)}</td>
+                  <td>${escapeHtml(row.month)}</td>
+                  <td>${row.amount === "-" ? "-" : `${yen(row.amount)}円`}</td>
+                  <td><span class="status-pill ${row.statusClass}">${escapeHtml(row.status)}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function feeDetailLine(member, product, type) {
+      const isInspection = type === "inspection";
+      const date = isInspection ? product.shootingDate : product.shippedDate;
+      const month = hasValue(date) ? String(date).slice(0, 7) : "";
+      const invoiceItem = findInvoiceItem(member.uid, month, product.id);
+      const billedAmount = invoiceItem
+        ? isInspection ? invoiceItem.inspectionFee : invoiceItem.shippingFee
+        : null;
+      const isBilled = billedAmount !== null && billedAmount !== undefined && billedAmount !== "-";
+
+      if (isBilled) {
+        return {
+          label: isInspection ? "検品代金" : "送料",
+          date: date || "-",
+          month: month || "-",
+          amount: feeValue(billedAmount),
+          status: "請求済み",
+          statusClass: "blue"
+        };
+      }
+
+      if (isInspection) {
+        const hasInspection = hasValue(product.shootingDate);
+        return {
+          label: "検品代金",
+          date: product.shootingDate || "-",
+          month: month || "-",
+          amount: hasInspection ? inspectionFeeFor(product, member) : "-",
+          status: hasInspection ? "請求予定" : "-",
+          statusClass: hasInspection ? "yellow" : "gray"
+        };
+      }
+
+      const hasShipping = hasValue(product.shippedDate) || hasValue(product.shippingRequest);
+      const shippingMonth = hasValue(product.shippedDate) ? String(product.shippedDate).slice(0, 7) : "-";
+      return {
+        label: "送料",
+        date: product.shippedDate || "-",
+        month: shippingMonth,
+        amount: hasShipping ? scheduledShippingFeeFor(member, product) : "-",
+        status: hasShipping ? "請求予定" : "-",
+        statusClass: hasShipping ? "yellow" : "gray"
+      };
+    }
+
+    function findInvoiceItem(uid, month, productId) {
+      if (!month) return null;
+      const invoice = invoicesCache?.[uid]?.[month];
+      if (!invoice) return null;
+      return Object.values(invoice.items || {}).find((item) => item.productId === productId) || null;
+    }
+
+    function scheduledShippingFeeFor(member, product) {
+      if (product.shippedDate && shipmentDisplayGroupKey(product)) {
+        const month = String(product.shippedDate).slice(0, 7);
+        const chargedIds = chargedShippingProductIds(member.products, month);
+        if (!chargedIds.has(product.id)) return 0;
+      }
+
+      return shippingFeeFor(product, member);
     }
 
     function shipmentProductsFor(member, product) {
@@ -2850,7 +2976,7 @@
           </label>
 
           <label>
-            値段
+            料金
             <input name="shippingPrice" type="number" min="0" value="${escapeAttr(hasValue(initialShippingPrice) ? initialShippingPrice : "")}" />
           </label>
 
@@ -2860,7 +2986,7 @@
           </label>
         </div>
 
-        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から値段を自動入力します。発送サイズで海外発送を選ぶと海外発送固定料金、着払い発送は0円です。</p>
+        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から料金を自動入力します。発送サイズで海外発送を選ぶと海外発送固定料金、着払い発送は0円です。</p>
 
         <div class="modal-actions">
           <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
@@ -4205,7 +4331,7 @@ function firstInvoiceDate(item) {
           .sort((a, b) => String(b.shippedDate || "").localeCompare(String(a.shippedDate || "")));
 
         const rows = [
-          ["商品名", "ナンバリング", "発送サイズ", "値段"],
+          ["商品名", "ナンバリング", "発送サイズ", "料金"],
           ...products.map((product) => [
             product.name || "",
             product.numbering || "",
@@ -4248,6 +4374,7 @@ function firstInvoiceDate(item) {
     window.openMemberProxyEdit = openMemberProxyEdit;
     window.openInfoModal = openInfoModal;
     window.openShippingInfo = openShippingInfo;
+    window.openFeeDetailModal = openFeeDetailModal;
     window.openPreferenceModal = openPreferenceModal;
     window.openMemberManagementEdit = openMemberManagementEdit;
     window.openPendingMemberEdit = openPendingMemberEdit;

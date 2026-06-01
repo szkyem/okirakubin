@@ -437,6 +437,25 @@ const database = getDatabase(
   "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app"
 );
 
+const PRICE_TABLE = {
+  inspectionBase: 1300,
+  inspectionOnly: 1000,
+  additionalKitItem: 300,
+  photoOnly: 500,
+  returnHandling: 700,
+  video: 500,
+  overseasHandling: 500
+};
+
+const SHIPPING_RATE_TABLE = {
+  "60": { shizuoka: 1000, main: 1050, tohokuChugokuShikoku: 1150, kyushu: 1250, okinawa: 1450, hokkaido: 1550 },
+  "80": { shizuoka: 1250, main: 1300, tohokuChugokuShikoku: 1350, kyushu: 1450, okinawa: 1750, hokkaido: 1780 },
+  "100": { shizuoka: 1550, main: 1600, tohokuChugokuShikoku: 1700, kyushu: 1800, okinawa: 2150, hokkaido: 2200 },
+  "120": { shizuoka: 1900, main: 1950, tohokuChugokuShikoku: 2000, kyushu: 2100, okinawa: 2650, hokkaido: 2650 },
+  "140": { shizuoka: 2750, main: 2800, tohokuChugokuShikoku: 3300, kyushu: 3400, okinawa: 4400, hokkaido: 4950 },
+  "140以上": { shizuoka: 2750, main: 2800, tohokuChugokuShikoku: 3300, kyushu: 3400, okinawa: 4400, hokkaido: 4950 }
+};
+
 let currentUser = null;
 let activeMemberUid = null;
 let isAdminProxyMode = false;
@@ -1178,7 +1197,7 @@ function productTable(products, options = {}) {
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
-            ${isStored ? "<th>撮影日</th>" : ""}
+            ${isStored ? "<th>撮影日</th><th>料金</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
         </thead>
@@ -1209,7 +1228,7 @@ function productRow(product, mode = "registered") {
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
-      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td>` : ""}
+      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td><td>${feeButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
   `;
@@ -1217,10 +1236,10 @@ function productRow(product, mode = "registered") {
 
 function shippingMetaHeaderHtml() {
   if (shippingView === "shipped") {
-    return "<th>発送日</th><th>追跡番号</th><th>発送サイズ</th><th>値段</th>";
+    return "<th>発送日</th><th>追跡番号</th><th>発送サイズ</th><th>料金</th>";
   }
 
-  return "<th>発送日</th><th>お問い合わせ</th>";
+  return "<th>発送日</th><th>お問い合わせ</th><th>料金</th>";
 }
 
 function shippingMetaCellsHtml(product) {
@@ -1230,14 +1249,19 @@ function shippingMetaCellsHtml(product) {
       <td><strong>${dash || escapeHtml(product.shippedDate || "-")}</strong></td>
       <td><strong>${dash || trackingNumberHtml(product)}</strong></td>
       <td><strong>${dash || escapeHtml(product.shippingSize || "-")}</strong></td>
-      <td><strong>${dash || escapeHtml(product.shippingPrice || "-")}</strong></td>
+      <td>${dash || feeButtonHtml(product)}</td>
     `;
   }
 
   return `
     <td><strong>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</strong></td>
     <td>${inquiryControl(product)}</td>
+    <td>${feeButtonHtml(product)}</td>
   `;
+}
+
+function feeButtonHtml(product) {
+  return `<button class="secondary compact-btn" type="button" onclick="showFeeDetail('${escapeAttr(product.id)}')">詳細</button>`;
 }
 
 function bulkActionBar() {
@@ -1505,6 +1529,13 @@ window.showInfo = function(productId) {
   if (!product) return;
 
   openModal("商品情報", productDetailHtml(product), true);
+};
+
+window.showFeeDetail = function(productId) {
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) return;
+
+  openModal("料金詳細", feeDetailHtml(product), true);
 };
 
 window.openProductEdit = function(productId) {
@@ -2093,6 +2124,202 @@ function memberConfirmationRows() {
   ];
 }
 
+function feeDetailHtml(product) {
+  const rows = [
+    feeDetailLine(product, "inspection"),
+    feeDetailLine(product, "shipping")
+  ];
+
+  return `
+    <div class="detail-section">
+      <div class="detail-heading">商品情報</div>
+      <div class="detail-grid">
+        <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
+        <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="products-table">
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>対象日</th>
+            <th>請求月</th>
+            <th>料金</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.label)}</td>
+              <td>${escapeHtml(row.date)}</td>
+              <td>${escapeHtml(row.month)}</td>
+              <td>${row.amount === "-" ? "-" : `${yen(row.amount)}円`}</td>
+              <td>${escapeHtml(row.status)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function feeDetailLine(product, type) {
+  const isInspection = type === "inspection";
+  const date = isInspection ? product.shootingDate : product.shippedDate;
+  const month = hasValue(date) ? String(date).slice(0, 7) : "";
+  const invoiceItem = findInvoiceItem(month, product.id);
+  const billedAmount = invoiceItem
+    ? isInspection ? invoiceItem.inspectionFee : invoiceItem.shippingFee
+    : null;
+  const isBilled = billedAmount !== null && billedAmount !== undefined && billedAmount !== "-";
+
+  if (isBilled) {
+    return {
+      label: isInspection ? "検品代金" : "送料",
+      date: date || "-",
+      month: month || "-",
+      amount: feeValue(billedAmount),
+      status: "請求済み"
+    };
+  }
+
+  if (isInspection) {
+    const hasInspection = hasValue(product.shootingDate);
+    return {
+      label: "検品代金",
+      date: product.shootingDate || "-",
+      month: month || "-",
+      amount: hasInspection ? inspectionFeeFor(product) : "-",
+      status: hasInspection ? "請求予定" : "-"
+    };
+  }
+
+  const hasShipping = hasValue(product.shippedDate) || hasValue(product.shippingRequest);
+  const shippingMonth = hasValue(product.shippedDate) ? String(product.shippedDate).slice(0, 7) : "-";
+  return {
+    label: "送料",
+    date: product.shippedDate || "-",
+    month: shippingMonth,
+    amount: hasShipping ? scheduledShippingFeeFor(product) : "-",
+    status: hasShipping ? "請求予定" : "-"
+  };
+}
+
+function findInvoiceItem(month, productId) {
+  if (!month) return null;
+  const invoice = invoicesCache?.[month];
+  if (!invoice) return null;
+  return Object.values(invoice.items || {}).find((item) => item.productId === productId) || null;
+}
+
+function inspectionFeeFor(product) {
+  if (product.workRequest === "保管のみ") return 0;
+  if (product.workRequest === "返品対応" || shippingKey(product.shippingRequest) === "return") return PRICE_TABLE.returnHandling;
+  if (product.workRequest === "写真のみ") return PRICE_TABLE.photoOnly;
+  if (product.workRequest === "検品のみ") return PRICE_TABLE.inspectionOnly;
+
+  let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
+
+  if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
+    fee += PRICE_TABLE.video;
+  }
+
+  return fee;
+}
+
+function scheduledShippingFeeFor(product) {
+  if (product.shippedDate && shipmentDisplayGroupKey(product)) {
+    const month = String(product.shippedDate).slice(0, 7);
+    const chargedIds = chargedShippingProductIds(productsCache, month);
+    if (!chargedIds.has(product.id)) return 0;
+  }
+
+  return shippingFeeFor(product);
+}
+
+function shippingFeeFor(product) {
+  if (product.shippingStatus === "cash_on_delivery") return 0;
+  if (hasValue(product.shippingPrice)) return numberValue(product.shippingPrice);
+
+  const tablePrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus);
+  if (hasValue(tablePrice)) return numberValue(tablePrice);
+
+  return 0;
+}
+
+function autoShippingPriceFor(product, size, status = product?.shippingStatus) {
+  if (status === "cash_on_delivery") return 0;
+
+  const normalizedSize = String(size || "").trim();
+  if (!normalizedSize) return "";
+  if (normalizedSize === "海外発送") return PRICE_TABLE.overseasHandling;
+
+  const rates = SHIPPING_RATE_TABLE[normalizedSize];
+  const region = shippingRegionFor(product?.shippingDestination?.prefecture);
+  if (!rates || !region || !hasValue(rates[region])) return "";
+
+  return rates[region];
+}
+
+function chargedShippingProductIds(products, month) {
+  const groups = new Map();
+  const chargedIds = new Set();
+
+  products
+    .filter((product) => matchesMonth(product.shippedDate, month))
+    .forEach((product) => {
+      const groupKey = shipmentDisplayGroupKey(product) || product.id;
+
+      if (!groups.has(groupKey)) groups.set(groupKey, []);
+      groups.get(groupKey).push(product);
+    });
+
+  groups.forEach((groupProducts) => {
+    const first = groupProducts
+      .slice()
+      .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }))[0];
+
+    if (first?.id) chargedIds.add(first.id);
+  });
+
+  return chargedIds;
+}
+
+function shippingKey(value) {
+  if (value === "国内発送") return "domestic";
+  if (value === "海外発送") return "overseas";
+  if (value === "返品依頼") return "return";
+  return "";
+}
+
+function shippingRegionFor(prefecture) {
+  const value = String(prefecture || "").trim();
+  if (!value) return "";
+  if (value === "静岡県") return "shizuoka";
+  if (value === "北海道") return "hokkaido";
+  if (value === "沖縄県") return "okinawa";
+
+  const kyushu = ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県"];
+  if (kyushu.includes(value)) return "kyushu";
+
+  const tohokuChugokuShikoku = [
+    "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+    "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+    "徳島県", "香川県", "愛媛県", "高知県"
+  ];
+  if (tohokuChugokuShikoku.includes(value)) return "tohokuChugokuShikoku";
+
+  return "main";
+}
+
+function matchesMonth(dateValue, selectedMonth) {
+  if (!dateValue || !selectedMonth) return false;
+  return String(dateValue).slice(0, 7) === selectedMonth;
+}
+
 function shippingDetailHtml(product) {
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
@@ -2217,6 +2444,11 @@ function feeValue(value) {
 
   const cleaned = String(value ?? "").replace(/[^\d.-]/g, "");
   const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function numberValue(value) {
+  const parsed = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
