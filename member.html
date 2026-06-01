@@ -856,6 +856,7 @@ shippingForm.addEventListener("submit", async (event) => {
         shipmentGroupCount,
         shipmentGroupNames,
         shipmentGroupNumberings,
+        shippingRequestedAt: now,
         updatedAt: now
       });
     }));
@@ -1912,19 +1913,35 @@ function confirmationResultDisplayHtml(product) {
     return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
   }
 
-  const groups = [];
-  entries.forEach((entry) => {
-    const sectionName = entry.section || confirmationSectionForLabel(entry.label) || "確認結果";
-    let group = groups.find((item) => item.section === sectionName);
-    if (!group) {
-      group = { section: sectionName, rows: [] };
-      groups.push(group);
-    }
-    group.rows.push({
-      label: entry.label || "-",
-      value: entry.value || "-",
-      comment: entry.comment || entry.defaultComment || "-"
+  const entryByLabel = new Map(entries.map((entry) => [entry.label, entry]));
+  const usedLabels = new Set();
+  const groups = memberConfirmationRows().map((group) => {
+    const rows = group.rows.map((row) => {
+      const entry = entryByLabel.get(row.label);
+      usedLabels.add(row.label);
+      return {
+        label: entry?.label || row.label,
+        value: entry?.value || "-",
+        comment: entry?.comment || entry?.defaultComment || "-"
+      };
     });
+    return { section: group.section, rows };
+  });
+
+  entries
+    .filter((entry) => !usedLabels.has(entry.label))
+    .forEach((entry) => {
+      const sectionName = entry.section || "その他";
+      let group = groups.find((item) => item.section === sectionName);
+      if (!group) {
+        group = { section: sectionName, rows: [] };
+        groups.push(group);
+      }
+      group.rows.push({
+        label: entry.label || "-",
+        value: entry.value || "-",
+        comment: entry.comment || entry.defaultComment || "-"
+      });
   });
 
   const body = groups.map((group) => `
@@ -1962,19 +1979,20 @@ function confirmationResultTextTableHtml(text) {
     .map((group, groupIndex, allGroups) => {
       const sectionMarker = `＜${group.section}＞`;
       const sectionStart = source.indexOf(sectionMarker);
-      if (sectionStart === -1) return null;
 
       const nextSectionStart = allGroups
         .slice(groupIndex + 1)
-        .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, sectionStart + sectionMarker.length))
+        .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, Math.max(sectionStart, 0) + sectionMarker.length))
         .filter((index) => index !== -1)
         .sort((a, b) => a - b)[0];
 
-      const sectionText = source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
+      const sectionText = sectionStart === -1
+        ? ""
+        : source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
       const rows = group.rows
         .map((row, rowIndex) => {
           const rowStart = sectionText.indexOf(row.label);
-          if (rowStart === -1) return null;
+          if (rowStart === -1) return { label: row.label, value: "-", comment: "-" };
 
           const nextRowStart = group.rows
             .slice(rowIndex + 1)
@@ -1986,11 +2004,10 @@ function confirmationResultTextTableHtml(text) {
           const parsed = splitConfirmationResultValue(rawValue);
           return { label: row.label, value: parsed.value, comment: parsed.comment };
         })
-        .filter(Boolean);
 
-      return rows.length ? { section: group.section, rows } : null;
+      return { section: group.section, rows };
     })
-    .filter(Boolean);
+    .filter((group) => group.rows.length);
 
   if (!groups.length) return "";
   return confirmationResultTableHtml(groups);

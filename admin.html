@@ -2100,6 +2100,7 @@
                   <th>作業依頼</th>
                   <th>情報</th>
                   <th>こだわり欄</th>
+                  <th>登録日時</th>
                 </tr>
               </thead>
               <tbody>
@@ -2110,6 +2111,7 @@
                     <td>${escapeHtml(product.workRequest || "-")}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
+                    <td>${escapeHtml(productTimestampText(product.createdAt || timestampFromId(product.id)))}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -2171,6 +2173,7 @@
                   <th>商品情報</th>
                   <th>発送情報</th>
                   <th>状態</th>
+                  <th>発送依頼日時</th>
                 </tr>
               </thead>
               <tbody>
@@ -2183,6 +2186,7 @@
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${shippingInfoButtonHtml(member.uid, product)}</td>
                     <td>${shippingStatusCellHtml(product, "unshipped")}</td>
+                    <td>${escapeHtml(productTimestampText(product.shippingRequestedAt || product.shippingRequestAt || product.shipmentRequestedAt || product.updatedAt || timestampFromId(product.shipmentGroupId)))}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -4429,18 +4433,15 @@ function firstInvoiceDate(item) {
           const rows = group.rows
             .map((row) => {
               const entry = values[row.key];
-              if (!entry) return null;
               usedKeys.add(row.key);
               return {
-                label: entry.label || row.label,
-                value: entry.value || "-",
-                comment: entry.comment || entry.defaultComment || "-"
+                label: entry?.label || row.label,
+                value: entry?.value || "-",
+                comment: entry?.comment || entry?.defaultComment || "-"
               };
             })
-            .filter(Boolean);
-          return rows.length ? { section: group.section, rows } : null;
+          return { section: group.section, rows };
         })
-        .filter(Boolean);
 
       const extraRows = savedEntries
         .filter(([key]) => !usedKeys.has(key))
@@ -4499,19 +4500,20 @@ function firstInvoiceDate(item) {
         .map((group, groupIndex, allGroups) => {
           const sectionMarker = `＜${group.section}＞`;
           const sectionStart = source.indexOf(sectionMarker);
-          if (sectionStart === -1) return null;
 
           const nextSectionStart = allGroups
             .slice(groupIndex + 1)
-            .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, sectionStart + sectionMarker.length))
+            .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, Math.max(sectionStart, 0) + sectionMarker.length))
             .filter((index) => index !== -1)
             .sort((a, b) => a - b)[0];
 
-          const sectionText = source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
+          const sectionText = sectionStart === -1
+            ? ""
+            : source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
           const rows = group.rows
             .map((row, rowIndex) => {
               const rowStart = sectionText.indexOf(row.label);
-              if (rowStart === -1) return null;
+              if (rowStart === -1) return { label: row.label, value: "-", comment: "-" };
 
               const nextRowStart = group.rows
                 .slice(rowIndex + 1)
@@ -4523,11 +4525,10 @@ function firstInvoiceDate(item) {
               const parsed = splitConfirmationResultValue(rawValue, row.options || []);
               return { label: row.label, value: parsed.value, comment: parsed.comment };
             })
-            .filter(Boolean);
 
-          return rows.length ? { section: group.section, rows } : null;
+          return { section: group.section, rows };
         })
-        .filter(Boolean);
+        .filter((group) => group.rows.length);
 
       if (!groups.length) return "";
       return confirmationResultTableHtml(groups);
@@ -4818,6 +4819,15 @@ function firstInvoiceDate(item) {
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       return `${year}/${month}/${day}`;
+    }
+
+    function productTimestampText(value) {
+      return formatDateTime(value);
+    }
+
+    function timestampFromId(value) {
+      const match = String(value || "").match(/^(\d{10,})/);
+      return match ? Number(match[1]) : "";
     }
 
     function escapeHtml(value) {
