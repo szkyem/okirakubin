@@ -1179,7 +1179,7 @@ function productTable(products, options = {}) {
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
             ${isStored ? "<th>撮影日</th>" : ""}
-            ${isShipping ? `<th>発送日</th><th>状態</th><th>${shippingView === "shipped" ? "追跡番号" : "お問い合わせ"}</th>` : ""}
+            ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
         </thead>
         <tbody>
@@ -1210,8 +1210,33 @@ function productRow(product, mode = "registered") {
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td>` : ""}
-      ${isShipping ? `<td>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</td><td>${shippingStatusText(product)}</td><td>${shippingView === "shipped" ? trackingNumberHtml(product) : inquiryControl(product)}</td>` : ""}
+      ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
+  `;
+}
+
+function shippingMetaHeaderHtml() {
+  if (shippingView === "shipped") {
+    return "<th>発送日</th><th>追跡番号</th><th>発送サイズ</th><th>値段</th>";
+  }
+
+  return "<th>発送日</th><th>お問い合わせ</th>";
+}
+
+function shippingMetaCellsHtml(product) {
+  if (shippingView === "shipped") {
+    const dash = bundleChildDash(product);
+    return `
+      <td><strong>${dash || escapeHtml(product.shippedDate || "-")}</strong></td>
+      <td><strong>${dash || trackingNumberHtml(product)}</strong></td>
+      <td><strong>${dash || escapeHtml(product.shippingSize || "-")}</strong></td>
+      <td><strong>${dash || escapeHtml(product.shippingPrice || "-")}</strong></td>
+    `;
+  }
+
+  return `
+    <td><strong>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</strong></td>
+    <td>${inquiryControl(product)}</td>
   `;
 }
 
