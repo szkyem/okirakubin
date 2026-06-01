@@ -4420,7 +4420,7 @@ function firstInvoiceDate(item) {
       });
 
       if (!savedEntries.length) {
-        return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+        return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
       }
 
       const usedKeys = new Set();
@@ -4461,9 +4461,94 @@ function firstInvoiceDate(item) {
       });
 
       if (!groups.length) {
-        return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+        return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
       }
 
+      const body = groups.map((group) => `
+        <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+        ${group.rows.map((row) => `
+          <tr>
+            <td class="confirmation-item-cell">${escapeHtml(row.label || "-")}</td>
+            <td>${escapeHtml(row.value || "-")}</td>
+            <td>${escapeHtml(row.comment || "-")}</td>
+          </tr>
+        `).join("")}
+      `).join("");
+
+      return `
+        <div class="confirmation-table-wrap">
+          <table class="confirmation-table">
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>結果</th>
+                <th>コメント</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function confirmationResultTextTableHtml(text) {
+      const source = String(text || "").replace(/\s+/g, " ").trim();
+      if (!source || source === "-") return "";
+
+      const groups = confirmationRows()
+        .map((group, groupIndex, allGroups) => {
+          const sectionMarker = `＜${group.section}＞`;
+          const sectionStart = source.indexOf(sectionMarker);
+          if (sectionStart === -1) return null;
+
+          const nextSectionStart = allGroups
+            .slice(groupIndex + 1)
+            .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, sectionStart + sectionMarker.length))
+            .filter((index) => index !== -1)
+            .sort((a, b) => a - b)[0];
+
+          const sectionText = source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
+          const rows = group.rows
+            .map((row, rowIndex) => {
+              const rowStart = sectionText.indexOf(row.label);
+              if (rowStart === -1) return null;
+
+              const nextRowStart = group.rows
+                .slice(rowIndex + 1)
+                .map((nextRow) => sectionText.indexOf(nextRow.label, rowStart + row.label.length))
+                .filter((index) => index !== -1)
+                .sort((a, b) => a - b)[0];
+
+              const rawValue = sectionText.slice(rowStart + row.label.length, nextRowStart || sectionText.length).trim();
+              const parsed = splitConfirmationResultValue(rawValue, row.options || []);
+              return { label: row.label, value: parsed.value, comment: parsed.comment };
+            })
+            .filter(Boolean);
+
+          return rows.length ? { section: group.section, rows } : null;
+        })
+        .filter(Boolean);
+
+      if (!groups.length) return "";
+      return confirmationResultTableHtml(groups);
+    }
+
+    function splitConfirmationResultValue(rawValue, options) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { value: "-", comment: "-" };
+
+      const candidates = [...(options || []), "-"]
+        .filter(Boolean)
+        .sort((a, b) => String(b).length - String(a).length);
+
+      const matched = candidates.find((option) => value.startsWith(option));
+      if (!matched) return { value, comment: "-" };
+
+      const comment = value.slice(String(matched).length).trim();
+      return { value: matched, comment: comment || "-" };
+    }
+
+    function confirmationResultTableHtml(groups) {
       const body = groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
         ${group.rows.map((row) => `

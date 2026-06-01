@@ -1903,19 +1903,18 @@ function productDetailHtml(product) {
 
 function confirmationResultDisplayHtml(product) {
   const values = product.confirmationTemplate || {};
-  const sectionMap = confirmationSectionMapFromText(product.confirmationResult);
   const entries = Object.values(values).filter((entry) => {
     if (!entry || typeof entry !== "object") return false;
     return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
   });
 
   if (!entries.length) {
-    return escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+    return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
   }
 
   const groups = [];
   entries.forEach((entry) => {
-    const sectionName = entry.section || sectionMap.get(entry.label) || "確認結果";
+    const sectionName = entry.section || confirmationSectionForLabel(entry.label) || "確認結果";
     let group = groups.find((item) => item.section === sectionName);
     if (!group) {
       group = { section: sectionName, rows: [] };
@@ -1955,52 +1954,102 @@ function confirmationResultDisplayHtml(product) {
   `;
 }
 
-function confirmationSectionMapFromText(text) {
-  const map = new Map();
-  let currentSection = "";
+function confirmationResultTextTableHtml(text) {
+  const source = String(text || "").replace(/\s+/g, " ").trim();
+  if (!source || source === "-") return "";
 
-  String(text || "").split(/\r?\n/).forEach((rawLine) => {
-    const line = rawLine.trim();
-    if (!line) return;
+  const groups = memberConfirmationRows()
+    .map((group, groupIndex, allGroups) => {
+      const sectionMarker = `＜${group.section}＞`;
+      const sectionStart = source.indexOf(sectionMarker);
+      if (sectionStart === -1) return null;
 
-    const sectionMatch = line.match(/^＜(.+)＞$/) || line.match(/^<(.+)>$/);
-    if (sectionMatch) {
-      currentSection = sectionMatch[1].trim();
-      return;
-    }
+      const nextSectionStart = allGroups
+        .slice(groupIndex + 1)
+        .map((nextGroup) => source.indexOf(`＜${nextGroup.section}＞`, sectionStart + sectionMarker.length))
+        .filter((index) => index !== -1)
+        .sort((a, b) => a - b)[0];
 
-    if (!currentSection) return;
-    Object.values(currentProductConfirmationLabels()).forEach((label) => {
-      if (line.startsWith(label) && !map.has(label)) {
-        map.set(label, currentSection);
-      }
-    });
-  });
+      const sectionText = source.slice(sectionStart + sectionMarker.length, nextSectionStart || source.length).trim();
+      const rows = group.rows
+        .map((row, rowIndex) => {
+          const rowStart = sectionText.indexOf(row.label);
+          if (rowStart === -1) return null;
 
-  return map;
+          const nextRowStart = group.rows
+            .slice(rowIndex + 1)
+            .map((nextRow) => sectionText.indexOf(nextRow.label, rowStart + row.label.length))
+            .filter((index) => index !== -1)
+            .sort((a, b) => a - b)[0];
+
+          const rawValue = sectionText.slice(rowStart + row.label.length, nextRowStart || sectionText.length).trim();
+          const parsed = splitConfirmationResultValue(rawValue);
+          return { label: row.label, value: parsed.value, comment: parsed.comment };
+        })
+        .filter(Boolean);
+
+      return rows.length ? { section: group.section, rows } : null;
+    })
+    .filter(Boolean);
+
+  if (!groups.length) return "";
+  return confirmationResultTableHtml(groups);
 }
 
-function currentProductConfirmationLabels() {
-  return {
-    exteriorScratch: "キズ、凹み、塗装剥がれは",
-    exteriorDamage: "欠損や破損は",
-    exteriorOther: "その他は",
-    opticalMirror: "ミラー部は",
-    opticalSensor: "センサー部は",
-    opticalFinder: "ファインダー部は",
-    opticalLens: "レンズ部は",
-    opticalOther: "その他は",
-    operationCheck: "動作確認は",
-    photoShoot: "写真撮影は",
-    videoShoot: "動画撮影は",
-    zoom: "ズームは",
-    flash: "フラッシュは",
-    controlWheel: "コントロールホイールは",
-    cursorButton: "カーソルボタンは",
-    save: "保存は",
-    operationOther: "その他は",
-    accessories: "付属品"
-  };
+function splitConfirmationResultValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return { value: "-", comment: "-" };
+
+  const candidates = ["ほとんどない", "使用感あり", "欠損なし", "破損なし", "汚れなし", "曇りあり", "カビ", "チリの混入小", "雨玉にきず", "コーティング剥がれあり", "した", "可能", "できる", "OK", "効かない", "ない", "ある", "良好", "要確認", "その他", "-"]
+    .sort((a, b) => b.length - a.length);
+
+  const matched = candidates.find((option) => value.startsWith(option));
+  if (!matched) return { value, comment: "-" };
+
+  const comment = value.slice(matched.length).trim();
+  return { value: matched, comment: comment || "-" };
+}
+
+function confirmationResultTableHtml(groups) {
+  const body = groups.map((group) => `
+    <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+    ${group.rows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.label || "-")}</td>
+        <td>${escapeHtml(row.value || "-")}</td>
+        <td>${escapeHtml(row.comment || "-")}</td>
+      </tr>
+    `).join("")}
+  `).join("");
+
+  return `
+    <div class="confirmation-table-wrap">
+      <table class="confirmation-table">
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>結果</th>
+            <th>コメント</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function confirmationSectionForLabel(label) {
+  const group = memberConfirmationRows().find((item) => item.rows.some((row) => row.label === label));
+  return group ? group.section : "";
+}
+
+function memberConfirmationRows() {
+  return [
+    { section: "外観コンディション", rows: [{ label: "キズ、凹み、塗装剥がれは" }, { label: "欠損や破損は" }, { label: "その他は" }] },
+    { section: "光学コンディション", rows: [{ label: "ミラー部は" }, { label: "センサー部は" }, { label: "ファインダー部は" }, { label: "レンズ部は" }, { label: "その他は" }] },
+    { section: "動作コンディション", rows: [{ label: "動作確認は" }, { label: "写真撮影は" }, { label: "動画撮影は" }, { label: "ズームは" }, { label: "フラッシュは" }, { label: "コントロールホイールは" }, { label: "カーソルボタンは" }, { label: "保存は" }, { label: "その他は" }] },
+    { section: "その他", rows: [{ label: "付属品" }] }
+  ];
 }
 
 function shippingDetailHtml(product) {
