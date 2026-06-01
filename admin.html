@@ -2581,6 +2581,19 @@
 
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>商品情報</span>
+          </div>
+          <div class="info-grid">
+            <div class="info-label">商品名</div>
+            <div class="info-value">${escapeHtml(product.name || "-")}</div>
+
+            <div class="info-label">ナンバリング</div>
+            <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
+          </div>
+        </div>
+
         <div class="info-box highlight">
           <div class="info-box-title">
             <span>発送状態</span>
