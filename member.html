@@ -1896,7 +1896,6 @@ function productDetailHtml(product) {
         <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
-        <div class="detail-label">保管場所</div><div>${linkOrDash(product.storageLocation || product.folderUrl)}</div>
       </div>
     </div>
   `;
