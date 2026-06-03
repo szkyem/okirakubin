@@ -2543,7 +2543,7 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${hasValue(product.note) ? `
+            ${member.planType === "consulting" && hasValue(product.note) ? `
               <div class="info-label">備考欄</div>
               <div class="info-value">${lineBreaks(product.note)}</div>
             ` : ""}
@@ -2808,7 +2808,7 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${hasValue(product.note) ? `
+            ${member.planType === "consulting" && hasValue(product.note) ? `
               <div class="info-label">備考欄</div>
               <div class="info-value">${lineBreaks(product.note)}</div>
             ` : ""}
