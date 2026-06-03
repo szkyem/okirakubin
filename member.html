@@ -1951,10 +1951,11 @@ function productDetailHtml(product) {
 
 function confirmationResultDisplayHtml(product) {
   const values = product.confirmationTemplate || {};
-  const entries = Object.values(values).filter((entry) => {
+  const entries = Object.entries(values).filter(([key, entry]) => {
+    if (key === "productNote") return false;
     if (!entry || typeof entry !== "object") return false;
     return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
-  });
+  }).map(([, entry]) => entry);
 
   if (!entries.length) {
     return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");

@@ -4539,13 +4539,13 @@ function firstInvoiceDate(item) {
       return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
     }
 
-    function confirmationRowsForProduct(product) {
+    function confirmationRowsForProduct(product, includeProductNote = false) {
       const groups = confirmationRows().map((group) => ({
         section: group.section,
         rows: [...(group.rows || [])]
       }));
 
-      if (!hasValue(product?.note)) return groups;
+      if (!includeProductNote || !canUseProductNoteInConfirmation(product)) return groups;
 
       let otherGroup = groups.find((group) => group.section === "その他");
       if (!otherGroup) {
@@ -4569,7 +4569,12 @@ function firstInvoiceDate(item) {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
-      return confirmationRowsForProduct(product);
+      return confirmationRowsForProduct(product, Boolean(document.querySelector('[name="confirmation_productNote"]')));
+    }
+
+    function canUseProductNoteInConfirmation(product) {
+      const member = activeEdit?.uid ? findMember(activeEdit.uid) : null;
+      return member?.planType === "consulting" && hasValue(product?.note);
     }
 
     function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
@@ -4582,7 +4587,7 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const groups = confirmationRowsForProduct(product);
+      const groups = confirmationRowsForProduct(product, false);
       const body = groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
         ${group.rows.map((row) => `
@@ -4618,7 +4623,10 @@ function firstInvoiceDate(item) {
 
     function confirmationResultDisplayHtml(product) {
       const values = product.confirmationTemplate || {};
-      const savedEntries = Object.entries(values).filter(([, entry]) => {
+      const productOwner = membersCache.find((member) => member.products.some((item) => item.id === product.id));
+      const canShowProductNote = productOwner?.planType === "consulting";
+      const savedEntries = Object.entries(values).filter(([key, entry]) => {
+        if (key === "productNote" && !canShowProductNote) return false;
         if (!entry || typeof entry !== "object") return false;
         return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
       });
@@ -4878,7 +4886,9 @@ function firstInvoiceDate(item) {
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
 
-      if (!hasValue(product?.note)) return;
+      if (!canUseProductNoteInConfirmation(product)) return;
+
+      ensureProductNoteConfirmationRow(product);
 
       const noteSelect = document.querySelector('[name="confirmation_productNote"]');
       const noteComment = document.querySelector('[name="confirmation_productNote_comment"]');
@@ -4893,6 +4903,32 @@ function firstInvoiceDate(item) {
         noteComment.value = product.note;
         autoResizeTextarea(noteComment);
       }
+    }
+
+    function ensureProductNoteConfirmationRow(product) {
+      if (document.querySelector('[name="confirmation_productNote"]')) return;
+
+      const tbody = document.querySelector(".confirmation-table tbody");
+      if (!tbody) return;
+
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr class="confirmation-section" data-product-note-section>
+          <td colspan="3">＜その他＞</td>
+        </tr>
+        <tr data-product-note-row>
+          <td class="confirmation-item-cell">備考欄</td>
+          <td class="confirmation-select-cell">
+            <select name="confirmation_productNote">
+              ${confirmationOptionHtml("", ["あり。", "なし。"])}
+            </select>
+          </td>
+          <td>
+            <textarea data-confirmation-form-comment name="confirmation_productNote_comment" rows="1" placeholder="コメントが必要な場合のみ記入"></textarea>
+          </td>
+        </tr>
+      `);
+
+      bindAutoResizeTextareas(tbody);
     }
 
     function formatShippingInfo(value) {
