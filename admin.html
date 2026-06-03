@@ -686,11 +686,19 @@
     }
 
     .confirmation-table select,
-    .confirmation-table input {
+    .confirmation-table input,
+    .confirmation-table textarea {
       min-height: 32px;
       padding: 5px 8px;
       border-radius: 6px;
       font-size: 13px;
+    }
+
+    .confirmation-table textarea {
+      min-height: 32px;
+      resize: vertical;
+      overflow: hidden;
+      line-height: 1.45;
     }
 
     .confirmation-item-cell {
@@ -2536,7 +2544,7 @@
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
             <div class="info-label">備考欄</div>
-            <div class="info-value">${escapeHtml(product.note || "-")}</div>
+            <div class="info-value">${lineBreaks(product.note || "-")}</div>
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -2799,7 +2807,7 @@
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
             <div class="info-label">備考欄</div>
-            <div class="info-value">${escapeHtml(product.note || "-")}</div>
+            <div class="info-value">${lineBreaks(product.note || "-")}</div>
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -2900,6 +2908,7 @@
       `;
 
       editModalBackdrop.classList.add("show");
+      bindAutoResizeTextareas(editForm);
     }
 
     function openAdminFieldsEdit(uid, productId) {
@@ -4046,6 +4055,7 @@ function firstInvoiceDate(item) {
       const base = confirmationBaseCache || defaultConfirmationBase();
       if (confirmationBasePreview) {
         confirmationBasePreview.innerHTML = confirmationBaseEditorHtml(base);
+        bindAutoResizeTextareas(confirmationBasePreview);
       }
     }
 
@@ -4126,7 +4136,7 @@ function firstInvoiceDate(item) {
                     <td class="confirmation-select-cell">
                       <input data-confirmation-row-options="${groupIndex}-${rowIndex}" value="${escapeAttr((row.options || []).join(" / "))}" placeholder="例：ある。 / ない。">
                     </td>
-                    <td><input data-confirmation-row-comment="${groupIndex}-${rowIndex}" value="${escapeAttr(row.defaultComment || "")}" placeholder="コメント初期値を入力"></td>
+                    <td><textarea data-confirmation-row-comment="${groupIndex}-${rowIndex}" rows="1" placeholder="コメント初期値を入力">${escapeHtml(row.defaultComment || "")}</textarea></td>
                     <td><button class="danger-btn" type="button" onclick="removeConfirmationRow(${groupIndex},${rowIndex})">削除</button></td>
                   </tr>
                 `).join("")}
@@ -4135,6 +4145,19 @@ function firstInvoiceDate(item) {
           </table>
         </div>
       `;
+    }
+
+    function autoResizeTextarea(textarea) {
+      if (!textarea) return;
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.max(32, textarea.scrollHeight)}px`;
+    }
+
+    function bindAutoResizeTextareas(scope = document) {
+      scope.querySelectorAll("textarea[data-confirmation-row-comment], textarea[data-confirmation-form-comment]").forEach((textarea) => {
+        autoResizeTextarea(textarea);
+        textarea.addEventListener("input", () => autoResizeTextarea(textarea));
+      });
     }
 
     function readConfirmationBaseEditor() {
@@ -4533,7 +4556,7 @@ function firstInvoiceDate(item) {
               </select>
             </td>
             <td>
-              <input name="confirmation_${escapeAttr(row.key)}_comment" value="${escapeAttr(values[row.key]?.comment ?? row.defaultComment ?? "")}" placeholder="コメントが必要な場合のみ記入">
+              <textarea data-confirmation-form-comment name="confirmation_${escapeAttr(row.key)}_comment" rows="1" placeholder="コメントが必要な場合のみ記入">${escapeHtml(values[row.key]?.comment ?? row.defaultComment ?? "")}</textarea>
             </td>
           </tr>
         `).join("")}
@@ -4610,7 +4633,7 @@ function firstInvoiceDate(item) {
           <tr>
             <td class="confirmation-item-cell">${escapeHtml(row.label || "-")}</td>
             <td>${escapeHtml(row.value || "-")}</td>
-            <td>${escapeHtml(row.comment || "-")}</td>
+            <td>${lineBreaks(row.comment || "-")}</td>
           </tr>
         `).join("")}
       `).join("");
@@ -4695,7 +4718,7 @@ function firstInvoiceDate(item) {
           <tr>
             <td class="confirmation-item-cell">${escapeHtml(row.label || "-")}</td>
             <td>${escapeHtml(row.value || "-")}</td>
-            <td>${escapeHtml(row.comment || "-")}</td>
+            <td>${lineBreaks(row.comment || "-")}</td>
           </tr>
         `).join("")}
       `).join("");
