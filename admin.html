@@ -4596,23 +4596,7 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const groups = confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product));
-      const body = groups.map((group) => `
-        <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
-        ${group.rows.map((row) => `
-          <tr>
-            <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
-            <td class="confirmation-select-cell">
-              <select name="confirmation_${escapeAttr(row.key)}">
-                ${confirmationOptionHtml(row.key === "productNote" ? "-" : values[row.key]?.value || "", row.key === "productNote" ? ["-", ...(row.options || ["あり。", "なし。"])] : row.options || ["ある。", "ない。"])}
-              </select>
-            </td>
-            <td>
-              <textarea data-confirmation-form-comment name="confirmation_${escapeAttr(row.key)}_comment" rows="1" placeholder="コメントが必要な場合のみ記入">${escapeHtml(row.key === "productNote" ? "" : values[row.key]?.comment ?? row.defaultComment ?? "")}</textarea>
-            </td>
-          </tr>
-        `).join("")}
-      `).join("");
+      const groups = confirmationRowsForProduct(product, false);
 
       return `
         <div class="confirmation-table-wrap">
@@ -4624,10 +4608,29 @@ function firstInvoiceDate(item) {
                 <th>コメント</th>
               </tr>
             </thead>
-            <tbody>${body}</tbody>
+            <tbody>${confirmationTableBodyHtml(groups, values)}</tbody>
           </table>
         </div>
       `;
+    }
+
+    function confirmationTableBodyHtml(groups, values = {}) {
+      return groups.map((group) => `
+        <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
+        ${group.rows.map((row) => `
+          <tr>
+            <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
+            <td class="confirmation-select-cell">
+              <select name="confirmation_${escapeAttr(row.key)}">
+                ${confirmationOptionHtml(values[row.key]?.value || "", row.options || ["ある。", "ない。"])}
+              </select>
+            </td>
+            <td>
+              <textarea data-confirmation-form-comment name="confirmation_${escapeAttr(row.key)}_comment" rows="1" placeholder="コメントが必要な場合のみ記入">${escapeHtml(values[row.key]?.comment ?? row.defaultComment ?? "")}</textarea>
+            </td>
+          </tr>
+        `).join("")}
+      `).join("");
     }
 
     function confirmationResultDisplayHtml(product) {
@@ -4887,37 +4890,41 @@ function firstInvoiceDate(item) {
     }
 
     function setConfirmationNotRequired() {
-      document.querySelectorAll('[name^="confirmation_"]').forEach((field) => {
-        if (field.tagName === "SELECT") {
-          const hasDash = [...field.options].some((option) => option.value === "-");
-          if (!hasDash) field.add(new Option("-", "-"));
-          field.value = "-";
-        } else {
-          field.value = "-";
-        }
-      });
-
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
+      const tbody = document.querySelector(".confirmation-table tbody");
 
-      if (!canUseProductNoteInConfirmation(product)) return;
+      if (!tbody) return;
 
-      ensureProductNoteConfirmationRow(product);
+      const groups = notRequiredConfirmationGroups(product);
+      const values = notRequiredConfirmationValues(groups, product);
+      tbody.innerHTML = confirmationTableBodyHtml(groups, values);
+      bindAutoResizeTextareas(tbody);
+    }
 
-      const noteSelect = document.querySelector('[name="confirmation_productNote"]');
-      const noteComment = document.querySelector('[name="confirmation_productNote_comment"]');
+    function notRequiredConfirmationGroups(product) {
+      return confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product)).map((group) => ({
+        section: group.section,
+        rows: group.rows.map((row) => ({
+          ...row,
+          options: row.key === "productNote" ? ["あり。", "なし。"] : ["-"]
+        }))
+      }));
+    }
 
-      if (noteSelect) {
-        const hasYes = [...noteSelect.options].some((option) => option.value === "あり。");
-        if (!hasYes) noteSelect.add(new Option("あり。", "あり。"));
-        noteSelect.value = "あり。";
-      }
+    function notRequiredConfirmationValues(groups, product) {
+      const values = {};
 
-      if (noteComment) {
-        noteComment.value = product.note;
-        autoResizeTextarea(noteComment);
-      }
+      groups.forEach((group) => {
+        group.rows.forEach((row) => {
+          values[row.key] = row.key === "productNote"
+            ? { value: "あり。", comment: product?.note || "" }
+            : { value: "-", comment: "" };
+        });
+      });
+
+      return values;
     }
 
     function ensureProductNoteConfirmationRow(product) {
@@ -4926,23 +4933,18 @@ function firstInvoiceDate(item) {
       const tbody = document.querySelector(".confirmation-table tbody");
       if (!tbody) return;
 
-      tbody.insertAdjacentHTML("beforeend", `
-        <tr class="confirmation-section" data-product-note-section>
-          <td colspan="3">＜その他＞</td>
-        </tr>
-        <tr data-product-note-row>
-          <td class="confirmation-item-cell">備考欄</td>
-          <td class="confirmation-select-cell">
-            <select name="confirmation_productNote">
-              ${confirmationOptionHtml("", ["あり。", "なし。"])}
-            </select>
-          </td>
-          <td>
-            <textarea data-confirmation-form-comment name="confirmation_productNote_comment" rows="1" placeholder="コメントが必要な場合のみ記入"></textarea>
-          </td>
-        </tr>
-      `);
+      const groups = confirmationRowsForProduct(product, true);
+      const values = {};
 
+      groups.forEach((group) => {
+        group.rows.forEach((row) => {
+          values[row.key] = row.key === "productNote"
+            ? { value: "あり。", comment: product?.note || "" }
+            : { value: "-", comment: "" };
+        });
+      });
+
+      tbody.innerHTML = confirmationTableBodyHtml(groups, values);
       bindAutoResizeTextareas(tbody);
     }
 
