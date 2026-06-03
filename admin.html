@@ -2543,7 +2543,7 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${member.planType === "consulting" && hasValue(product.note) ? `
+            ${isConsultingMember(member) && hasValue(product.note) ? `
               <div class="info-label">備考欄</div>
               <div class="info-value">${lineBreaks(product.note)}</div>
             ` : ""}
@@ -2808,7 +2808,7 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${member.planType === "consulting" && hasValue(product.note) ? `
+            ${isConsultingMember(member) && hasValue(product.note) ? `
               <div class="info-label">備考欄</div>
               <div class="info-value">${lineBreaks(product.note)}</div>
             ` : ""}
@@ -4466,6 +4466,11 @@ function firstInvoiceDate(item) {
       return labels[value] || "-";
     }
 
+    function isConsultingMember(member) {
+      const value = String(member?.planType || "").trim();
+      return value === "consulting" || value === "コンサル生";
+    }
+
     function folderStatusText(product) {
       const status = product.folderJobStatus || product.folderStatus || "";
       if (status === "created") return "作成済み";
@@ -4542,7 +4547,7 @@ function firstInvoiceDate(item) {
     function confirmationRowsForProduct(product, includeProductNote = false) {
       const groups = confirmationRows().map((group) => ({
         section: group.section,
-        rows: [...(group.rows || [])]
+        rows: [...(group.rows || [])].filter((row) => !isProductNoteRow(row))
       }));
 
       if (!includeProductNote || !canUseProductNoteInConfirmation(product)) return groups;
@@ -4565,6 +4570,10 @@ function firstInvoiceDate(item) {
       return groups;
     }
 
+    function isProductNoteRow(row) {
+      return row?.key === "productNote" || row?.label === "備考欄";
+    }
+
     function confirmationRowsForActiveEdit() {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
@@ -4574,7 +4583,7 @@ function firstInvoiceDate(item) {
 
     function canUseProductNoteInConfirmation(product) {
       const member = activeEdit?.uid ? findMember(activeEdit.uid) : null;
-      return member?.planType === "consulting" && hasValue(product?.note);
+      return isConsultingMember(member) && hasValue(product?.note);
     }
 
     function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
@@ -4587,7 +4596,7 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const groups = confirmationRowsForProduct(product, false);
+      const groups = confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product));
       const body = groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
         ${group.rows.map((row) => `
@@ -4595,11 +4604,11 @@ function firstInvoiceDate(item) {
             <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
             <td class="confirmation-select-cell">
               <select name="confirmation_${escapeAttr(row.key)}">
-                ${confirmationOptionHtml(values[row.key]?.value || "", row.options || ["ある。", "ない。"])}
+                ${confirmationOptionHtml(row.key === "productNote" ? "-" : values[row.key]?.value || "", row.key === "productNote" ? ["-", ...(row.options || ["あり。", "なし。"])] : row.options || ["ある。", "ない。"])}
               </select>
             </td>
             <td>
-              <textarea data-confirmation-form-comment name="confirmation_${escapeAttr(row.key)}_comment" rows="1" placeholder="コメントが必要な場合のみ記入">${escapeHtml(values[row.key]?.comment ?? row.defaultComment ?? "")}</textarea>
+              <textarea data-confirmation-form-comment name="confirmation_${escapeAttr(row.key)}_comment" rows="1" placeholder="コメントが必要な場合のみ記入">${escapeHtml(row.key === "productNote" ? "" : values[row.key]?.comment ?? row.defaultComment ?? "")}</textarea>
             </td>
           </tr>
         `).join("")}
@@ -4624,7 +4633,7 @@ function firstInvoiceDate(item) {
     function confirmationResultDisplayHtml(product) {
       const values = product.confirmationTemplate || {};
       const productOwner = membersCache.find((member) => member.products.some((item) => item.id === product.id));
-      const canShowProductNote = productOwner?.planType === "consulting";
+      const canShowProductNote = isConsultingMember(productOwner);
       const savedEntries = Object.entries(values).filter(([key, entry]) => {
         if (key === "productNote" && !canShowProductNote) return false;
         if (!entry || typeof entry !== "object") return false;
@@ -4632,11 +4641,11 @@ function firstInvoiceDate(item) {
       });
 
       if (!savedEntries.length) {
-        return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+        return confirmationResultTextTableHtml(product.confirmationResult, product) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
       }
 
       const usedKeys = new Set();
-      const groups = confirmationRows()
+      const groups = confirmationRowsForProduct(product, canShowProductNote)
         .map((group) => {
           const rows = group.rows
             .map((row) => {
@@ -4670,7 +4679,7 @@ function firstInvoiceDate(item) {
       });
 
       if (!groups.length) {
-        return confirmationResultTextTableHtml(product.confirmationResult) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
+        return confirmationResultTextTableHtml(product.confirmationResult, product) || escapeHtml(product.confirmationResult || "-").replace(/\n/g, "<br>");
       }
 
       const body = groups.map((group) => `
@@ -4700,11 +4709,15 @@ function firstInvoiceDate(item) {
       `;
     }
 
-    function confirmationResultTextTableHtml(text) {
+    function confirmationResultTextTableHtml(text, product = null) {
       const source = String(text || "").replace(/\s+/g, " ").trim();
       if (!source || source === "-") return "";
 
-      const groups = confirmationRows()
+      const owner = product ? membersCache.find((member) => member.products.some((item) => item.id === product.id)) : null;
+      const groupsSource = product
+        ? confirmationRowsForProduct(product, isConsultingMember(owner))
+        : confirmationRows();
+      const groups = groupsSource
         .map((group, groupIndex, allGroups) => {
           const sectionMarker = `＜${group.section}＞`;
           const sectionStart = source.indexOf(sectionMarker);
@@ -4793,6 +4806,7 @@ function firstInvoiceDate(item) {
           const key = row.key;
           const value = getFormValue(formData, `confirmation_${key}`);
           const comment = getFormValue(formData, `confirmation_${key}_comment`);
+          if (key === "productNote" && (!comment && (!value || value === "-"))) return;
           if (value || comment) {
             data[key] = { section: group.section, label: row.label, value, comment, defaultComment: row.defaultComment || "" };
           }
@@ -4811,6 +4825,7 @@ function firstInvoiceDate(item) {
             const key = row.key;
             const value = getFormValue(formData, `confirmation_${key}`);
             const comment = getFormValue(formData, `confirmation_${key}_comment`);
+            if (key === "productNote" && (!comment && (!value || value === "-"))) return "";
             if (!value && !comment) return "";
             return `${row.label}${value ? value : ""}${comment ? ` ${comment}` : ""}`;
           })
