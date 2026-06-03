@@ -1760,7 +1760,7 @@
       const month = todayString().slice(0, 7);
       if (invoiceMonthInput) invoiceMonthInput.value = month;
       if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
-      if (discordNotifyDateInput && !discordNotifyDateInput.value) discordNotifyDateInput.value = todayString();
+      if (discordNotifyDateInput) discordNotifyDateInput.value = todayString();
     }
 
     async function savePendingMember(event) {
