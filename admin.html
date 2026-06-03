@@ -1233,6 +1233,10 @@
         </div>
         <div>
           <strong>確認結果表</strong>
+          <div class="ship-filter-tabs" style="margin-top:10px;">
+            <button id="confirmationNormalBtn" class="ship-filter-btn active" type="button" onclick="setConfirmationBaseView('normal')">通常確認用</button>
+            <button id="confirmationNotRequiredBtn" class="ship-filter-btn" type="button" onclick="setConfirmationBaseView('notRequired')">確認不要用</button>
+          </div>
           <div id="confirmationBasePreview" class="confirmation-base-editor" style="margin-top:10px;"></div>
         </div>
       </div>
@@ -1597,6 +1601,7 @@
     let activePendingMemberKey = null;
     let companyInfoCache = {};
     let confirmationBaseCache = null;
+    let confirmationBaseView = "normal";
     let discordNotificationQueueCache = {};
     let selectedMemberUid = null;
     let detailView = "registered";
@@ -4057,8 +4062,12 @@ function firstInvoiceDate(item) {
 
     function renderConfirmationBase() {
       const base = confirmationBaseCache || defaultConfirmationBase();
+      document.getElementById("confirmationNormalBtn")?.classList.toggle("active", confirmationBaseView === "normal");
+      document.getElementById("confirmationNotRequiredBtn")?.classList.toggle("active", confirmationBaseView === "notRequired");
       if (confirmationBasePreview) {
-        confirmationBasePreview.innerHTML = confirmationBaseEditorHtml(base);
+        confirmationBasePreview.innerHTML = confirmationBaseEditorHtml({
+          groups: confirmationBaseGroupsForView(base, confirmationBaseView)
+        });
         bindAutoResizeTextareas(confirmationBasePreview);
       }
     }
@@ -4067,7 +4076,9 @@ function firstInvoiceDate(item) {
       hideError(appError);
 
       try {
-        const groups = readConfirmationBaseEditor();
+        syncConfirmationBaseCacheFromEditor();
+        const groups = confirmationBaseCache.groups || [];
+        const notRequiredGroups = confirmationBaseCache.notRequiredGroups || defaultNotRequiredConfirmationGroups(groups);
 
         if (!groups.length) {
           showError(appError, "確認結果表を入力してください。");
@@ -4076,6 +4087,7 @@ function firstInvoiceDate(item) {
 
         const payload = {
           groups,
+          notRequiredGroups,
           updatedAt: Date.now(),
           updatedBy: currentUser?.uid || ""
         };
@@ -4095,6 +4107,7 @@ function firstInvoiceDate(item) {
       try {
         const payload = {
           ...defaultConfirmationBase(),
+          notRequiredGroups: defaultNotRequiredConfirmationGroups(defaultConfirmationBase().groups),
           updatedAt: Date.now(),
           updatedBy: currentUser?.uid || ""
         };
@@ -4151,6 +4164,34 @@ function firstInvoiceDate(item) {
       `;
     }
 
+    function setConfirmationBaseView(view) {
+      syncConfirmationBaseCacheFromEditor();
+      confirmationBaseView = view === "notRequired" ? "notRequired" : "normal";
+      renderConfirmationBase();
+    }
+
+    function confirmationBaseGroupsForView(base, view) {
+      if (view === "notRequired") {
+        return base.notRequiredGroups && base.notRequiredGroups.length
+          ? base.notRequiredGroups
+          : defaultNotRequiredConfirmationGroups(base.groups || []);
+      }
+
+      return base.groups || [];
+    }
+
+    function defaultNotRequiredConfirmationGroups(groups) {
+      return (groups || []).map((group) => ({
+        section: group.section,
+        rows: (group.rows || []).map((row, rowIndex) => ({
+          key: row.key || makeConfirmationKey(group.section || "確認項目", row.label || "項目", rowIndex),
+          label: row.label || "",
+          options: ["-"],
+          defaultComment: ""
+        }))
+      }));
+    }
+
     function autoResizeTextarea(textarea) {
       if (!textarea) return;
       textarea.style.height = "auto";
@@ -4191,32 +4232,37 @@ function firstInvoiceDate(item) {
     }
 
     function syncConfirmationBaseCacheFromEditor() {
+      const current = confirmationBaseCache || defaultConfirmationBase();
+      const editedGroups = readConfirmationBaseEditor();
       confirmationBaseCache = {
-        groups: readConfirmationBaseEditor()
+        ...current,
+        groups: confirmationBaseView === "normal" ? editedGroups : current.groups || [],
+        notRequiredGroups: confirmationBaseView === "notRequired" ? editedGroups : current.notRequiredGroups || defaultNotRequiredConfirmationGroups(current.groups || [])
       };
     }
 
     function addConfirmationSection() {
       syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.groups.push({
+      const targetGroups = confirmationBaseGroupsForCurrentView();
+      targetGroups.push({
         section: "新しいカテゴリ",
-        rows: [{ key: `base_${Date.now()}`, label: "新しい項目", options: ["ある。", "ない。"], defaultComment: "" }]
+        rows: [{ key: `base_${Date.now()}`, label: "新しい項目", options: confirmationBaseView === "notRequired" ? ["-"] : ["ある。", "ない。"], defaultComment: "" }]
       });
       renderConfirmationBase();
     }
 
     function removeConfirmationSection(index) {
       syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.groups.splice(index, 1);
+      confirmationBaseGroupsForCurrentView().splice(index, 1);
       renderConfirmationBase();
     }
 
     function addConfirmationRow(groupIndex) {
       syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.groups[groupIndex]?.rows.push({
+      confirmationBaseGroupsForCurrentView()[groupIndex]?.rows.push({
         key: `base_${Date.now()}`,
         label: "新しい項目",
-        options: ["ある。", "ない。"],
+        options: confirmationBaseView === "notRequired" ? ["-"] : ["ある。", "ない。"],
         defaultComment: ""
       });
       renderConfirmationBase();
@@ -4224,8 +4270,20 @@ function firstInvoiceDate(item) {
 
     function removeConfirmationRow(groupIndex, rowIndex) {
       syncConfirmationBaseCacheFromEditor();
-      confirmationBaseCache.groups[groupIndex]?.rows.splice(rowIndex, 1);
+      confirmationBaseGroupsForCurrentView()[groupIndex]?.rows.splice(rowIndex, 1);
       renderConfirmationBase();
+    }
+
+    function confirmationBaseGroupsForCurrentView() {
+      if (confirmationBaseView === "notRequired") {
+        if (!confirmationBaseCache.notRequiredGroups) {
+          confirmationBaseCache.notRequiredGroups = defaultNotRequiredConfirmationGroups(confirmationBaseCache.groups || []);
+        }
+        return confirmationBaseCache.notRequiredGroups;
+      }
+
+      if (!confirmationBaseCache.groups) confirmationBaseCache.groups = [];
+      return confirmationBaseCache.groups;
     }
 
     async function deleteInvoice(uid, month) {
@@ -4420,6 +4478,7 @@ function firstInvoiceDate(item) {
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveConfirmationBase = saveConfirmationBase;
     window.resetConfirmationBaseToDefault = resetConfirmationBaseToDefault;
+    window.setConfirmationBaseView = setConfirmationBaseView;
     window.addConfirmationSection = addConfirmationSection;
     window.removeConfirmationSection = removeConfirmationSection;
     window.addConfirmationRow = addConfirmationRow;
@@ -4904,13 +4963,41 @@ function firstInvoiceDate(item) {
     }
 
     function notRequiredConfirmationGroups(product) {
-      return confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product)).map((group) => ({
+      const baseGroups = confirmationBaseCache?.notRequiredGroups?.length
+        ? confirmationBaseCache.notRequiredGroups
+        : defaultNotRequiredConfirmationGroups(confirmationRows());
+
+      return appendProductNoteRows(baseGroups, product, canUseProductNoteInConfirmation(product)).map((group) => ({
         section: group.section,
         rows: group.rows.map((row) => ({
           ...row,
           options: row.key === "productNote" ? ["あり。", "なし。"] : ["-"]
         }))
       }));
+    }
+
+    function appendProductNoteRows(groups, product, includeProductNote) {
+      const copied = (groups || []).map((group) => ({
+        section: group.section,
+        rows: [...(group.rows || [])].filter((row) => !isProductNoteRow(row))
+      }));
+
+      if (!includeProductNote) return copied;
+
+      let otherGroup = copied.find((group) => group.section === "その他");
+      if (!otherGroup) {
+        otherGroup = { section: "その他", rows: [] };
+        copied.push(otherGroup);
+      }
+
+      otherGroup.rows.push({
+        key: "productNote",
+        label: "備考欄",
+        options: ["あり。", "なし。"],
+        defaultComment: ""
+      });
+
+      return copied;
     }
 
     function notRequiredConfirmationValues(groups, product) {
