@@ -4637,7 +4637,7 @@ function firstInvoiceDate(item) {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
-      return confirmationRowsForProduct(product, Boolean(document.querySelector('[name="confirmation_productNote"]')));
+      return confirmationRowsForProduct(product, Boolean(editForm.querySelector('[name="confirmation_productNote"]')));
     }
 
     function canUseProductNoteInConfirmation(product) {
@@ -4952,7 +4952,7 @@ function firstInvoiceDate(item) {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
-      const tbody = document.querySelector(".confirmation-table tbody");
+      const tbody = editForm.querySelector(".confirmation-table tbody");
 
       if (!tbody) return;
 
@@ -5015,9 +5015,9 @@ function firstInvoiceDate(item) {
     }
 
     function ensureProductNoteConfirmationRow(product) {
-      if (document.querySelector('[name="confirmation_productNote"]')) return;
+      if (editForm.querySelector('[name="confirmation_productNote"]')) return;
 
-      const tbody = document.querySelector(".confirmation-table tbody");
+      const tbody = editForm.querySelector(".confirmation-table tbody");
       if (!tbody) return;
 
       const groups = confirmationRowsForProduct(product, true);
