@@ -706,7 +706,7 @@ registerProductsBtn.addEventListener("click", async () => {
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
       optionOkirakuInsert: entry.querySelector('[data-field="optionOkirakuInsert"]').checked,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
-      note: entry.querySelector('[data-field="note"]').value.trim(),
+      note: entry.querySelector('[data-field="note"]')?.value.trim() || "",
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
     };
   }).filter((item) => item.name || item.numbering || item.note || item.purchaseUrl || item.optionVideo || item.optionThanksCard || item.optionComment);
@@ -1159,10 +1159,6 @@ function addProductEntry() {
         <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄"></textarea>
       </div>
 
-      <div class="form-group full">
-        <label>備考欄</label>
-        <textarea data-field="note" placeholder="備考を入力してください"></textarea>
-      </div>
     </div>
   `;
 
@@ -1589,10 +1585,6 @@ window.openProductEdit = function(productId) {
           <textarea name="optionComment">${escapeHtml(product.optionComment || "")}</textarea>
         </div>
 
-        <div class="form-group full">
-          <label>備考欄</label>
-          <textarea name="note">${escapeHtml(product.note || "")}</textarea>
-        </div>
       </div>
 
       <button type="submit" style="width:100%;">保存する</button>
@@ -1606,6 +1598,7 @@ window.saveProductEdit = async function(event, productId) {
 
   if (!currentUser) return;
 
+  const product = productsCache.find((item) => item.id === productId) || {};
   const formData = new FormData(event.target);
   const data = {
     name: String(formData.get("name") || "").trim(),
@@ -1618,7 +1611,7 @@ window.saveProductEdit = async function(event, productId) {
     optionOkirakuInsert: formData.get("optionOkirakuInsert") === "on",
     optionComment: String(formData.get("optionComment") || "").trim(),
     purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
-    note: String(formData.get("note") || "").trim(),
+    note: product.note || "",
     updatedAt: Date.now()
   };
 
@@ -1940,7 +1933,6 @@ function productDetailHtml(product) {
         <div class="detail-label">レンズ本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
-        <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
         <div class="detail-label">購入先URL</div><div>${product.purchaseUrl ? `<a href="${escapeAttr(product.purchaseUrl)}" target="_blank" rel="noopener">${escapeHtml(product.purchaseUrl)}</a>` : "-"}</div>
       </div>
     </div>

@@ -2543,8 +2543,10 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            <div class="info-label">備考欄</div>
-            <div class="info-value">${lineBreaks(product.note || "-")}</div>
+            ${hasValue(product.note) ? `
+              <div class="info-label">備考欄</div>
+              <div class="info-value">${lineBreaks(product.note)}</div>
+            ` : ""}
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -2806,8 +2808,10 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            <div class="info-label">備考欄</div>
-            <div class="info-value">${lineBreaks(product.note || "-")}</div>
+            ${hasValue(product.note) ? `
+              <div class="info-label">備考欄</div>
+              <div class="info-value">${lineBreaks(product.note)}</div>
+            ` : ""}
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -4535,6 +4539,39 @@ function firstInvoiceDate(item) {
       return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
     }
 
+    function confirmationRowsForProduct(product) {
+      const groups = confirmationRows().map((group) => ({
+        section: group.section,
+        rows: [...(group.rows || [])]
+      }));
+
+      if (!hasValue(product?.note)) return groups;
+
+      let otherGroup = groups.find((group) => group.section === "その他");
+      if (!otherGroup) {
+        otherGroup = { section: "その他", rows: [] };
+        groups.push(otherGroup);
+      }
+
+      if (!otherGroup.rows.some((row) => row.key === "productNote" || row.label === "備考欄")) {
+        otherGroup.rows.push({
+          key: "productNote",
+          label: "備考欄",
+          options: ["あり。", "なし。"],
+          defaultComment: ""
+        });
+      }
+
+      return groups;
+    }
+
+    function confirmationRowsForActiveEdit() {
+      const product = activeEdit?.uid && activeEdit?.productId
+        ? findProduct(activeEdit.uid, activeEdit.productId)
+        : null;
+      return confirmationRowsForProduct(product);
+    }
+
     function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
       const options = ["", ...rowOptions];
       return options.map((option) => {
@@ -4545,7 +4582,8 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const body = confirmationRows().map((group) => `
+      const groups = confirmationRowsForProduct(product);
+      const body = groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
         ${group.rows.map((row) => `
           <tr>
@@ -4742,7 +4780,7 @@ function firstInvoiceDate(item) {
     function buildConfirmationTemplateData(formData) {
       const data = {};
 
-      confirmationRows().forEach((group) => {
+      confirmationRowsForActiveEdit().forEach((group) => {
         group.rows.forEach((row) => {
           const key = row.key;
           const value = getFormValue(formData, `confirmation_${key}`);
@@ -4759,7 +4797,7 @@ function firstInvoiceDate(item) {
     function buildConfirmationResult(formData) {
       const rows = [];
 
-      confirmationRows().forEach((group) => {
+      confirmationRowsForActiveEdit().forEach((group) => {
         const groupRows = group.rows
           .map((row) => {
             const key = row.key;
@@ -4835,6 +4873,26 @@ function firstInvoiceDate(item) {
           field.value = "-";
         }
       });
+
+      const product = activeEdit?.uid && activeEdit?.productId
+        ? findProduct(activeEdit.uid, activeEdit.productId)
+        : null;
+
+      if (!hasValue(product?.note)) return;
+
+      const noteSelect = document.querySelector('[name="confirmation_productNote"]');
+      const noteComment = document.querySelector('[name="confirmation_productNote_comment"]');
+
+      if (noteSelect) {
+        const hasYes = [...noteSelect.options].some((option) => option.value === "あり。");
+        if (!hasYes) noteSelect.add(new Option("あり。", "あり。"));
+        noteSelect.value = "あり。";
+      }
+
+      if (noteComment) {
+        noteComment.value = product.note;
+        autoResizeTextarea(noteComment);
+      }
     }
 
     function formatShippingInfo(value) {
