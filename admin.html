@@ -3342,6 +3342,7 @@
       const updates = {};
       let sentCount = 0;
       let skippedCount = 0;
+      const failedMembers = [];
 
       try {
         for (const member of membersCache) {
@@ -3353,11 +3354,17 @@
 
           if (!member.discordWebhookUrl) {
             skippedCount += items.length;
+            failedMembers.push(`${member.name || member.email || member.uid}：Webhook URL未設定`);
             continue;
           }
 
           const message = buildDiscordDailyMessage(member, date, items);
-          await sendDiscordMessageWithGas(member.discordWebhookUrl, message);
+          try {
+            await sendDiscordMessageWithGas(member.discordWebhookUrl, message);
+          } catch (error) {
+            failedMembers.push(`${member.name || member.email || member.uid}：${error && error.message ? error.message : "送信失敗"}`);
+            continue;
+          }
 
           items.forEach((item) => {
             updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
@@ -3372,8 +3379,8 @@
         }
 
         await loadAllData();
-        if (skippedCount > 0) {
-          showError(appError, `Discord通知を送信しました。Webhook未設定のため ${skippedCount} 件は未送信です。`);
+        if (failedMembers.length > 0) {
+          showError(appError, `Discord通知を一部送信できませんでした。送信件数：${sentCount}件 / 未送信：${skippedCount}件\n${failedMembers.join("\n")}`);
         } else {
           showError(appError, `Discord通知を送信しました。送信件数：${sentCount}件`);
         }
