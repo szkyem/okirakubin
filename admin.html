@@ -4095,6 +4095,7 @@ function firstInvoiceDate(item) {
         await set(ref(db, "settings/confirmationTemplateBase"), payload);
         confirmationBaseCache = payload;
         renderConfirmationBase();
+        showError(appError, "確認結果ベースを保存しました。");
       } catch (error) {
         console.error(error);
         showError(appError, "確認結果ベースの保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -4206,10 +4207,11 @@ function firstInvoiceDate(item) {
     }
 
     function readConfirmationBaseEditor() {
-      return [...document.querySelectorAll("[data-confirmation-section]")].map((sectionRow) => {
+      const scope = confirmationBasePreview || document;
+      return [...scope.querySelectorAll("[data-confirmation-section]")].map((sectionRow) => {
         const groupIndex = Number(sectionRow.dataset.confirmationSection);
-        const titleInput = document.querySelector(`[data-confirmation-section-title="${groupIndex}"]`);
-        const rows = [...document.querySelectorAll(`[data-confirmation-row^="${groupIndex}-"]`)].map((rowEl, rowIndex) => {
+        const titleInput = scope.querySelector(`[data-confirmation-section-title="${groupIndex}"]`);
+        const rows = [...scope.querySelectorAll(`[data-confirmation-row^="${groupIndex}-"]`)].map((rowEl, rowIndex) => {
           const labelInput = rowEl.querySelector(`[data-confirmation-row-label]`);
           const optionsInput = rowEl.querySelector(`[data-confirmation-row-options]`);
           const commentInput = rowEl.querySelector(`[data-confirmation-row-comment]`);
