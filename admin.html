@@ -3363,6 +3363,7 @@
             await sendDiscordMessageWithGas(member.discordWebhookUrl, message);
           } catch (error) {
             failedMembers.push(`${member.name || member.email || member.uid}：${error && error.message ? error.message : "送信失敗"}`);
+            skippedCount += items.length;
             continue;
           }
 
@@ -3403,32 +3404,72 @@
       return lines.join("\n").trim();
     }
 
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function discordRetryDelayMs(result = {}, attempt = 0) {
+      const retryAfter = Number(result.retryAfter || result.retry_after || result.retryAfterMs || 0);
+      if (Number.isFinite(retryAfter) && retryAfter > 0) {
+        return retryAfter > 100 ? Math.min(retryAfter, 30000) : Math.min(retryAfter * 1000, 30000);
+      }
+
+      const errorText = String(result.error || result.message || "");
+      const match = errorText.match(/retry[_\s-]?after[^\d]*(\d+(?:\.\d+)?)/i);
+      if (match) {
+        const seconds = Number(match[1]);
+        if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1000, 30000);
+      }
+
+      return [2500, 6000, 12000, 20000][attempt] || 20000;
+    }
+
+    function isDiscordRateLimitResult(result = {}, responseStatus = 200) {
+      const status = Number(result.status || result.statusCode || responseStatus || 0);
+      const errorText = String(result.error || result.message || "");
+      return status === 429 || /status\s*=\s*429|rate\s*limit|too many requests/i.test(errorText);
+    }
+
     async function sendDiscordMessageWithGas(webhookUrl, message) {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
         throw new Error("GAS_WEB_APP_URLが未設定です。");
       }
 
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "discordNotify",
-          token: GAS_WEB_APP_TOKEN,
-          webhookUrl,
-          message
-        })
-      });
+      const maxAttempts = 5;
+      let lastResult = {};
 
-      const responseText = await response.text();
-      let result = {};
-      try {
-        result = JSON.parse(responseText || "{}");
-      } catch (error) {
-        throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "discordNotify",
+            token: GAS_WEB_APP_TOKEN,
+            webhookUrl,
+            message
+          })
+        });
+
+        const responseText = await response.text();
+        let result = {};
+        try {
+          result = JSON.parse(responseText || "{}");
+        } catch (error) {
+          throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
+        }
+
+        lastResult = result;
+
+        if (response.ok && result.ok) return;
+
+        if (isDiscordRateLimitResult(result, response.status) && attempt < maxAttempts - 1) {
+          await sleep(discordRetryDelayMs(result, attempt));
+          continue;
+        }
+
+        throw new Error(result.error || `Discord通知に失敗しました。status=${response.status}`);
       }
 
-      if (!result.ok) {
-        throw new Error(result.error || "Discord通知に失敗しました。");
-      }
+      throw new Error(lastResult.error || "Discord通知に失敗しました。");
     }
 
     function renderInvoices() {
