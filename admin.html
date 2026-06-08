@@ -957,6 +957,7 @@
     <nav class="tabs">
       <button class="tab active" data-main-tab="members">会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
+      <button class="tab" data-main-tab="shippingBatch">発送バッチ</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
@@ -1124,6 +1125,39 @@
           <input id="detailProductSearchInput" class="member-search" type="search" placeholder="商品名・ナンバリングで検索" />
         </div>
         <div id="detailTableArea" class="section"></div>
+      </div>
+    </section>
+
+    <section id="shippingBatchSection" class="section hidden">
+      <div class="section-title-row">
+        <h2>発送バッチ</h2>
+        <div class="table-actions">
+          <input id="shippingBatchSearchInput" class="member-search" type="search" placeholder="会員・商品名・ナンバリングで検索" />
+          <button class="secondary-btn" onclick="loadAllData()">再読み込み</button>
+          <button class="primary-btn" onclick="saveShippingBatch()">選択中を発送済みにする</button>
+        </div>
+      </div>
+      <p class="form-note">今日発送する商品を選択し、送り状作成後に追跡番号を同じ画面で入力してください。同梱商品は1つの発送単位としてまとめて処理されます。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>選択</th>
+              <th>管理番号</th>
+              <th>会員</th>
+              <th>発送</th>
+              <th>商品名</th>
+              <th>ナンバリング</th>
+              <th>発送先</th>
+              <th>発送元</th>
+              <th>状態</th>
+              <th>サイズ</th>
+              <th>料金</th>
+              <th>追跡番号</th>
+            </tr>
+          </thead>
+          <tbody id="shippingBatchBody"></tbody>
+        </table>
       </div>
     </section>
 
@@ -1524,6 +1558,7 @@
     const membersSection = document.getElementById("membersSection");
     const pendingMembersSection = document.getElementById("pendingMembersSection");
     const detailSection = document.getElementById("detailSection");
+    const shippingBatchSection = document.getElementById("shippingBatchSection");
     const invoicesSection = document.getElementById("invoicesSection");
     const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
@@ -1566,6 +1601,8 @@
     const detailShippedCount = document.getElementById("detailShippedCount");
     const detailTableArea = document.getElementById("detailTableArea");
     const detailProductSearchInput = document.getElementById("detailProductSearchInput");
+    const shippingBatchSearchInput = document.getElementById("shippingBatchSearchInput");
+    const shippingBatchBody = document.getElementById("shippingBatchBody");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
     const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
@@ -1603,6 +1640,7 @@
     let confirmationBaseCache = null;
     let confirmationBaseView = "normal";
     let discordNotificationQueueCache = {};
+    let shippingBatchUnitsCache = [];
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -1628,6 +1666,7 @@
 
     memberSearchInput.addEventListener("input", renderMembers);
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
+    shippingBatchSearchInput.addEventListener("input", renderShippingBatch);
     pendingMemberForm.addEventListener("submit", savePendingMember);
     pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
     discordNotifyDateInput.addEventListener("change", renderDiscordNotifications);
@@ -1751,6 +1790,7 @@
         renderMembers();
         renderInquiries();
         renderMemberDetail();
+        renderShippingBatch();
         renderInvoices();
         renderCompanyInfo();
         renderConfirmationBase();
@@ -2347,6 +2387,229 @@
       return [...grouped, ...singles];
     }
 
+    function buildShippingBatchUnits() {
+      const units = [];
+
+      membersCache.forEach((member) => {
+        const groups = new Map();
+        getProductGroups(member).unshipped.forEach((product) => {
+          const groupKey = shipmentDisplayGroupKey(product) || `single_${product.id}`;
+          if (!groups.has(groupKey)) groups.set(groupKey, []);
+          groups.get(groupKey).push(product);
+        });
+
+        groups.forEach((products, groupKey) => {
+          const sortedProducts = products
+            .slice()
+            .sort((a, b) => String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true }));
+          const parent = sortedProducts[0];
+          const displayNames = sortedProducts.map((product) => product.name || "-").join(" / ");
+          const displayNumberings = sortedProducts.map((product) => product.numbering || "-").join(" / ");
+
+          units.push({
+            id: `${member.uid}__${groupKey}`,
+            uid: member.uid,
+            member,
+            groupKey,
+            parent,
+            products: sortedProducts,
+            displayNames,
+            displayNumberings
+          });
+        });
+      });
+
+      return units.sort((a, b) => {
+        const memberCompare = String(a.member.managementNumber || a.member.name || "").localeCompare(String(b.member.managementNumber || b.member.name || ""), "ja", { numeric: true });
+        if (memberCompare !== 0) return memberCompare;
+        return String(a.displayNumberings || "").localeCompare(String(b.displayNumberings || ""), "ja", { numeric: true });
+      });
+    }
+
+    function filterShippingBatchUnits(units) {
+      const keyword = normalizeSearch(shippingBatchSearchInput?.value || "");
+      if (!keyword) return units;
+
+      return units.filter((unit) => {
+        const target = normalizeSearch([
+          unit.member.managementNumber,
+          unit.member.name,
+          unit.member.email,
+          unit.displayNames,
+          unit.displayNumberings
+        ].join(" "));
+        return target.includes(keyword);
+      });
+    }
+
+    function renderShippingBatch() {
+      shippingBatchUnitsCache = filterShippingBatchUnits(buildShippingBatchUnits());
+
+      if (!shippingBatchUnitsCache.length) {
+        shippingBatchBody.innerHTML = `<tr><td colspan="12"><div class="empty">発送依頼中の商品はありません。</div></td></tr>`;
+        return;
+      }
+
+      shippingBatchBody.innerHTML = shippingBatchUnitsCache.map((unit, index) => {
+        const product = unit.parent;
+        const member = unit.member;
+        const status = isShippedStatus(product.shippingStatus) ? product.shippingStatus : "shipped";
+        const size = product.shippingSize || product.expectedSize || "";
+        const calculatedPrice = autoShippingPriceFor(product, size, status, member);
+        const price = status === "cash_on_delivery" ? "0" : hasValue(calculatedPrice) ? calculatedPrice : product.shippingPrice || "";
+        const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
+        const bundleText = unit.products.length > 1 ? `<div class="member-meta">同梱 ${escapeHtml(unit.products.length)}点</div>` : "";
+
+        return `
+          <tr data-shipping-batch-index="${index}">
+            <td><input type="checkbox" data-shipping-batch-check="${index}" /></td>
+            <td>${escapeHtml(member.managementNumber || "-")}</td>
+            <td>
+              <div class="member-name">${escapeHtml(member.name || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
+            </td>
+            <td>${shippingBadge(product.shippingRequest)}</td>
+            <td>${escapeHtml(unit.displayNames)}${bundleText}</td>
+            <td>${escapeHtml(unit.displayNumberings)}</td>
+            <td>${escapeHtml(shippingAddressLine(product.shippingDestination))}</td>
+            <td>${escapeHtml(shippingAddressLine(product.shippingOrigin, true))}</td>
+            <td>
+              <select data-shipping-batch-status="${index}" onchange="updateShippingBatchPrice(${index})">
+                <option value="shipped" ${status === "shipped" ? "selected" : ""}>発送済み</option>
+                <option value="cash_on_delivery" ${status === "cash_on_delivery" ? "selected" : ""}>着払い発送</option>
+              </select>
+            </td>
+            <td>
+              <select data-shipping-batch-size="${index}" onchange="updateShippingBatchPrice(${index})">
+                ${shippingSizeOptions(size)}
+              </select>
+            </td>
+            <td><input data-shipping-batch-price="${index}" type="number" min="0" value="${escapeAttr(hasValue(price) ? price : "")}" /></td>
+            <td><input data-shipping-batch-tracking="${index}" value="${escapeAttr(trackingNumber)}" placeholder="追跡番号" /></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function shippingAddressLine(value, isOrigin = false) {
+      if (!value || typeof value !== "object") return "-";
+      return [
+        isOrigin ? value.senderName : value.name,
+        value.postalCode,
+        value.prefecture,
+        value.address,
+        value.building,
+        value.phone
+      ].filter(hasValue).join(" / ") || "-";
+    }
+
+    function updateShippingBatchPrice(index) {
+      const unit = shippingBatchUnitsCache[index];
+      if (!unit) return;
+      const status = document.querySelector(`[data-shipping-batch-status="${index}"]`)?.value || "shipped";
+      const size = document.querySelector(`[data-shipping-batch-size="${index}"]`)?.value || "";
+      const priceInput = document.querySelector(`[data-shipping-batch-price="${index}"]`);
+      if (!priceInput) return;
+
+      const price = status === "cash_on_delivery"
+        ? "0"
+        : autoShippingPriceFor(unit.parent, size, status, unit.member);
+
+      priceInput.value = hasValue(price) ? price : "";
+    }
+
+    async function saveShippingBatch() {
+      hideError(appError);
+      const selected = shippingBatchUnitsCache
+        .map((unit, index) => ({ unit, index }))
+        .filter(({ index }) => document.querySelector(`[data-shipping-batch-check="${index}"]`)?.checked);
+
+      if (!selected.length) {
+        showError(appError, "発送処理する商品を選択してください。");
+        return;
+      }
+
+      const now = Date.now();
+      const shippedDate = todayString();
+      const updates = {};
+      const notificationTargets = [];
+
+      try {
+        for (const { unit, index } of selected) {
+          const status = document.querySelector(`[data-shipping-batch-status="${index}"]`)?.value || "shipped";
+          const shippingSize = document.querySelector(`[data-shipping-batch-size="${index}"]`)?.value || "";
+          const shippingPrice = status === "cash_on_delivery" ? "0" : document.querySelector(`[data-shipping-batch-price="${index}"]`)?.value.trim() || "";
+          const trackingNumber = document.querySelector(`[data-shipping-batch-tracking="${index}"]`)?.value.trim() || "";
+
+          if (status === "shipped" && !trackingNumber) {
+            throw new Error(`${unit.member.name || "-"} / ${unit.displayNames} の追跡番号を入力してください。`);
+          }
+
+          unit.products.forEach((product, productIndex) => {
+            const path = `products/${unit.uid}/${product.id}`;
+            updates[`${path}/updatedAt`] = now;
+            updates[`${path}/shippingStatus`] = status;
+            updates[`${path}/shippedDate`] = shippedDate;
+            updates[`${path}/shippingSize`] = shippingSize;
+            updates[`${path}/shippingPrice`] = productIndex === 0 ? shippingPrice : "0";
+            updates[`${path}/trackingNumber`] = trackingNumber;
+            updates[`${path}/shippingTrackingNumber`] = trackingNumber;
+            updates[`${path}/shipmentGroupId`] = unit.groupKey.startsWith("single_") ? `${shippedDate}_${unit.uid}_${unit.parent.id}` : unit.groupKey.replace(/^group_/, "");
+            updates[`${path}/shipmentBatchProcessedAt`] = now;
+            updates[`${path}/shipmentBatchProcessedBy`] = currentUser?.uid || "";
+          });
+
+          notificationTargets.push({
+            uid: unit.uid,
+            member: unit.member,
+            product: {
+              ...unit.parent,
+              shippingStatus: status,
+              shippedDate,
+              shippingSize,
+              shippingPrice,
+              trackingNumber
+            }
+          });
+        }
+
+        await update(ref(db), updates);
+
+        notificationTargets.forEach(({ uid, member, product }) => {
+          queueDiscordNotification({
+            uid,
+            eventType: "shipped",
+            title: "発送完了",
+            member,
+            product
+          });
+        });
+
+        await refreshExistingInvoicesForBatch(notificationTargets);
+        await loadAllData();
+        showError(appError, `発送バッチを保存しました。処理件数：${selected.length}件`);
+      } catch (error) {
+        console.error(error);
+        showError(appError, `発送バッチの保存に失敗しました。${error && error.message ? error.message : "Realtime Databaseのルールを確認してください。"}`);
+      }
+    }
+
+    async function refreshExistingInvoicesForBatch(targets) {
+      const pairs = [];
+      targets.forEach(({ uid, product }) => {
+        Object.keys(invoicesCache?.[uid] || {}).forEach((month) => {
+          pairs.push({ uid, month });
+        });
+        const month = product?.shippedDate ? String(product.shippedDate).slice(0, 7) : "";
+        if (month) pairs.push({ uid, month });
+      });
+
+      const uniquePairs = [...new Map(pairs.map((item) => [`${item.uid}_${item.month}`, item])).values()];
+      for (const pair of uniquePairs) {
+        await refreshInvoiceForMemberMonth(pair.uid, pair.month);
+      }
+    }
+
     function productNameCell(product) {
       return escapeHtml(product.name || "-");
     }
@@ -2442,6 +2705,7 @@
       membersSection.classList.toggle("hidden", tabName !== "members");
       pendingMembersSection.classList.toggle("hidden", tabName !== "pendingMembers");
       detailSection.classList.toggle("hidden", tabName !== "detail");
+      shippingBatchSection.classList.toggle("hidden", tabName !== "shippingBatch");
       invoicesSection.classList.toggle("hidden", tabName !== "invoices");
       companySection.classList.toggle("hidden", tabName !== "company");
       pricesSection.classList.toggle("hidden", tabName !== "prices");
