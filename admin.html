@@ -280,6 +280,23 @@
       background: white;
     }
 
+    .table-wrap select,
+    .table-wrap input[type="text"],
+    .table-wrap input[type="number"],
+    .table-wrap input:not([type]) {
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: white;
+      font: inherit;
+    }
+
+    .table-wrap input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
     .inquiry-table-wrap {
       margin-bottom: 30px;
     }
@@ -1133,8 +1150,8 @@
         <h2>発送バッチ</h2>
         <div class="table-actions">
           <input id="shippingBatchSearchInput" class="member-search" type="search" placeholder="会員・商品名・ナンバリングで検索" />
-          <button class="secondary-btn" onclick="loadAllData()">再読み込み</button>
-          <button class="primary-btn" onclick="saveShippingBatch()">選択中を発送済みにする</button>
+          <button class="secondary-btn" type="button" onclick="loadAllData()">再読み込み</button>
+          <button class="primary-btn" type="button" onclick="saveShippingBatch()">選択中を発送済みにする</button>
         </div>
       </div>
       <p class="form-note">今日発送する商品を選択し、送り状作成後に追跡番号を同じ画面で入力してください。同梱商品は1つの発送単位としてまとめて処理されます。</p>
@@ -2454,7 +2471,7 @@
         const product = unit.parent;
         const member = unit.member;
         const status = isShippedStatus(product.shippingStatus) ? product.shippingStatus : "shipped";
-        const size = product.shippingSize || product.expectedSize || "";
+        const size = product.shippingSize || defaultShippingBatchSize(product);
         const calculatedPrice = autoShippingPriceFor(product, size, status, member);
         const price = status === "cash_on_delivery" ? "0" : hasValue(calculatedPrice) ? calculatedPrice : product.shippingPrice || "";
         const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
@@ -2501,6 +2518,11 @@
         value.building,
         value.phone
       ].filter(hasValue).join(" / ") || "-";
+    }
+
+    function defaultShippingBatchSize(product) {
+      if (shippingKey(product?.shippingRequest) === "international") return "海外発送";
+      return product?.expectedSize || "";
     }
 
     function updateShippingBatchPrice(index) {
@@ -2574,17 +2596,17 @@
         }
 
         await update(ref(db), updates);
-
-        notificationTargets.forEach(({ uid, member, product }) => {
-          queueDiscordNotification({
+        await Promise.all(notificationTargets.map(({ uid, member, product }) => {
+          return queueDiscordNotification({
             uid,
             eventType: "shipped",
             title: "発送完了",
             member,
             product
           });
-        });
+        }));
 
+        await loadAllData();
         await refreshExistingInvoicesForBatch(notificationTargets);
         await loadAllData();
         showError(appError, `発送バッチを保存しました。処理件数：${selected.length}件`);
@@ -2606,7 +2628,10 @@
 
       const uniquePairs = [...new Map(pairs.map((item) => [`${item.uid}_${item.month}`, item])).values()];
       for (const pair of uniquePairs) {
-        await refreshInvoiceForMemberMonth(pair.uid, pair.month);
+        const member = findMember(pair.uid);
+        if (member && pair.month) {
+          await writeInvoiceForMember(member, pair.month, false, true);
+        }
       }
     }
 
@@ -4781,6 +4806,8 @@ function firstInvoiceDate(item) {
     window.activatePendingMemberFromAdmin = activatePendingMemberFromAdmin;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
+    window.updateShippingBatchPrice = updateShippingBatchPrice;
+    window.saveShippingBatch = saveShippingBatch;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
