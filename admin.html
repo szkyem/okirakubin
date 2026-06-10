@@ -4980,7 +4980,7 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const groups = confirmationRowsForProduct(product, false);
+      const groups = confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product));
 
       return `
         <div class="confirmation-table-wrap">
@@ -5002,7 +5002,13 @@ function firstInvoiceDate(item) {
       return groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
         ${group.rows.map((row) => `
-          <tr>
+          <tr
+            data-confirmation-form-row
+            data-confirmation-form-section="${escapeAttr(group.section)}"
+            data-confirmation-form-key="${escapeAttr(row.key)}"
+            data-confirmation-form-label="${escapeAttr(row.label)}"
+            data-confirmation-form-default="${escapeAttr(row.defaultComment || "")}"
+          >
             <td class="confirmation-item-cell">${escapeHtml(row.label)}</td>
             <td class="confirmation-select-cell">
               <select name="confirmation_${escapeAttr(row.key)}">
@@ -5188,16 +5194,14 @@ function firstInvoiceDate(item) {
     function buildConfirmationTemplateData(formData) {
       const data = {};
 
-      confirmationRowsForActiveEdit().forEach((group) => {
-        group.rows.forEach((row) => {
-          const key = row.key;
-          const value = getFormValue(formData, `confirmation_${key}`);
-          const comment = getFormValue(formData, `confirmation_${key}_comment`);
-          if (key === "productNote" && (!comment && (!value || value === "-"))) return;
-          if (value || comment) {
-            data[key] = { section: group.section, label: row.label, value, comment, defaultComment: row.defaultComment || "" };
-          }
-        });
+      getVisibleConfirmationRows().forEach((row) => {
+        const key = row.key;
+        const value = getFormValue(formData, `confirmation_${key}`);
+        const comment = getFormValue(formData, `confirmation_${key}_comment`);
+        if (key === "productNote" && (!comment && (!value || value === "-"))) return;
+        if (value || comment) {
+          data[key] = { section: row.section, label: row.label, value, comment, defaultComment: row.defaultComment || "" };
+        }
       });
 
       return data;
@@ -5205,26 +5209,35 @@ function firstInvoiceDate(item) {
 
     function buildConfirmationResult(formData) {
       const rows = [];
+      const groupedRows = new Map();
 
-      confirmationRowsForActiveEdit().forEach((group) => {
-        const groupRows = group.rows
-          .map((row) => {
-            const key = row.key;
-            const value = getFormValue(formData, `confirmation_${key}`);
-            const comment = getFormValue(formData, `confirmation_${key}_comment`);
-            if (key === "productNote" && (!comment && (!value || value === "-"))) return "";
-            if (!value && !comment) return "";
-            return `${row.label}${value ? value : ""}${comment ? ` ${comment}` : ""}`;
-          })
-          .filter(Boolean);
+      getVisibleConfirmationRows().forEach((row) => {
+        const key = row.key;
+        const value = getFormValue(formData, `confirmation_${key}`);
+        const comment = getFormValue(formData, `confirmation_${key}_comment`);
+        if (key === "productNote" && (!comment && (!value || value === "-"))) return;
+        if (!value && !comment) return;
+        if (!groupedRows.has(row.section)) groupedRows.set(row.section, []);
+        groupedRows.get(row.section).push(`${row.label}${value ? value : ""}${comment ? ` ${comment}` : ""}`);
+      });
 
+      groupedRows.forEach((groupRows, section) => {
         if (groupRows.length) {
-          rows.push(`＜${group.section}＞`);
+          rows.push(`＜${section}＞`);
           rows.push(...groupRows);
         }
       });
 
       return rows.join("\n");
+    }
+
+    function getVisibleConfirmationRows() {
+      return [...editForm.querySelectorAll("[data-confirmation-form-row]")].map((rowEl) => ({
+        section: rowEl.dataset.confirmationFormSection || "確認項目",
+        key: rowEl.dataset.confirmationFormKey || "",
+        label: rowEl.dataset.confirmationFormLabel || "",
+        defaultComment: rowEl.dataset.confirmationFormDefault || ""
+      })).filter((row) => row.key && row.label);
     }
 
     function parseConfirmationBaseText(text) {
