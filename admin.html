@@ -4958,6 +4958,10 @@ function firstInvoiceDate(item) {
       return row?.key === "productNote" || row?.label === "備考欄";
     }
 
+    function productNoteText(product) {
+      return String(product?.note || product?.productNote || product?.remarks || product?.memo || "").trim();
+    }
+
     function confirmationRowsForActiveEdit() {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
@@ -4966,8 +4970,10 @@ function firstInvoiceDate(item) {
     }
 
     function canUseProductNoteInConfirmation(product) {
-      const member = activeEdit?.uid ? findMember(activeEdit.uid) : null;
-      return isConsultingMember(member) && hasValue(product?.note);
+      const member = activeEdit?.uid
+        ? findMember(activeEdit.uid)
+        : membersCache.find((item) => item.products.some((memberProduct) => memberProduct.id === product?.id));
+      return isConsultingMember(member);
     }
 
     function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
@@ -5344,7 +5350,7 @@ function firstInvoiceDate(item) {
       groups.forEach((group) => {
         group.rows.forEach((row) => {
           values[row.key] = row.key === "productNote"
-            ? { value: "あり。", comment: product?.note || "" }
+            ? { value: "あり。", comment: productNoteText(product) }
             : { value: "-", comment: "" };
         });
       });
@@ -5364,7 +5370,7 @@ function firstInvoiceDate(item) {
       groups.forEach((group) => {
         group.rows.forEach((row) => {
           values[row.key] = row.key === "productNote"
-            ? { value: "あり。", comment: product?.note || "" }
+            ? { value: "あり。", comment: productNoteText(product) }
             : { value: "-", comment: "" };
         });
       });
