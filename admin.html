@@ -4918,44 +4918,47 @@ function firstInvoiceDate(item) {
         {
           section: "その他",
           rows: [
-            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"], defaultComment: "" }
+            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"], defaultComment: "" },
+            { key: "productNote", label: "備考欄", options: ["あり。", "なし。"], defaultComment: "" }
           ]
         }
       ]};
     }
 
     function confirmationRows() {
-      return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
+      return ensureProductNoteRows((confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups);
     }
 
     function confirmationRowsForProduct(product, includeProductNote = false) {
-      const groups = confirmationRows().map((group) => ({
-        section: group.section,
-        rows: [...(group.rows || [])].filter((row) => !isProductNoteRow(row))
-      }));
-
-      if (!includeProductNote || !canUseProductNoteInConfirmation(product)) return groups;
-
-      let otherGroup = groups.find((group) => group.section === "その他");
-      if (!otherGroup) {
-        otherGroup = { section: "その他", rows: [] };
-        groups.push(otherGroup);
-      }
-
-      if (!otherGroup.rows.some((row) => row.key === "productNote" || row.label === "備考欄")) {
-        otherGroup.rows.push({
-          key: "productNote",
-          label: "備考欄",
-          options: ["あり。", "なし。"],
-          defaultComment: ""
-        });
-      }
-
-      return groups;
+      return ensureProductNoteRows(confirmationRows());
     }
 
     function isProductNoteRow(row) {
       return row?.key === "productNote" || row?.label === "備考欄";
+    }
+
+    function ensureProductNoteRows(groups, noteOptions = ["あり。", "なし。"]) {
+      const copied = (groups || []).map((group) => ({
+        section: group.section,
+        rows: [...(group.rows || [])]
+      }));
+
+      let otherGroup = copied.find((group) => group.section === "その他");
+      if (!otherGroup) {
+        otherGroup = { section: "その他", rows: [] };
+        copied.push(otherGroup);
+      }
+
+      if (!otherGroup.rows.some((row) => isProductNoteRow(row))) {
+        otherGroup.rows.push({
+          key: "productNote",
+          label: "備考欄",
+          options: noteOptions,
+          defaultComment: ""
+        });
+      }
+
+      return copied;
     }
 
     function productNoteText(product) {
@@ -4966,14 +4969,11 @@ function firstInvoiceDate(item) {
       const product = activeEdit?.uid && activeEdit?.productId
         ? findProduct(activeEdit.uid, activeEdit.productId)
         : null;
-      return confirmationRowsForProduct(product, Boolean(editForm.querySelector('[name="confirmation_productNote"]')));
+      return confirmationRowsForProduct(product, true);
     }
 
     function canUseProductNoteInConfirmation(product) {
-      const member = activeEdit?.uid
-        ? findMember(activeEdit.uid)
-        : membersCache.find((item) => item.products.some((memberProduct) => memberProduct.id === product?.id));
-      return isConsultingMember(member);
+      return true;
     }
 
     function confirmationOptionHtml(current, rowOptions = ["ある。", "ない。"]) {
@@ -4986,7 +4986,7 @@ function firstInvoiceDate(item) {
 
     function confirmationTableHtml(product) {
       const values = product.confirmationTemplate || {};
-      const groups = confirmationRowsForProduct(product, canUseProductNoteInConfirmation(product));
+      const groups = confirmationRowsForProduct(product, true);
 
       return `
         <div class="confirmation-table-wrap">
@@ -5031,10 +5031,7 @@ function firstInvoiceDate(item) {
 
     function confirmationResultDisplayHtml(product) {
       const values = product.confirmationTemplate || {};
-      const productOwner = membersCache.find((member) => member.products.some((item) => item.id === product.id));
-      const canShowProductNote = isConsultingMember(productOwner);
       const savedEntries = Object.entries(values).filter(([key, entry]) => {
-        if (key === "productNote" && !canShowProductNote) return false;
         if (!entry || typeof entry !== "object") return false;
         return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
       });
@@ -5044,7 +5041,7 @@ function firstInvoiceDate(item) {
       }
 
       const usedKeys = new Set();
-      const groups = confirmationRowsForProduct(product, canShowProductNote)
+      const groups = confirmationRowsForProduct(product, true)
         .map((group) => {
           const rows = group.rows
             .map((row) => {
@@ -5114,7 +5111,7 @@ function firstInvoiceDate(item) {
 
       const owner = product ? membersCache.find((member) => member.products.some((item) => item.id === product.id)) : null;
       const groupsSource = product
-        ? confirmationRowsForProduct(product, isConsultingMember(owner))
+        ? confirmationRowsForProduct(product, true)
         : confirmationRows();
       const groups = groupsSource
         .map((group, groupIndex, allGroups) => {
@@ -5204,7 +5201,6 @@ function firstInvoiceDate(item) {
         const key = row.key;
         const value = getFormValue(formData, `confirmation_${key}`);
         const comment = getFormValue(formData, `confirmation_${key}_comment`);
-        if (key === "productNote" && (!comment && (!value || value === "-"))) return;
         if (value || comment) {
           data[key] = { section: row.section, label: row.label, value, comment, defaultComment: row.defaultComment || "" };
         }
@@ -5221,7 +5217,6 @@ function firstInvoiceDate(item) {
         const key = row.key;
         const value = getFormValue(formData, `confirmation_${key}`);
         const comment = getFormValue(formData, `confirmation_${key}_comment`);
-        if (key === "productNote" && (!comment && (!value || value === "-"))) return;
         if (!value && !comment) return;
         if (!groupedRows.has(row.section)) groupedRows.set(row.section, []);
         groupedRows.get(row.section).push(`${row.label}${value ? value : ""}${comment ? ` ${comment}` : ""}`);
@@ -5311,37 +5306,11 @@ function firstInvoiceDate(item) {
         ? confirmationBaseCache.notRequiredGroups
         : defaultNotRequiredConfirmationGroups(confirmationRows());
 
-      return appendProductNoteRows(baseGroups, product, canUseProductNoteInConfirmation(product)).map((group) => ({
-        section: group.section,
-        rows: group.rows.map((row) => ({
-          ...row,
-          options: row.key === "productNote" ? ["あり。", "なし。"] : ["-"]
-        }))
-      }));
+      return ensureProductNoteRows(baseGroups, ["-"]);
     }
 
     function appendProductNoteRows(groups, product, includeProductNote) {
-      const copied = (groups || []).map((group) => ({
-        section: group.section,
-        rows: [...(group.rows || [])].filter((row) => !isProductNoteRow(row))
-      }));
-
-      if (!includeProductNote) return copied;
-
-      let otherGroup = copied.find((group) => group.section === "その他");
-      if (!otherGroup) {
-        otherGroup = { section: "その他", rows: [] };
-        copied.push(otherGroup);
-      }
-
-      otherGroup.rows.push({
-        key: "productNote",
-        label: "備考欄",
-        options: ["あり。", "なし。"],
-        defaultComment: ""
-      });
-
-      return copied;
+      return ensureProductNoteRows(groups);
     }
 
     function notRequiredConfirmationValues(groups, product) {
@@ -5349,9 +5318,10 @@ function firstInvoiceDate(item) {
 
       groups.forEach((group) => {
         group.rows.forEach((row) => {
-          values[row.key] = row.key === "productNote"
-            ? { value: "あり。", comment: productNoteText(product) }
-            : { value: "-", comment: "" };
+          values[row.key] = {
+            value: (row.options || [])[0] || "-",
+            comment: row.defaultComment || ""
+          };
         });
       });
 
