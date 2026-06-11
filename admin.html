@@ -301,6 +301,51 @@
       margin-bottom: 30px;
     }
 
+    .ocr-panel {
+      margin: 14px 0 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #f8fafc;
+    }
+
+    .ocr-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ocr-file {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 7px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .ocr-file input { display: none; }
+
+    .ocr-textarea {
+      width: 100%;
+      min-height: 84px;
+      margin-top: 10px;
+      resize: vertical;
+    }
+
+    .ocr-result {
+      margin-top: 14px;
+    }
+
+    .ocr-result h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
     .inquiry-message {
       white-space: pre-wrap;
       line-height: 1.6;
@@ -1155,6 +1200,20 @@
         </div>
       </div>
       <p class="form-note">今日発送する商品を選択し、送り状作成後に追跡番号を同じ画面で入力してください。同梱商品は1つの発送単位としてまとめて処理されます。</p>
+      <div class="ocr-panel">
+        <div class="ocr-actions">
+          <label class="ocr-file">
+            スクショ画像を選択
+            <input id="yupackOcrFileInput" type="file" accept="image/*" />
+          </label>
+          <button class="secondary-btn" type="button" onclick="runYupackOcr()">OCR読取</button>
+          <button class="secondary-btn" type="button" onclick="matchYupackOcrText()">貼り付け内容を照合</button>
+          <button class="secondary-btn" type="button" onclick="clearYupackOcr()">クリア</button>
+        </div>
+        <p class="form-note">ゆうパックプリントRの追跡番号画面スクショを読み取り、発送先氏名と郵便番号で発送待ち情報に照合します。OCRが不安定な場合は読み取った文字を下に貼り付けて照合できます。</p>
+        <textarea id="yupackOcrTextInput" class="ocr-textarea" placeholder="OCR結果テキストを貼り付けても照合できます"></textarea>
+        <div id="yupackOcrResult" class="ocr-result hidden"></div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -1621,6 +1680,9 @@
     const detailProductSearchInput = document.getElementById("detailProductSearchInput");
     const shippingBatchSearchInput = document.getElementById("shippingBatchSearchInput");
     const shippingBatchBody = document.getElementById("shippingBatchBody");
+    const yupackOcrFileInput = document.getElementById("yupackOcrFileInput");
+    const yupackOcrTextInput = document.getElementById("yupackOcrTextInput");
+    const yupackOcrResult = document.getElementById("yupackOcrResult");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
     const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
@@ -1659,6 +1721,7 @@
     let confirmationBaseView = "normal";
     let discordNotificationQueueCache = {};
     let shippingBatchUnitsCache = [];
+    let yupackOcrRecordsCache = [];
     let selectedMemberUid = null;
     let detailView = "registered";
     let activeEdit = null;
@@ -2523,6 +2586,270 @@
         : autoShippingPriceFor(unit.parent, size, status, unit.member);
 
       priceInput.value = hasValue(price) ? price : "";
+    }
+
+    async function runYupackOcr() {
+      hideError(appError);
+      const file = yupackOcrFileInput?.files?.[0];
+      if (!file) {
+        showError(appError, "ゆうパックプリントRのスクショ画像を選択してください。");
+        return;
+      }
+
+      try {
+        const imageDataUrl = await fileToDataUrl(file);
+        const result = await requestYupackOcr(imageDataUrl, file);
+        const records = normalizeYupackOcrRecords(result);
+        const rawText = result.text || result.rawText || "";
+        if (yupackOcrTextInput && rawText) yupackOcrTextInput.value = rawText;
+        setYupackOcrRecords(records);
+      } catch (error) {
+        showError(appError, `スクショOCRの読み取りに失敗しました。${error && error.message ? error.message : "GAS側のOCR設定を確認してください。"}`);
+      }
+    }
+
+    function matchYupackOcrText() {
+      hideError(appError);
+      const text = yupackOcrTextInput?.value || "";
+      const records = parseYupackOcrText(text);
+      setYupackOcrRecords(records);
+    }
+
+    function clearYupackOcr() {
+      yupackOcrRecordsCache = [];
+      if (yupackOcrTextInput) yupackOcrTextInput.value = "";
+      if (yupackOcrFileInput) yupackOcrFileInput.value = "";
+      if (yupackOcrResult) {
+        yupackOcrResult.classList.add("hidden");
+        yupackOcrResult.innerHTML = "";
+      }
+    }
+
+    function setYupackOcrRecords(records) {
+      yupackOcrRecordsCache = records.map((record) => ({
+        ...record,
+        matchedIndex: findYupackOcrMatchIndex(record)
+      }));
+      renderYupackOcrResult();
+    }
+
+    async function requestYupackOcr(imageDataUrl, file) {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
+        throw new Error("GAS_WEB_APP_URLが未設定です。");
+      }
+
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "ocrTrackingScreenshot",
+          token: GAS_WEB_APP_TOKEN,
+          fileName: file.name,
+          mimeType: file.type,
+          imageBase64: imageDataUrl.split(",")[1] || imageDataUrl
+        })
+      });
+
+      const responseText = await response.text();
+      let result = {};
+      try {
+        result = JSON.parse(responseText || "{}");
+      } catch (error) {
+        throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
+      }
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `OCRに失敗しました。status=${response.status}`);
+      }
+
+      return result;
+    }
+
+    function normalizeYupackOcrRecords(result = {}) {
+      const structured = result.records || result.items || result.trackingRecords || [];
+      if (Array.isArray(structured) && structured.length) {
+        return structured
+          .map((item) => ({
+            name: item.name || item.recipientName || item.senderName || "",
+            postalCode: normalizePostalCode(item.postalCode || item.zip || ""),
+            trackingNumber: normalizeTrackingNumber(item.trackingNumber || item.trackingNo || item.inquiryNumber || "")
+          }))
+          .filter((item) => item.trackingNumber);
+      }
+
+      return parseYupackOcrText(result.text || result.rawText || "");
+    }
+
+    function parseYupackOcrText(text) {
+      const lines = String(text || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const records = [];
+
+      lines.forEach((line, index) => {
+        const trackingNumbers = extractTrackingNumbers(line);
+        if (!trackingNumbers.length) return;
+
+        const nearby = lines.slice(Math.max(0, index - 3), Math.min(lines.length, index + 4));
+        const postalCode = normalizePostalCode((nearby.join(" ").match(/\b\d{3}[-\s]?\d{4}\b/) || [""])[0]);
+        const name = inferOcrName(nearby, line);
+
+        trackingNumbers.forEach((trackingNumber) => {
+          records.push({ name, postalCode, trackingNumber });
+        });
+      });
+
+      return uniqueYupackOcrRecords(records);
+    }
+
+    function extractTrackingNumbers(text) {
+      const matches = String(text || "").match(/(?:\d[\s-]?){11,13}/g) || [];
+      return [...new Set(matches
+        .map(normalizeTrackingNumber)
+        .filter((number) => number.length >= 11 && number.length <= 13))];
+    }
+
+    function uniqueYupackOcrRecords(records) {
+      const seen = new Set();
+      return records.filter((record) => {
+        const key = `${record.trackingNumber}_${record.postalCode}_${record.name}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function inferOcrName(lines, trackingLine) {
+      const trackingNumbers = extractTrackingNumbers(trackingLine);
+      const candidates = lines
+        .filter((line) => !extractTrackingNumbers(line).length)
+        .filter((line) => !/\b\d{3}[-\s]?\d{4}\b/.test(line))
+        .filter((line) => !/発送|追跡|お問い合わせ|送り状|番号|郵便|〒/.test(line))
+        .map((line) => line.replace(/\s+/g, " ").trim())
+        .filter((line) => line.length >= 2 && line.length <= 30);
+      return candidates[0] || "";
+    }
+
+    function findYupackOcrMatchIndex(record) {
+      const recordPostal = normalizePostalCode(record.postalCode);
+      const recordName = normalizePersonName(record.name);
+      const candidates = shippingBatchUnitsCache
+        .map((unit, index) => {
+          const product = unit.parent;
+          const postal = normalizePostalCode(shippingDestinationPostalCode(product));
+          const name = normalizePersonName(shippingDestinationName(product));
+          let score = 0;
+          if (recordPostal && postal && recordPostal === postal) score += 2;
+          if (recordName && name && (recordName === name || name.includes(recordName) || recordName.includes(name))) score += 2;
+          return { index, score };
+        })
+        .filter((item) => item.score >= 4);
+
+      return candidates.length === 1 ? candidates[0].index : -1;
+    }
+
+    function renderYupackOcrResult() {
+      if (!yupackOcrResult) return;
+      yupackOcrResult.classList.remove("hidden");
+
+      if (!yupackOcrRecordsCache.length) {
+        yupackOcrResult.innerHTML = `<div class="empty">追跡番号を読み取れませんでした。OCR結果テキストを貼り付けて再照合してください。</div>`;
+        return;
+      }
+
+      const matchedCount = yupackOcrRecordsCache.filter((record) => record.matchedIndex >= 0).length;
+      yupackOcrResult.innerHTML = `
+        <div class="section-title-row">
+          <h3>OCR照合結果：${escapeHtml(matchedCount)} / ${escapeHtml(yupackOcrRecordsCache.length)} 件一致</h3>
+          <button class="secondary-btn" type="button" onclick="applyAllYupackOcrMatches()">一致分を反映</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>OCR氏名</th>
+                <th>郵便番号</th>
+                <th>追跡番号</th>
+                <th>照合先</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${yupackOcrRecordsCache.map((record, index) => {
+                const unit = shippingBatchUnitsCache[record.matchedIndex];
+                const matchText = unit
+                  ? `${unit.member.managementNumber || "-"} / ${unit.member.name || "-"} / ${unit.displayNames}`
+                  : "未照合";
+                return `
+                  <tr>
+                    <td>${escapeHtml(record.name || "-")}</td>
+                    <td>${escapeHtml(record.postalCode || "-")}</td>
+                    <td>${escapeHtml(record.trackingNumber || "-")}</td>
+                    <td>${escapeHtml(matchText)}</td>
+                    <td>
+                      ${unit ? `<button class="mini-btn" type="button" onclick="applyYupackOcrMatch(${index})">反映</button>` : ""}
+                      <button class="mini-btn" type="button" onclick="copyYupackTrackingNumber(${index})">コピー</button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function applyYupackOcrMatch(recordIndex) {
+      const record = yupackOcrRecordsCache[recordIndex];
+      if (!record || record.matchedIndex < 0) return;
+
+      const trackingInput = document.querySelector(`[data-shipping-batch-tracking="${record.matchedIndex}"]`);
+      const checkInput = document.querySelector(`[data-shipping-batch-check="${record.matchedIndex}"]`);
+      if (trackingInput) trackingInput.value = record.trackingNumber;
+      if (checkInput) checkInput.checked = true;
+    }
+
+    function applyAllYupackOcrMatches() {
+      yupackOcrRecordsCache.forEach((record, index) => {
+        if (record.matchedIndex >= 0) applyYupackOcrMatch(index);
+      });
+    }
+
+    async function copyYupackTrackingNumber(recordIndex) {
+      const record = yupackOcrRecordsCache[recordIndex];
+      if (!record?.trackingNumber) return;
+      try {
+        await navigator.clipboard.writeText(record.trackingNumber);
+      } catch (error) {
+        const input = document.createElement("input");
+        input.value = record.trackingNumber;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+      }
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error("画像の読み込みに失敗しました。"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function normalizePostalCode(value) {
+      const digits = String(value || "").replace(/[^\d]/g, "");
+      return digits.length === 7 ? digits : digits;
+    }
+
+    function normalizeTrackingNumber(value) {
+      return String(value || "").replace(/[^\d]/g, "");
+    }
+
+    function normalizePersonName(value) {
+      return String(value || "").replace(/様/g, "").replace(/\s|　/g, "").trim();
     }
 
     async function saveShippingBatch() {
@@ -4805,6 +5132,12 @@ function firstInvoiceDate(item) {
     window.openStatusEdit = openStatusEdit;
     window.updateShippingBatchPrice = updateShippingBatchPrice;
     window.saveShippingBatch = saveShippingBatch;
+    window.runYupackOcr = runYupackOcr;
+    window.matchYupackOcrText = matchYupackOcrText;
+    window.clearYupackOcr = clearYupackOcr;
+    window.applyYupackOcrMatch = applyYupackOcrMatch;
+    window.applyAllYupackOcrMatches = applyAllYupackOcrMatches;
+    window.copyYupackTrackingNumber = copyYupackTrackingNumber;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
