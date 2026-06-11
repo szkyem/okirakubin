@@ -2633,7 +2633,10 @@
         .find((item) => item.type && item.type.startsWith("image/"))
         ?.getAsFile();
 
-      if (!imageFile) return;
+      if (!imageFile) {
+        showError(appError, "クリップボードに画像が見つかりませんでした。スクショ後に貼り付け枠をクリックして Ctrl + V してください。");
+        return;
+      }
 
       event.preventDefault();
       hideError(appError);
@@ -2646,6 +2649,15 @@
     }
 
     async function processYupackOcrImage(file) {
+      const sizeMb = file.size / 1024 / 1024;
+      if (sizeMb > 8) {
+        throw new Error(`画像サイズが大きすぎます（${sizeMb.toFixed(1)}MB）。ゆうパックプリントRの必要部分だけを範囲スクショしてください。`);
+      }
+
+      if (yupackOcrPasteZone) {
+        yupackOcrPasteZone.textContent = `画像を受け取りました。OCR処理中です...（${file.type || "image"} / ${sizeMb.toFixed(1)}MB）`;
+      }
+
       const imageDataUrl = await fileToDataUrl(file);
       const result = await requestYupackOcr(imageDataUrl, file);
       const records = normalizeYupackOcrRecords(result);
@@ -2691,8 +2703,8 @@
         body: JSON.stringify({
           action: "ocrTrackingScreenshot",
           token: GAS_WEB_APP_TOKEN,
-          fileName: file.name,
-          mimeType: file.type,
+          fileName: file.name || `clipboard_screenshot_${Date.now()}.png`,
+          mimeType: file.type || "image/png",
           imageBase64: imageDataUrl.split(",")[1] || imageDataUrl
         })
       });
@@ -2706,7 +2718,8 @@
       }
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.error || `OCRに失敗しました。status=${response.status}`);
+        const detail = result.error || result.message || responseText.slice(0, 240);
+        throw new Error(`OCRに失敗しました。status=${response.status} ${detail}`);
       }
 
       return result;
