@@ -1166,6 +1166,8 @@
               <th>商品名</th>
               <th>ナンバリング</th>
               <th>発送情報</th>
+              <th>発送先氏名</th>
+              <th>郵便番号</th>
               <th>状態</th>
               <th>サイズ</th>
               <th>料金</th>
@@ -2462,7 +2464,7 @@
       shippingBatchUnitsCache = filterShippingBatchUnits(buildShippingBatchUnits());
 
       if (!shippingBatchUnitsCache.length) {
-        shippingBatchBody.innerHTML = `<tr><td colspan="11"><div class="empty">発送依頼中の商品はありません。</div></td></tr>`;
+        shippingBatchBody.innerHTML = `<tr><td colspan="13"><div class="empty">発送依頼中の商品はありません。</div></td></tr>`;
         return;
       }
 
@@ -2488,6 +2490,8 @@
             <td>${escapeHtml(unit.displayNames)}${bundleText}</td>
             <td>${escapeHtml(unit.displayNumberings)}</td>
             <td><button class="mini-btn" type="button" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+            <td>${escapeHtml(shippingDestinationName(product))}</td>
+            <td>${escapeHtml(shippingDestinationPostalCode(product))}</td>
             <td>
               <select data-shipping-batch-status="${index}" onchange="updateShippingBatchPrice(${index})">
                 <option value="shipped" ${status === "shipped" ? "selected" : ""}>発送済み</option>
@@ -2676,6 +2680,18 @@
         value.phone,
         value.senderName
       ].map((item) => String(item || "").trim()).join("|");
+    }
+
+    function shippingDestinationName(product) {
+      const destination = product?.shippingDestination;
+      if (!destination || typeof destination !== "object") return "-";
+      return destination.name || destination.recipientName || destination.senderName || "-";
+    }
+
+    function shippingDestinationPostalCode(product) {
+      const destination = product?.shippingDestination;
+      if (!destination || typeof destination !== "object") return "-";
+      return destination.postalCode || destination.zip || "-";
     }
 
     function setStatCard(card, value, type, active) {
