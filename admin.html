@@ -330,6 +330,28 @@
 
     .ocr-file input { display: none; }
 
+    .ocr-paste-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 86px;
+      margin-top: 10px;
+      padding: 14px;
+      border: 2px dashed #b8c2d6;
+      border-radius: 9px;
+      background: white;
+      color: var(--muted);
+      font-weight: 800;
+      text-align: center;
+      outline: none;
+    }
+
+    .ocr-paste-zone:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      color: var(--blue);
+    }
+
     .ocr-textarea {
       width: 100%;
       min-height: 84px;
@@ -1211,6 +1233,7 @@
           <button class="secondary-btn" type="button" onclick="clearYupackOcr()">クリア</button>
         </div>
         <p class="form-note">ゆうパックプリントRの追跡番号画面スクショを読み取り、発送先氏名と郵便番号で発送待ち情報に照合します。OCRが不安定な場合は読み取った文字を下に貼り付けて照合できます。</p>
+        <div id="yupackOcrPasteZone" class="ocr-paste-zone" tabindex="0">ここをクリックして Ctrl + V でスクショ画像を貼り付け</div>
         <textarea id="yupackOcrTextInput" class="ocr-textarea" placeholder="OCR結果テキストを貼り付けても照合できます"></textarea>
         <div id="yupackOcrResult" class="ocr-result hidden"></div>
       </div>
@@ -1681,6 +1704,7 @@
     const shippingBatchSearchInput = document.getElementById("shippingBatchSearchInput");
     const shippingBatchBody = document.getElementById("shippingBatchBody");
     const yupackOcrFileInput = document.getElementById("yupackOcrFileInput");
+    const yupackOcrPasteZone = document.getElementById("yupackOcrPasteZone");
     const yupackOcrTextInput = document.getElementById("yupackOcrTextInput");
     const yupackOcrResult = document.getElementById("yupackOcrResult");
 
@@ -1751,6 +1775,7 @@
     pendingMemberForm.addEventListener("submit", savePendingMember);
     pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
     discordNotifyDateInput.addEventListener("change", renderDiscordNotifications);
+    yupackOcrPasteZone?.addEventListener("paste", handleYupackOcrPaste);
 
     onAuthStateChanged(auth, async (user) => {
       hideError(loginError);
@@ -2597,15 +2622,37 @@
       }
 
       try {
-        const imageDataUrl = await fileToDataUrl(file);
-        const result = await requestYupackOcr(imageDataUrl, file);
-        const records = normalizeYupackOcrRecords(result);
-        const rawText = result.text || result.rawText || "";
-        if (yupackOcrTextInput && rawText) yupackOcrTextInput.value = rawText;
-        setYupackOcrRecords(records);
+        await processYupackOcrImage(file);
       } catch (error) {
         showError(appError, `スクショOCRの読み取りに失敗しました。${error && error.message ? error.message : "GAS側のOCR設定を確認してください。"}`);
       }
+    }
+
+    async function handleYupackOcrPaste(event) {
+      const imageFile = [...(event.clipboardData?.items || [])]
+        .find((item) => item.type && item.type.startsWith("image/"))
+        ?.getAsFile();
+
+      if (!imageFile) return;
+
+      event.preventDefault();
+      hideError(appError);
+
+      try {
+        await processYupackOcrImage(imageFile);
+      } catch (error) {
+        showError(appError, `貼り付け画像のOCR読み取りに失敗しました。${error && error.message ? error.message : "GAS側のOCR設定を確認してください。"}`);
+      }
+    }
+
+    async function processYupackOcrImage(file) {
+      const imageDataUrl = await fileToDataUrl(file);
+      const result = await requestYupackOcr(imageDataUrl, file);
+      const records = normalizeYupackOcrRecords(result);
+      const rawText = result.text || result.rawText || "";
+      if (yupackOcrTextInput && rawText) yupackOcrTextInput.value = rawText;
+      if (yupackOcrPasteZone) yupackOcrPasteZone.textContent = "画像を読み取りました。必要に応じて再度 Ctrl + V で貼り付けできます。";
+      setYupackOcrRecords(records);
     }
 
     function matchYupackOcrText() {
@@ -2619,6 +2666,7 @@
       yupackOcrRecordsCache = [];
       if (yupackOcrTextInput) yupackOcrTextInput.value = "";
       if (yupackOcrFileInput) yupackOcrFileInput.value = "";
+      if (yupackOcrPasteZone) yupackOcrPasteZone.textContent = "ここをクリックして Ctrl + V でスクショ画像を貼り付け";
       if (yupackOcrResult) {
         yupackOcrResult.classList.add("hidden");
         yupackOcrResult.innerHTML = "";
