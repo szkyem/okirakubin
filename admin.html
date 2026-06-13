@@ -1771,6 +1771,7 @@
 
     memberSearchInput.addEventListener("input", renderMembers);
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
+    detailTableArea.addEventListener("click", handleDetailTableClick);
     shippingBatchSearchInput.addEventListener("input", renderShippingBatch);
     pendingMemberForm.addEventListener("submit", savePendingMember);
     pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
@@ -2233,6 +2234,15 @@
       renderDetailTable(member, groups);
     }
 
+    function handleDetailTableClick(event) {
+      const storedEditButton = event.target.closest("[data-stored-member-edit]");
+      if (!storedEditButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      openStoredMemberFieldsEdit(storedEditButton.dataset.uid, storedEditButton.dataset.productId);
+    }
+
     function renderDetailTable(member, groups) {
       const products = getDisplayProductsForDetail(member);
 
@@ -2313,7 +2323,7 @@
                     <td>${preferenceButton(member.uid, product)}</td>
                     <td>${escapeHtml(product.shootingDate || "-")}</td>
                     <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
-                    <td><button class="mini-btn" onclick="openStoredMemberFieldsEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">修正</button></td>
+                    <td><button class="mini-btn" type="button" data-stored-member-edit data-uid="${escapeAttr(member.uid)}" data-product-id="${escapeAttr(product.id)}">修正</button></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -5313,6 +5323,7 @@ function firstInvoiceDate(item) {
     window.openPendingMemberEdit = openPendingMemberEdit;
     window.deletePendingMember = deletePendingMember;
     window.activatePendingMemberFromAdmin = activatePendingMemberFromAdmin;
+    window.openStoredMemberFieldsEdit = openStoredMemberFieldsEdit;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.updateShippingBatchPrice = updateShippingBatchPrice;
