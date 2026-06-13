@@ -2300,6 +2300,7 @@
                   <th>こだわり欄</th>
                   <th>写真撮影日</th>
                   <th>料金</th>
+                  <th>修正</th>
                 </tr>
               </thead>
               <tbody>
@@ -2312,6 +2313,7 @@
                     <td>${preferenceButton(member.uid, product)}</td>
                     <td>${escapeHtml(product.shootingDate || "-")}</td>
                     <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+                    <td><button class="mini-btn" onclick="openStoredMemberFieldsEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">修正</button></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -3637,6 +3639,83 @@
       editModalBackdrop.classList.add("show");
     }
 
+    function openStoredMemberFieldsEdit(uid, productId) {
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+      if (!product || !member) return;
+
+      activeEdit = { type: "storedMemberFields", uid, productId };
+
+      editModalTitle.textContent = "会員記載情報を修正";
+      editForm.innerHTML = `
+        <p class="form-note">管理者による代理修正です。保存前に確認ポップアップを表示します。</p>
+        <div class="form-grid">
+          <label>
+            商品名
+            <input name="name" value="${escapeAttr(product.name || "")}" />
+          </label>
+
+          <label>
+            ナンバリング
+            <input name="numbering" value="${escapeAttr(product.numbering || "")}" />
+          </label>
+
+          <label>
+            作業依頼
+            <select name="workRequest">
+              ${["検品+写真", "写真のみ", "検品のみ", "保管のみ"].map((option) => `
+                <option value="${escapeAttr(option)}" ${product.workRequest === option ? "selected" : ""}>${escapeHtml(option)}</option>
+              `).join("")}
+            </select>
+          </label>
+
+          <label>
+            ボディ本数
+            <input name="bodyCount" type="number" min="0" step="1" value="${escapeAttr(product.bodyCount ?? "")}" />
+          </label>
+
+          <label>
+            レンズ本数
+            <input name="lensCount" type="number" min="0" step="1" value="${escapeAttr(product.lensCount ?? "")}" />
+          </label>
+
+          <label>
+            購入先URL
+            <input name="purchaseUrl" value="${escapeAttr(product.purchaseUrl || "")}" />
+          </label>
+
+          <div class="full">
+            <div class="info-box-title" style="margin-bottom:8px;">
+              <span>オプション</span>
+            </div>
+            <label><input type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video) ? "checked" : ""} /> 動画撮影</label>
+            <label><input type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) || isOptionEnabled(product.options?.thanksCard) ? "checked" : ""} /> Thanksカード同梱</label>
+            <label><input type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || (Array.isArray(product.optionLabels) && product.optionLabels.includes("お気楽便Thanksカード・チラシ同梱")) ? "checked" : ""} /> お気楽便Thanksカード・チラシ同梱</label>
+          </div>
+
+          <label class="full">
+            オプションコメント
+            <textarea name="optionComment">${escapeHtml(product.optionComment || product.options?.comment || "")}</textarea>
+          </label>
+
+          ${isConsultingMember(member) ? `
+            <label class="full">
+              備考欄
+              <textarea name="note">${escapeHtml(product.note || "")}</textarea>
+            </label>
+          ` : ""}
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+      bindAutoResizeTextareas(editForm);
+    }
+
     function openStatusEdit(uid, productId) {
       const product = findProduct(uid, productId);
       if (!product) return;
@@ -3710,7 +3789,7 @@
 
       const formData = new FormData(editForm);
       const now = Date.now();
-      const invoiceRefreshTarget = (activeEdit.type === "adminFields" || activeEdit.type === "status")
+      const invoiceRefreshTarget = (activeEdit.type === "adminFields" || activeEdit.type === "status" || activeEdit.type === "storedMemberFields")
         ? {
             uid: activeEdit.uid,
             productId: activeEdit.productId,
@@ -3741,6 +3820,50 @@
             planType,
             updatedAt: now
           });
+        }
+
+        if (activeEdit.type === "storedMemberFields") {
+          const product = findProduct(activeEdit.uid, activeEdit.productId);
+          const member = findMember(activeEdit.uid);
+          const productLabel = `${product?.name || "-"} / ${product?.numbering || "-"}`;
+          const ok = confirm(`保管商品の会員記載情報を修正します。\n\n対象：${productLabel}\n\n本当にこの修正を保存しますか？`);
+          if (!ok) return;
+
+          const optionVideo = formData.get("optionVideo") === "on";
+          const optionThanksCard = formData.get("optionThanksCard") === "on";
+          const optionOkirakuInsert = formData.get("optionOkirakuInsert") === "on";
+          const optionLabels = [];
+          if (optionOkirakuInsert) optionLabels.push("お気楽便Thanksカード・チラシ同梱");
+
+          const updates = {
+            updatedAt: now,
+            memberFieldsEditedAt: now,
+            memberFieldsEditedBy: currentUser?.uid || "",
+            memberFieldsEditedByEmail: currentUser?.email || "",
+            name: getFormValue(formData, "name"),
+            numbering: getFormValue(formData, "numbering"),
+            workRequest: getFormValue(formData, "workRequest"),
+            bodyCount: getFormValue(formData, "bodyCount"),
+            lensCount: getFormValue(formData, "lensCount"),
+            purchaseUrl: getFormValue(formData, "purchaseUrl"),
+            optionVideo,
+            optionThanksCard,
+            optionOkirakuInsert,
+            optionLabels,
+            optionComment: getFormValue(formData, "optionComment"),
+            options: {
+              video: optionVideo,
+              thanksCard: optionThanksCard,
+              okirakuInsert: optionOkirakuInsert,
+              comment: getFormValue(formData, "optionComment")
+            }
+          };
+
+          if (isConsultingMember(member)) {
+            updates.note = getFormValue(formData, "note");
+          }
+
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), updates);
         }
 
         if (activeEdit.type === "adminFields") {
