@@ -1286,6 +1286,10 @@
           <strong id="invoiceInspectionTotal">0</strong>
         </div>
         <div class="invoice-summary-item">
+          発送作業代
+          <strong id="invoiceShippingWorkTotal">0</strong>
+        </div>
+        <div class="invoice-summary-item">
           合計
           <strong id="invoiceGrandTotal">0</strong>
         </div>
@@ -1300,6 +1304,7 @@
               <th>会員</th>
               <th>件数</th>
               <th>検品料金</th>
+              <th>発送作業代</th>
               <th>発送料金</th>
               <th>合計</th>
               <th>作成日</th>
@@ -1611,6 +1616,8 @@
       overseasHandling: 500
     };
 
+    const SHIPPING_WORK_UNIT_FEE = 400;
+
     const CONSULTING_PRICE_TABLE = {
       inspectionBase: 1000,
       inspectionOnly: 1000,
@@ -1714,6 +1721,7 @@
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
     const invoiceCount = document.getElementById("invoiceCount");
     const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
+    const invoiceShippingWorkTotal = document.getElementById("invoiceShippingWorkTotal");
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
     const announcementInput = document.getElementById("announcementInput");
     const announcementList = document.getElementById("announcementList");
@@ -2670,8 +2678,11 @@
         yupackOcrPasteZone.textContent = `画像を受け取りました。OCR処理中です...（${file.type || "image"} / ${sizeMb.toFixed(1)}MB）`;
       }
 
-      const imageDataUrl = await fileToDataUrl(file);
-      const result = await requestYupackOcr(imageDataUrl, file);
+      const ocrImage = await prepareYupackOcrImage(file);
+      const result = await requestYupackOcr(ocrImage.dataUrl, {
+        name: ocrImage.fileName,
+        type: ocrImage.mimeType
+      });
       const records = normalizeYupackOcrRecords(result);
       const rawText = result.text || result.rawText || "";
       if (yupackOcrTextInput && rawText) yupackOcrTextInput.value = rawText;
@@ -2698,6 +2709,11 @@
     }
 
     function setYupackOcrRecords(records) {
+      if (shippingBatchSearchInput?.value) {
+        shippingBatchSearchInput.value = "";
+        renderShippingBatch();
+      }
+
       yupackOcrRecordsCache = records.map((record) => ({
         ...record,
         matchedIndex: findYupackOcrMatchIndex(record)
@@ -2740,20 +2756,26 @@
 
     function normalizeYupackOcrRecords(result = {}) {
       const structured = result.records || result.items || result.trackingRecords || [];
+      const parsedTextRecords = parseYupackOcrText(result.text || result.rawText || "");
       if (Array.isArray(structured) && structured.length) {
-        return structured
+        const structuredRecords = structured
           .map((item) => ({
             name: item.name || item.recipientName || item.senderName || "",
             postalCode: normalizePostalCode(item.postalCode || item.zip || ""),
-            trackingNumber: normalizeTrackingNumber(item.trackingNumber || item.trackingNo || item.inquiryNumber || "")
+            trackingNumber: normalizeTrackingNumber(item.trackingNumber || item.trackingNo || item.inquiryNumber || ""),
+            rawText: item.rawText || item.line || ""
           }))
           .filter((item) => item.trackingNumber);
+        return uniqueYupackOcrRecords([...parsedTextRecords, ...structuredRecords]);
       }
 
-      return parseYupackOcrText(result.text || result.rawText || "");
+      return parsedTextRecords;
     }
 
     function parseYupackOcrText(text) {
+      const tableRecords = parseYupackTableOcrText(text);
+      if (tableRecords.length) return uniqueYupackOcrRecords(tableRecords);
+
       const lines = String(text || "")
         .split(/\r?\n/)
         .map((line) => line.trim())
@@ -2769,11 +2791,103 @@
         const name = inferOcrName(nearby, line);
 
         trackingNumbers.forEach((trackingNumber) => {
-          records.push({ name, postalCode, trackingNumber });
+          records.push({ name, postalCode, trackingNumber, rawText: nearby.join(" ") });
         });
       });
 
       return uniqueYupackOcrRecords(records);
+    }
+
+    function parseYupackTableOcrText(text) {
+      const lines = String(text || "")
+        .normalize("NFKC")
+        .split(/\r?\n/)
+        .map((line) => normalizeOcrLine(line))
+        .filter(Boolean)
+        .filter((line) => !/お問い合わせ番号|送り状種別|お届け先|郵便番号|住所|名称|ゆうパックプリント|印刷|選択/.test(line));
+
+      const records = [];
+
+      lines.forEach((line, index) => {
+        const trackingNumbers = extractTrackingNumbers(line);
+        if (!trackingNumbers.length) return;
+
+        const nearby = lines.slice(index, Math.min(lines.length, index + 5));
+        const nearbyText = nearby.join(" ");
+        const postalCode = extractYupackPostalCode(nearbyText, trackingNumbers);
+        const name = inferYupackTableName(nearbyText, postalCode);
+
+        trackingNumbers.forEach((trackingNumber) => {
+          records.push({
+            name,
+            postalCode,
+            trackingNumber,
+            rawText: nearbyText
+          });
+        });
+      });
+
+      return records;
+    }
+
+    function extractYupackPostalCode(text, trackingNumbers = []) {
+      const trackingSet = new Set(trackingNumbers.map(normalizeTrackingNumber));
+      const matches = String(text || "").match(/(?:\d[\s-]?){7}/g) || [];
+      return matches
+        .map(normalizePostalCode)
+        .find((value) => value.length === 7 && !trackingSet.has(value)) || "";
+    }
+
+    function normalizeOcrLine(line) {
+      return String(line || "")
+        .replace(/[|｜]/g, " ")
+        .replace(/[‐‑‒–—―]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function inferYupackTableName(line, postalCode) {
+      const knownName = inferKnownShippingNameFromOcrLine(line, postalCode);
+      if (knownName) return knownName;
+
+      const withoutTracking = line.replace(/(?:\d[\s-]?){11,13}/g, " ");
+      const withoutPostal = withoutTracking.replace(/\b\d{3}[-\s]?\d{4}\b/g, " ").replace(/\b\d{7}\b/g, " ");
+      const parts = withoutPostal
+        .split(/\s+/)
+        .map((part) => part.replace(/x\s*\d+|×\s*\d+/gi, "").trim())
+        .filter(Boolean)
+        .filter((part) => !/ゆうパック|シート|高知県|岡山県|神奈川県|北海道|東京都|大阪府|京都府|兵庫県|福岡県|静岡県|住所|丁目|番地|市|区|町|村|郡|県/.test(part))
+        .filter((part) => part.length >= 2 && part.length <= 16);
+
+      return parts[parts.length - 1] || "";
+    }
+
+    function inferKnownShippingNameFromOcrLine(line, postalCode) {
+      const rawLineName = normalizePersonName(line);
+      const rawPostal = normalizePostalCode(postalCode);
+      const candidates = shippingBatchUnitsCache
+        .map((unit) => unit.parent)
+        .map((product) => ({
+          name: shippingDestinationName(product),
+          normalizedName: normalizePersonName(shippingDestinationName(product)),
+          postalCode: normalizePostalCode(shippingDestinationPostalCode(product))
+        }))
+        .filter((item) => item.normalizedName && (!rawPostal || item.postalCode === rawPostal))
+        .filter((item) => rawLineName.includes(item.normalizedName) || item.normalizedName.includes(rawLineName));
+
+      if (candidates.length === 1) return candidates[0].name;
+
+      const exactPostalCandidates = shippingBatchUnitsCache
+        .map((unit) => unit.parent)
+        .map((product) => ({
+          name: shippingDestinationName(product),
+          normalizedName: normalizePersonName(shippingDestinationName(product)),
+          postalCode: normalizePostalCode(shippingDestinationPostalCode(product))
+        }))
+        .filter((item) => rawPostal && item.postalCode === rawPostal && item.normalizedName);
+
+      if (exactPostalCandidates.length === 1 && rawLineName.length >= 4) return exactPostalCandidates[0].name;
+      return "";
     }
 
     function extractTrackingNumbers(text) {
@@ -2807,17 +2921,24 @@
     function findYupackOcrMatchIndex(record) {
       const recordPostal = normalizePostalCode(record.postalCode);
       const recordName = normalizePersonName(record.name);
+      const recordRawText = normalizePersonName(record.rawText || "");
       const candidates = shippingBatchUnitsCache
         .map((unit, index) => {
           const product = unit.parent;
           const postal = normalizePostalCode(shippingDestinationPostalCode(product));
           const name = normalizePersonName(shippingDestinationName(product));
           let score = 0;
-          if (recordPostal && postal && recordPostal === postal) score += 2;
-          if (recordName && name && (recordName === name || name.includes(recordName) || recordName.includes(name))) score += 2;
-          return { index, score };
+          const postalMatched = Boolean(recordPostal && postal && recordPostal === postal);
+          const nameMatched = Boolean(name && (
+            (recordName && (recordName === name || name.includes(recordName) || recordName.includes(name))) ||
+            (recordRawText && recordRawText.includes(name))
+          ));
+
+          if (postalMatched) score += 3;
+          if (nameMatched) score += 3;
+          return { index, score, postalMatched, nameMatched };
         })
-        .filter((item) => item.score >= 4);
+        .filter((item) => item.postalMatched && item.nameMatched);
 
       return candidates.length === 1 ? candidates[0].index : -1;
     }
@@ -2834,7 +2955,7 @@
       const matchedCount = yupackOcrRecordsCache.filter((record) => record.matchedIndex >= 0).length;
       yupackOcrResult.innerHTML = `
         <div class="section-title-row">
-          <h3>OCR照合結果：${escapeHtml(matchedCount)} / ${escapeHtml(yupackOcrRecordsCache.length)} 件一致</h3>
+          <h3>OCR照合結果：${escapeHtml(matchedCount)} / ${escapeHtml(yupackOcrRecordsCache.length)} 件一致（一致分は追跡番号欄へ自動反映済み）</h3>
           <button class="secondary-btn" type="button" onclick="applyAllYupackOcrMatches()">一致分を反映</button>
         </div>
         <div class="table-wrap">
@@ -2904,6 +3025,79 @@
       }
     }
 
+    async function prepareYupackOcrImage(file) {
+      try {
+        const dataUrl = await preprocessYupackOcrImage(file);
+        return {
+          dataUrl,
+          fileName: `ocr_ready_${Date.now()}.png`,
+          mimeType: "image/png"
+        };
+      } catch (error) {
+        return {
+          dataUrl: await fileToDataUrl(file),
+          fileName: file.name || `clipboard_screenshot_${Date.now()}.png`,
+          mimeType: file.type || "image/png"
+        };
+      }
+    }
+
+    async function preprocessYupackOcrImage(file) {
+      const image = await loadImageForCanvas(file);
+      const scale = Math.max(3, Math.min(5, Math.floor(2600 / Math.max(image.width, 1)) || 3));
+      const padding = 28;
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width * scale + padding * 2;
+      canvas.height = image.height * scale + padding * 2;
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(image, padding, padding, image.width * scale, image.height * scale);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const isBlueSelection = b > 110 && b > r + 45 && b > g + 20 && r < 120;
+        const isLightTextOnSelection = isBlueSelection && r > 150 && g > 150 && b > 150;
+        let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (isBlueSelection && !isLightTextOnSelection) {
+          gray = 245;
+        } else {
+          gray = Math.max(0, Math.min(255, (gray - 128) * 1.55 + 128));
+          if (gray > 205) gray = 255;
+          if (gray < 65) gray = 0;
+        }
+
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL("image/png");
+    }
+
+    function loadImageForCanvas(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("画像の補正準備に失敗しました。"));
+        };
+        image.src = url;
+      });
+    }
+
     function fileToDataUrl(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -2914,16 +3108,24 @@
     }
 
     function normalizePostalCode(value) {
-      const digits = String(value || "").replace(/[^\d]/g, "");
-      return digits.length === 7 ? digits : digits;
+      return String(value || "")
+        .normalize("NFKC")
+        .replace(/[^\d]/g, "");
     }
 
     function normalizeTrackingNumber(value) {
-      return String(value || "").replace(/[^\d]/g, "");
+      return String(value || "")
+        .normalize("NFKC")
+        .replace(/[^\d]/g, "");
     }
 
     function normalizePersonName(value) {
-      return String(value || "").replace(/様/g, "").replace(/\s|　/g, "").trim();
+      return String(value || "")
+        .normalize("NFKC")
+        .replace(/お届け先|お届け先氏名|宛名|氏名|受取人/g, "")
+        .replace(/様|御中|殿/g, "")
+        .replace(/[\s　・･.,，。:：\-ー_]/g, "")
+        .trim();
     }
 
     async function saveShippingBatch() {
@@ -3652,7 +3854,10 @@
     function openStoredMemberFieldsEdit(uid, productId) {
       const product = findProduct(uid, productId);
       const member = findMember(uid);
-      if (!product || !member) return;
+      if (!product || !member) {
+        showError(appError, "修正対象の商品情報を取得できませんでした。再読み込みしてから再度お試しください。");
+        return;
+      }
 
       activeEdit = { type: "storedMemberFields", uid, productId };
 
@@ -4292,10 +4497,11 @@
       invoiceMemberCount.textContent = membersCache.length;
       invoiceCount.textContent = invoices.length;
       invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
+      invoiceShippingWorkTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice), 0);
       invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="10"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="11"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
         return;
       }
 
@@ -4311,6 +4517,7 @@
             </td>
             <td>${Object.keys(invoice.items || {}).length}</td>
             <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
+            <td>${escapeHtml(invoiceShippingWorkFee(invoice))}</td>
             <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
             <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
             <td>${escapeHtml(formatDateTime(invoice.createdAt))}</td>
@@ -4410,6 +4617,8 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
   }
 
   const totalInspectionFee = items.reduce((sum, item) => sum + feeValue(item.inspectionFee), 0);
+  const totalShippingWorkCount = items.reduce((sum, item) => sum + (feeValue(item.shippingWorkFee) > 0 ? 1 : 0), 0);
+  const totalShippingWorkFee = items.reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0);
   const totalShippingFee = items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0);
   const grandTotal = items.reduce((sum, item) => sum + feeValue(item.total), 0);
 
@@ -4435,6 +4644,8 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
     updatedBy: currentUser ? currentUser.uid : "",
     updatedByEmail: currentUser ? currentUser.email || "" : "",
     totalInspectionFee,
+    totalShippingWorkCount,
+    totalShippingWorkFee,
     totalShippingFee,
     grandTotal,
     items: itemMap
@@ -4538,6 +4749,14 @@ function feeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function invoiceShippingWorkFee(invoice) {
+  if (hasValue(invoice?.totalShippingWorkFee)) {
+    return feeValue(invoice.totalShippingWorkFee);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0);
+}
+
 function buildInvoiceItems(member, month) {
   const shippingChargeProductIds = chargedShippingProductIds(member.products, month);
 
@@ -4553,6 +4772,7 @@ function buildInvoiceItems(member, month) {
       const shippingFee = shippingInMonth
         ? isBundledShipping ? 0 : shippingFeeFor(product, member)
         : 0;
+      const shippingWorkFee = shippingInMonth && !isBundledShipping ? SHIPPING_WORK_UNIT_FEE : 0;
 
       return {
         productId: product.id,
@@ -4566,6 +4786,7 @@ function buildInvoiceItems(member, month) {
         options: optionSummary(product),
         inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
+        shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
         shippingFee: shippingInMonth ? shippingFee : "-",
         shippingNote: isBundledShipping ? "同梱" : "",
@@ -4694,7 +4915,7 @@ function firstInvoiceDate(item) {
         ["会員", invoice.memberName || ""],
         ["管理番号", invoice.managementNumber || ""],
         [],
-        ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+        ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "合計"],
         ...items.map((item) => [
           item.name || "",
           item.numbering || "",
@@ -4704,12 +4925,15 @@ function firstInvoiceDate(item) {
           item.options || "",
           item.inspectionDate || "-",
           item.inspectionFee ?? "-",
+          item.shippingWorkFee ?? "-",
           item.shippingDate || "-",
           item.shippingFee ?? "-",
           item.total || 0
         ]),
         [],
         ["検品料金合計", invoice.totalInspectionFee || 0],
+        ["発送作業件数", invoice.totalShippingWorkCount || 0],
+        ["発送作業代合計", invoiceShippingWorkFee(invoice)],
         ["発送料金合計", invoice.totalShippingFee || 0],
         ["合計", invoice.grandTotal || 0]
       ];
@@ -4740,6 +4964,7 @@ function firstInvoiceDate(item) {
           <td>${escapeHtml(row.date || "-")}</td>
           <td>${escapeHtml(row.numbering || "-")}</td>
           <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
+          <td class="num">${row.hasShippingWork ? yen(row.shippingWorkFee) : "-"}</td>
           <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
           <td class="num">${yen(row.total)}</td>
           <td class="num">10%</td>
@@ -4810,6 +5035,7 @@ function firstInvoiceDate(item) {
                   <th>日付</th>
                   <th>管理番号</th>
                   <th>検品</th>
+                  <th>発送作業代</th>
                   <th>送料</th>
                   <th>合計</th>
                   <th>税率</th>
@@ -4872,8 +5098,10 @@ function firstInvoiceDate(item) {
         .map((item) => {
           const hasInspection = item.inspectionFee !== "-";
           const hasShipping = item.shippingFee !== "-";
+          const hasShippingWork = item.shippingWorkFee !== "-";
           const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
           const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
+          const shippingWorkFee = hasShippingWork ? feeValue(item.shippingWorkFee) : 0;
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
           const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
           if (item.shippingNote) noteParts.push(item.shippingNote);
@@ -4884,6 +5112,8 @@ function firstInvoiceDate(item) {
             numbering: item.numbering || "-",
             hasInspection,
             inspectionFee,
+            hasShippingWork,
+            shippingWorkFee,
             hasShipping,
             shippingFee,
             total: inspectionFee + shippingFee,
