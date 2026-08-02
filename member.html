@@ -601,6 +601,16 @@ onAuthStateChanged(auth, async (user) => {
       const memberSnapshot = await get(ref(database, `members/${user.uid}`));
       isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
 
+      if (isMember) {
+        const emailAllowed = await validateMemberLoginEmail(user);
+        if (!emailAllowed) {
+          await signOut(auth);
+          showLoginUI();
+          showLoginError("このメールアドレスではログインできません。メール変更後は新しいメールでログインしてください。");
+          return;
+        }
+      }
+
       if (!isMember) {
         isMember = await activatePendingMember(user);
       }
@@ -645,6 +655,23 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+
+
+async function validateMemberLoginEmail(user) {
+  const authEmail = String(user?.email || "").trim().toLowerCase();
+  if (!user?.uid || !authEmail) return false;
+
+  const settingsSnapshot = await get(ref(database, `memberSettings/${user.uid}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+  const settings = settingsSnapshot.exists() ? settingsSnapshot.val() || {} : {};
+  const registeredEmail = String(settings.email || "").trim().toLowerCase();
+  const pendingEmail = String(settings.pendingEmail || "").trim().toLowerCase();
+
+  if (!registeredEmail && !pendingEmail) return true;
+  if (authEmail === registeredEmail) return true;
+  if (pendingEmail && authEmail === pendingEmail) return true;
+
+  return false;
+}
 
 async function syncAuthEmailToDatabase(user) {
   const email = String(user?.email || "").trim();
