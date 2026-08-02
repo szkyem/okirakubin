@@ -187,6 +187,7 @@ textarea{min-height:62px;resize:vertical}
     <div class="user">
       <span id="userEmail"></span>
       <span class="badge">会員</span>
+      <button class="secondary compact-btn" id="memberSettingsBtn" type="button">設定変更</button>
       <button class="logout" id="logoutBtn" type="button">ログアウト</button>
     </div>
   </header>
@@ -256,7 +257,7 @@ textarea{min-height:62px;resize:vertical}
   <section class="section" id="origins">
     <div class="form">
       <div class="form-header">
-        <h2>発送元を登録する</h2>
+        <h2>発送元を登録する（ご自身のご自宅を登録）</h2>
         <button class="secondary" id="clearOriginBtn" type="button">追加</button>
       </div>
 
@@ -310,6 +311,35 @@ textarea{min-height:62px;resize:vertical}
   <section class="section" id="invoices">
     <h2 style="margin-bottom:16px;">請求書ダウンロード</h2>
     <div id="invoiceList"></div>
+  </section>
+  <section class="section" id="settings">
+    <div class="form">
+      <div class="form-header">
+        <h2>会員設定</h2>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-heading">ログインメール</div>
+        <div class="detail-grid">
+          <div class="detail-label">現在のメール</div>
+          <div id="currentLoginEmail">-</div>
+        </div>
+      </div>
+
+      <form id="emailChangeForm">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>新しいメールアドレス</label>
+            <input id="newLoginEmail" type="email" placeholder="new@example.com" autocomplete="email">
+          </div>
+        </div>
+        <button type="submit" style="width:100%;">確認メールを送信する</button>
+      </form>
+
+      <p class="member-meta" style="margin-top:12px;">
+        新しいメールアドレス宛に確認メールを送信します。確認リンクを開いた後、次回ログイン時にFirebaseの会員情報へ自動同期されます。
+      </p>
+    </div>
   </section>
 </div>
 
@@ -408,7 +438,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  verifyBeforeUpdateEmail
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getDatabase,
@@ -474,6 +505,7 @@ const appArea = document.getElementById("appArea");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userEmail = document.getElementById("userEmail");
+const memberSettingsBtn = document.getElementById("memberSettingsBtn");
 const loginError = document.getElementById("loginError");
 const errorMessage = document.getElementById("errorMessage");
 const productForm = document.getElementById("productForm");
@@ -498,6 +530,9 @@ const shippingSearchInput = document.getElementById("shippingSearchInput");
 const originForm = document.getElementById("originForm");
 const clearOriginBtn = document.getElementById("clearOriginBtn");
 const invoiceList = document.getElementById("invoiceList");
+const emailChangeForm = document.getElementById("emailChangeForm");
+const currentLoginEmail = document.getElementById("currentLoginEmail");
+const newLoginEmail = document.getElementById("newLoginEmail");
 
 function dataUid() {
   return activeMemberUid || currentUser?.uid || "";
@@ -517,6 +552,14 @@ loginBtn.addEventListener("click", async () => {
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   showLoginUI();
+});
+memberSettingsBtn.addEventListener("click", () => {
+  openMemberSettings();
+});
+
+emailChangeForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await requestLoginEmailChange();
 });
 
 onAuthStateChanged(auth, async (user) => {
@@ -587,6 +630,7 @@ onAuthStateChanged(auth, async (user) => {
 
     if (!isAdminProxyMode) {
       await update(ref(database, `loginUsers/${user.uid}`), loginUpdate);
+      await syncAuthEmailToDatabase(user);
     }
 
     showAppUI(user);
@@ -600,6 +644,75 @@ onAuthStateChanged(auth, async (user) => {
     showLoginError("会員情報の確認に失敗しました。Realtime Databaseのルールとデータを確認してください。");
   }
 });
+
+
+async function syncAuthEmailToDatabase(user) {
+  const email = String(user?.email || "").trim();
+  if (!user?.uid || !email || isAdminProxyMode) return;
+
+  const now = Date.now();
+  await update(ref(database), {
+    [`loginUsers/${user.uid}/email`]: email,
+    [`loginUsers/${user.uid}/emailSyncedAt`]: now,
+    [`memberSettings/${user.uid}/email`]: email,
+    [`memberSettings/${user.uid}/pendingEmail`]: null,
+    [`memberSettings/${user.uid}/emailSyncedAt`]: now,
+    [`memberSettings/${user.uid}/updatedAt`]: now
+  });
+}
+
+function openMemberSettings() {
+  document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+  document.querySelectorAll(".section").forEach((section) => section.classList.remove("show"));
+  document.getElementById("settings")?.classList.add("show");
+  renderMemberSettings();
+}
+
+function renderMemberSettings() {
+  if (currentLoginEmail) currentLoginEmail.textContent = currentUser?.email || "-";
+  if (newLoginEmail) newLoginEmail.value = "";
+}
+
+async function requestLoginEmailChange() {
+  clearError();
+
+  if (!currentUser || isAdminProxyMode) {
+    showError("メールアドレス変更は会員本人のログイン時のみ利用できます。");
+    return;
+  }
+
+  const newEmail = String(newLoginEmail?.value || "").trim();
+  const currentEmail = String(currentUser.email || "").trim().toLowerCase();
+
+  if (!newEmail) {
+    showError("新しいメールアドレスを入力してください。");
+    return;
+  }
+
+  if (newEmail.toLowerCase() === currentEmail) {
+    showError("現在のメールアドレスと同じです。");
+    return;
+  }
+
+  try {
+    await verifyBeforeUpdateEmail(currentUser, newEmail);
+    await update(ref(database, `memberSettings/${currentUser.uid}`), {
+      pendingEmail: newEmail,
+      emailChangeRequestedAt: Date.now(),
+      updatedAt: Date.now()
+    });
+    if (newLoginEmail) newLoginEmail.value = "";
+    alert("確認メールを送信しました。新しいメールアドレス宛の確認リンクを開いた後、再ログインしてください。");
+  } catch (error) {
+    console.error(error);
+    const code = String(error?.code || "");
+    if (code.includes("requires-recent-login")) {
+      showError("安全確認のため再ログインが必要です。一度ログアウトして再ログイン後、もう一度メール変更を実行してください。");
+      return;
+    }
+    showError("確認メールの送信に失敗しました。メールアドレスまたはFirebase Authenticationの設定を確認してください。");
+  }
+}
 
 async function activatePendingMember(user) {
   const email = String(user.email || "").trim().toLowerCase();
@@ -2407,6 +2520,7 @@ function showAppUI(user) {
   loginArea.classList.add("hidden");
   appArea.classList.remove("hidden");
   userEmail.textContent = user.email || user.displayName || user.uid;
+  renderMemberSettings();
 }
 
 function emptyHtml(message) {
