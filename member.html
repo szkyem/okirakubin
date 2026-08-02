@@ -786,15 +786,6 @@ async function requestLoginEmailChange() {
   try {
     const now = Date.now();
     const key = emailKey(newEmail);
-    const existingRequestSnapshot = await get(ref(database, `accountMigrationRequests/${key}`));
-    if (existingRequestSnapshot.exists()) {
-      const existingRequest = existingRequestSnapshot.val() || {};
-      if (existingRequest.fromUid && existingRequest.fromUid !== currentUser.uid) {
-        showError("この移行先メールには、すでに別の移行予約があります。管理者に確認してください。");
-        return;
-      }
-    }
-
     await update(ref(database), {
       [`accountMigrationRequests/${key}`]: {
         fromUid: currentUser.uid,
