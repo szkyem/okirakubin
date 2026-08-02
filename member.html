@@ -612,9 +612,15 @@ onAuthStateChanged(auth, async (user) => {
       }
 
       if (!isMember) {
+        const repairResult = await repairMemberRecordFromSettings(user);
+        isMember = repairResult.activated === true;
+        migrationLoginError = repairResult.message || "";
+      }
+
+      if (!isMember) {
         const migrationResult = await activateAccountMigration(user);
         isMember = migrationResult.activated === true;
-        migrationLoginError = migrationResult.message || "";
+        migrationLoginError = migrationResult.message || migrationLoginError || "";
       }
 
       if (!isMember) {
@@ -663,6 +669,49 @@ onAuthStateChanged(auth, async (user) => {
 
 
 
+async function repairMemberRecordFromSettings(user) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (!user?.uid || !email) return { activated: false, message: "" };
+
+  const settingsSnapshot = await get(ref(database, `memberSettings/${user.uid}`)).catch(() => ({ exists: () => false, val: () => null }));
+  if (!settingsSnapshot.exists()) return { activated: false, message: "" };
+
+  const settings = settingsSnapshot.val() || {};
+  const settingsEmail = String(settings.email || "").trim().toLowerCase();
+  const pendingEmail = String(settings.pendingEmail || "").trim().toLowerCase();
+  const pendingEmailKey = String(settings.pendingEmailKey || "").trim();
+  const currentEmailKey = emailKey(email);
+  const emailMatches = settingsEmail === email || pendingEmail === email || pendingEmailKey === currentEmailKey;
+
+  if (!emailMatches) {
+    return {
+      activated: false,
+      message: "会員設定はありますが、ログイン中のメールアドレスと一致しません。管理者に確認してください。"
+    };
+  }
+
+  const now = Date.now();
+  try {
+    await update(ref(database), {
+      [`members/${user.uid}`]: true,
+      [`loginUsers/${user.uid}/uid`]: user.uid,
+      [`loginUsers/${user.uid}/email`]: email,
+      [`loginUsers/${user.uid}/role`]: "member",
+      [`loginUsers/${user.uid}/name`]: settings.name || user.displayName || "",
+      [`loginUsers/${user.uid}/lastLoginAt`]: serverTimestamp(),
+      [`memberSettings/${user.uid}/email`]: email,
+      [`memberSettings/${user.uid}/membershipRepairedAt`]: now,
+      [`memberSettings/${user.uid}/updatedAt`]: now
+    });
+    return { activated: true, message: "" };
+  } catch (error) {
+    console.error(error);
+    return {
+      activated: false,
+      message: "会員設定はありますが、membersへの補修登録に失敗しました。Realtime Databaseの members 書き込みルールを確認してください。"
+    };
+  }
+}
 async function validateMemberLoginEmail(user) {
   const authEmail = String(user?.email || "").trim().toLowerCase();
   if (!user?.uid || !authEmail) return false;
@@ -819,13 +868,7 @@ async function activateAccountMigration(user) {
     };
   }
 
-  const memberSnapshot = await get(ref(database, `members/${fromUid}`));
-  if (memberSnapshot.val() !== true) {
-    return {
-      activated: false,
-      message: "旧アカウントの会員データが見つかりません。旧UIDの members が削除されている場合は、自動移行できません。管理者側で旧UIDのデータ有無を確認してください。"
-    };
-  }
+  const memberSnapshot = await get(ref(database, `members/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }));
 
   const [settingsSnapshot, loginSnapshot, productsSnapshot, originsSnapshot, invoicesSnapshot, discordSnapshot] = await Promise.all([
     get(ref(database, `memberSettings/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
@@ -835,6 +878,14 @@ async function activateAccountMigration(user) {
     get(ref(database, `invoices/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `discordNotificationQueue/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }))
   ]);
+
+  const hasOldData = memberSnapshot.val() === true || settingsSnapshot.exists() || loginSnapshot.exists() || productsSnapshot.exists();
+  if (!hasOldData) {
+    return {
+      activated: false,
+      message: "移行予約はありますが、旧UID側の会員データが見つかりません。旧UIDの memberSettings / loginUsers / products のいずれかを復元するか、管理者側で本登録し直してください。"
+    };
+  }
 
   const now = Date.now();
   const oldSettings = settingsSnapshot.exists() ? settingsSnapshot.val() || {} : {};
@@ -894,7 +945,7 @@ async function activateAccountMigration(user) {
   }
 
   await update(ref(database), updates);
-  return true;
+  return { activated: true, message: "" };
 }
 
 function remapOwnerFields(records, uid, email, now) {
