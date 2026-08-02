@@ -575,6 +575,7 @@ onAuthStateChanged(auth, async (user) => {
     const proxyUid = params.get("proxyUid") || "";
     const wantsAdminProxy = params.get("adminProxy") === "1" && proxyUid;
     let isMember = false;
+    let migrationLoginError = "";
 
     if (wantsAdminProxy) {
       const adminSnapshot = await get(ref(database, `admins/${user.uid}`));
@@ -611,7 +612,9 @@ onAuthStateChanged(auth, async (user) => {
       }
 
       if (!isMember) {
-        isMember = await activateAccountMigration(user);
+        const migrationResult = await activateAccountMigration(user);
+        isMember = migrationResult.activated === true;
+        migrationLoginError = migrationResult.message || "";
       }
 
       if (!isMember) {
@@ -624,7 +627,7 @@ onAuthStateChanged(auth, async (user) => {
     if (!isMember) {
       await signOut(auth);
       showLoginUI();
-      showLoginError("このアカウントは会員として登録されていません。");
+      showLoginError(migrationLoginError || "このアカウントは会員として登録されていません。");
       return;
     }
 
@@ -777,22 +780,52 @@ async function requestLoginEmailChange() {
 
 async function activateAccountMigration(user) {
   const newEmail = String(user.email || "").trim().toLowerCase();
-  if (!user?.uid || !newEmail) return false;
+  if (!user?.uid || !newEmail) return { activated: false, message: "" };
 
   const key = emailKey(newEmail);
-  const requestSnapshot = await get(ref(database, `accountMigrationRequests/${key}`));
-  if (!requestSnapshot.exists()) return false;
+  let requestSnapshot;
+  try {
+    requestSnapshot = await get(ref(database, `accountMigrationRequests/${key}`));
+  } catch (error) {
+    console.error(error);
+    return {
+      activated: false,
+      message: `移行予約の確認に失敗しました。Realtime Databaseの accountMigrationRequests/${key} を読めるルールになっているか確認してください。`
+    };
+  }
+
+  if (!requestSnapshot.exists()) {
+    return {
+      activated: false,
+      message: `このメールアドレスの移行予約が見つかりません。旧メールでログインし、設定変更から移行先メールを登録してください。確認キー: accountMigrationRequests/${key}`
+    };
+  }
 
   const request = requestSnapshot.val() || {};
   const fromUid = String(request.fromUid || "").trim();
-  if (!fromUid || fromUid === user.uid || request.status === "completed") return false;
+  if (!fromUid || fromUid === user.uid || request.status === "completed") {
+    return {
+      activated: false,
+      message: "移行予約の内容が不正、またはすでに完了しています。管理者に確認してください。"
+    };
+  }
 
   const oldUidRequestSnapshot = await get(ref(database, `accountMigrationRequestsByOldUid/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }));
   const oldUidRequest = oldUidRequestSnapshot.exists() ? oldUidRequestSnapshot.val() || {} : {};
-  if (oldUidRequest.newEmail && String(oldUidRequest.newEmail).trim().toLowerCase() !== newEmail) return false;
+  if (oldUidRequest.newEmail && String(oldUidRequest.newEmail).trim().toLowerCase() !== newEmail) {
+    return {
+      activated: false,
+      message: "移行予約のメールアドレスが一致しません。旧メールで移行先メールを登録し直してください。"
+    };
+  }
 
   const memberSnapshot = await get(ref(database, `members/${fromUid}`));
-  if (memberSnapshot.val() !== true) return false;
+  if (memberSnapshot.val() !== true) {
+    return {
+      activated: false,
+      message: "旧アカウントの会員データが見つかりません。旧UIDの members が削除されている場合は、自動移行できません。管理者側で旧UIDのデータ有無を確認してください。"
+    };
+  }
 
   const [settingsSnapshot, loginSnapshot, productsSnapshot, originsSnapshot, invoicesSnapshot, discordSnapshot] = await Promise.all([
     get(ref(database, `memberSettings/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
