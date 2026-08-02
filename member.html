@@ -734,8 +734,26 @@ async function requestLoginEmailChange() {
   try {
     const now = Date.now();
     const key = emailKey(newEmail);
+    const existingRequestSnapshot = await get(ref(database, `accountMigrationRequests/${key}`));
+    if (existingRequestSnapshot.exists()) {
+      const existingRequest = existingRequestSnapshot.val() || {};
+      if (existingRequest.fromUid && existingRequest.fromUid !== currentUser.uid) {
+        showError("この移行先メールには、すでに別の移行予約があります。管理者に確認してください。");
+        return;
+      }
+    }
+
     await update(ref(database), {
       [`accountMigrationRequests/${key}`]: {
+        fromUid: currentUser.uid,
+        oldEmail: currentEmail,
+        newEmail,
+        status: "pending",
+        requestedAt: now,
+        updatedAt: now
+      },
+      [`accountMigrationRequestsByOldUid/${currentUser.uid}`]: {
+        emailKey: key,
         fromUid: currentUser.uid,
         oldEmail: currentEmail,
         newEmail,
@@ -768,6 +786,10 @@ async function activateAccountMigration(user) {
   const request = requestSnapshot.val() || {};
   const fromUid = String(request.fromUid || "").trim();
   if (!fromUid || fromUid === user.uid || request.status === "completed") return false;
+
+  const oldUidRequestSnapshot = await get(ref(database, `accountMigrationRequestsByOldUid/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }));
+  const oldUidRequest = oldUidRequestSnapshot.exists() ? oldUidRequestSnapshot.val() || {} : {};
+  if (oldUidRequest.newEmail && String(oldUidRequest.newEmail).trim().toLowerCase() !== newEmail) return false;
 
   const memberSnapshot = await get(ref(database, `members/${fromUid}`));
   if (memberSnapshot.val() !== true) return false;
@@ -810,7 +832,8 @@ async function activateAccountMigration(user) {
       lastLoginAt: serverTimestamp()
     },
     [`loginUsers/${fromUid}`]: null,
-    [`accountMigrationRequests/${key}`]: null
+    [`accountMigrationRequests/${key}`]: null,
+    [`accountMigrationRequestsByOldUid/${fromUid}`]: null
   };
 
   const products = productsSnapshot.exists() ? productsSnapshot.val() : null;
