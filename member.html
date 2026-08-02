@@ -333,11 +333,11 @@ textarea{min-height:62px;resize:vertical}
             <input id="newLoginEmail" type="email" placeholder="new@example.com" autocomplete="email">
           </div>
         </div>
-        <button type="submit" style="width:100%;">確認メールを送信する</button>
+        <button type="submit" style="width:100%;">移行先メールを登録する</button>
       </form>
 
       <p class="member-meta" style="margin-top:12px;">
-        新しいメールアドレス宛に確認メールを送信します。確認リンクを開いた後、次回ログイン時にFirebaseの会員情報へ自動同期されます。
+        移行先のGoogleアカウントのメールを登録します。登録後にログアウトし、新しいGoogleアカウントでログインすると既存データを引き継ぎます。
       </p>
     </div>
   </section>
@@ -438,8 +438,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  verifyBeforeUpdateEmail
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getDatabase,
@@ -612,6 +611,10 @@ onAuthStateChanged(auth, async (user) => {
       }
 
       if (!isMember) {
+        isMember = await activateAccountMigration(user);
+      }
+
+      if (!isMember) {
         isMember = await activatePendingMember(user);
       }
 
@@ -704,41 +707,162 @@ async function requestLoginEmailChange() {
   clearError();
 
   if (!currentUser || isAdminProxyMode) {
-    showError("メールアドレス変更は会員本人のログイン時のみ利用できます。");
+    showError("メールアドレス移行は会員本人のログイン時のみ利用できます。");
     return;
   }
 
-  const newEmail = String(newLoginEmail?.value || "").trim();
+  const newEmail = String(newLoginEmail?.value || "").trim().toLowerCase();
   const currentEmail = String(currentUser.email || "").trim().toLowerCase();
 
   if (!newEmail) {
-    showError("新しいメールアドレスを入力してください。");
+    showError("移行先のメールアドレスを入力してください。");
     return;
   }
 
-  if (newEmail.toLowerCase() === currentEmail) {
+  if (newEmail === currentEmail) {
     showError("現在のメールアドレスと同じです。");
     return;
   }
 
+  const ok = confirm(
+    `ログイン先を ${newEmail} のGoogleアカウントへ移行します。\n\n` +
+    "登録後はいったんログアウトし、新しいGoogleアカウントでログインしてください。\n" +
+    "新しいアカウントでログインした時点で、商品・請求書・発送元などの会員データを引き継ぎます。"
+  );
+  if (!ok) return;
+
   try {
-    await verifyBeforeUpdateEmail(currentUser, newEmail);
-    await update(ref(database, `memberSettings/${currentUser.uid}`), {
-      pendingEmail: newEmail,
-      emailChangeRequestedAt: Date.now(),
-      updatedAt: Date.now()
+    const now = Date.now();
+    const key = emailKey(newEmail);
+    await update(ref(database), {
+      [`accountMigrationRequests/${key}`]: {
+        fromUid: currentUser.uid,
+        oldEmail: currentEmail,
+        newEmail,
+        status: "pending",
+        requestedAt: now,
+        updatedAt: now
+      },
+      [`memberSettings/${currentUser.uid}/email`]: currentEmail,
+      [`memberSettings/${currentUser.uid}/pendingEmail`]: newEmail,
+      [`memberSettings/${currentUser.uid}/emailMigrationRequestedAt`]: now,
+      [`memberSettings/${currentUser.uid}/updatedAt`]: now
     });
+
     if (newLoginEmail) newLoginEmail.value = "";
-    alert("確認メールを送信しました。新しいメールアドレス宛の確認リンクを開いた後、再ログインしてください。");
+    alert("移行先メールを登録しました。ログアウト後、新しいGoogleアカウントで会員ログインしてください。");
   } catch (error) {
     console.error(error);
-    const code = String(error?.code || "");
-    if (code.includes("requires-recent-login")) {
-      showError("安全確認のため再ログインが必要です。一度ログアウトして再ログイン後、もう一度メール変更を実行してください。");
-      return;
-    }
-    showError("確認メールの送信に失敗しました。メールアドレスまたはFirebase Authenticationの設定を確認してください。");
+    showError("移行先メールの登録に失敗しました。Realtime Databaseのルールを確認してください。");
   }
+}
+
+async function activateAccountMigration(user) {
+  const newEmail = String(user.email || "").trim().toLowerCase();
+  if (!user?.uid || !newEmail) return false;
+
+  const key = emailKey(newEmail);
+  const requestSnapshot = await get(ref(database, `accountMigrationRequests/${key}`));
+  if (!requestSnapshot.exists()) return false;
+
+  const request = requestSnapshot.val() || {};
+  const fromUid = String(request.fromUid || "").trim();
+  if (!fromUid || fromUid === user.uid || request.status === "completed") return false;
+
+  const memberSnapshot = await get(ref(database, `members/${fromUid}`));
+  if (memberSnapshot.val() !== true) return false;
+
+  const [settingsSnapshot, loginSnapshot, productsSnapshot, originsSnapshot, invoicesSnapshot, discordSnapshot] = await Promise.all([
+    get(ref(database, `memberSettings/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `loginUsers/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `products/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `shippingOrigins/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `invoices/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `discordNotificationQueue/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }))
+  ]);
+
+  const now = Date.now();
+  const oldSettings = settingsSnapshot.exists() ? settingsSnapshot.val() || {} : {};
+  const oldLogin = loginSnapshot.exists() ? loginSnapshot.val() || {} : {};
+  const oldEmail = String(request.oldEmail || oldSettings.email || oldLogin.email || "").trim().toLowerCase();
+
+  const updates = {
+    [`members/${user.uid}`]: true,
+    [`members/${fromUid}`]: null,
+    [`memberSettings/${user.uid}`]: {
+      ...oldSettings,
+      email: newEmail,
+      pendingEmail: null,
+      previousEmail: oldEmail,
+      migratedFromUid: fromUid,
+      migratedAt: now,
+      updatedAt: now
+    },
+    [`memberSettings/${fromUid}`]: null,
+    [`loginUsers/${user.uid}`]: {
+      ...oldLogin,
+      uid: user.uid,
+      email: newEmail,
+      name: oldLogin.name || oldSettings.name || user.displayName || "",
+      role: "member",
+      migratedFromUid: fromUid,
+      migratedAt: now,
+      lastLoginAt: serverTimestamp()
+    },
+    [`loginUsers/${fromUid}`]: null,
+    [`accountMigrationRequests/${key}`]: null
+  };
+
+  const products = productsSnapshot.exists() ? productsSnapshot.val() : null;
+  if (products) {
+    updates[`products/${user.uid}`] = remapOwnerFields(products, user.uid, newEmail, now);
+    updates[`products/${fromUid}`] = null;
+  }
+
+  const origins = originsSnapshot.exists() ? originsSnapshot.val() : null;
+  if (origins) {
+    updates[`shippingOrigins/${user.uid}`] = origins;
+    updates[`shippingOrigins/${fromUid}`] = null;
+  }
+
+  const invoices = invoicesSnapshot.exists() ? invoicesSnapshot.val() : null;
+  if (invoices) {
+    updates[`invoices/${user.uid}`] = remapInvoiceOwnerFields(invoices, user.uid, newEmail, now);
+    updates[`invoices/${fromUid}`] = null;
+  }
+
+  const discordQueue = discordSnapshot.exists() ? discordSnapshot.val() : null;
+  if (discordQueue) {
+    updates[`discordNotificationQueue/${user.uid}`] = discordQueue;
+    updates[`discordNotificationQueue/${fromUid}`] = null;
+  }
+
+  await update(ref(database), updates);
+  return true;
+}
+
+function remapOwnerFields(records, uid, email, now) {
+  return Object.fromEntries(Object.entries(records || {}).map(([key, value]) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [key, value];
+    return [key, {
+      ...value,
+      ownerUid: uid,
+      ownerEmail: email,
+      updatedAt: now
+    }];
+  }));
+}
+
+function remapInvoiceOwnerFields(records, uid, email, now) {
+  return Object.fromEntries(Object.entries(records || {}).map(([key, value]) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [key, value];
+    return [key, {
+      ...value,
+      uid,
+      email,
+      updatedAt: now
+    }];
+  }));
 }
 
 async function activatePendingMember(user) {
