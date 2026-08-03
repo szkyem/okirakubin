@@ -4101,7 +4101,7 @@
           });
 
           if (shouldNotifyStored) {
-            queueDiscordNotification({
+            await queueDiscordNotification({
               uid: activeEdit.uid,
               eventType: "stored",
               title: "保管商品へ移動",
@@ -4138,7 +4138,7 @@
           });
 
           if (shouldNotifyShipped) {
-            queueDiscordNotification({
+            await queueDiscordNotification({
               uid: activeEdit.uid,
               eventType: "shipped",
               title: "発送完了",
