@@ -4257,16 +4257,23 @@
       const response = await fetch(GAS_WEB_APP_URL, {
         method: "POST",
         body: JSON.stringify({
+          action: "createDriveFolder",
           token: GAS_WEB_APP_TOKEN,
           driveBaseUrl,
           folderName
         })
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result = {};
+      try {
+        result = JSON.parse(responseText || "{}");
+      } catch (error) {
+        throw new Error(`GASの返却がJSONではありません。GASのデプロイ・権限を確認してください。${responseText.slice(0, 160)}`);
+      }
 
-      if (!result.ok) {
-        throw new Error(result.error || "Driveフォルダ作成に失敗しました。");
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `Driveフォルダ作成に失敗しました。status=${response.status}`);
       }
 
       if (!result.folderUrl) {
@@ -4275,7 +4282,6 @@
 
       return result;
     }
-
     async function queueDiscordNotification({ uid, eventType, title, member, product }) {
       if (!uid || !product?.id) return;
       const date = todayString();
