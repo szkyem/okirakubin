@@ -4518,7 +4518,7 @@
             <td>${Object.keys(invoice.items || {}).length}</td>
             <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
             <td>${escapeHtml(invoiceShippingWorkFee(invoice))}</td>
-            <td>${escapeHtml(invoice.totalShippingFee || 0)}</td>
+            <td>${escapeHtml(invoiceShippingFareFee(invoice))}</td>
             <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
             <td>${escapeHtml(formatDateTime(invoice.createdAt))}</td>
             <td>
@@ -4706,8 +4706,24 @@ function invoiceMonthsForProduct(product) {
 }
 
 function monthFromDate(value) {
+  return normalizeInvoiceMonth(value);
+}
+
+function normalizeInvoiceMonth(value) {
+  if (!hasValue(value)) return "";
+
+  if (typeof value === "number") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+  }
+
   const text = String(value || "").trim();
-  return /^\d{4}-\d{2}/.test(text) ? text.slice(0, 7) : "";
+  const match = text.match(/^(\d{4})[-\/年\.\s](\d{1,2})/);
+  if (!match) return "";
+
+  return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}`;
 }
 
 function cleanForFirebase(value) {
@@ -4749,12 +4765,59 @@ function feeValue(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function hasOwnValue(object, key) {
+  return Boolean(object && Object.prototype.hasOwnProperty.call(object, key));
+}
+
+function itemHasShippingCharge(item) {
+  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && item.shippingFee !== "-";
+}
+
+function itemShippingWorkFee(item) {
+  if (hasOwnValue(item, "shippingWorkFee")) {
+    return item.shippingWorkFee === "-" ? 0 : feeValue(item.shippingWorkFee);
+  }
+
+  if (!itemHasShippingCharge(item) || item.shippingNote === "同梱") return 0;
+  return SHIPPING_WORK_UNIT_FEE;
+}
+
+function itemShippingFareFee(item) {
+  if (!itemHasShippingCharge(item)) return 0;
+
+  if (hasOwnValue(item, "shippingWorkFee")) {
+    return feeValue(item.shippingFee);
+  }
+
+  return Math.max(0, feeValue(item.shippingFee) - itemShippingWorkFee(item));
+}
+
+function invoiceHasExplicitShippingWorkFee(invoice) {
+  return hasOwnValue(invoice, "totalShippingWorkFee");
+}
+
+function invoiceShippingWorkCount(invoice) {
+  if (hasOwnValue(invoice, "totalShippingWorkCount")) {
+    return feeValue(invoice.totalShippingWorkCount);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + (itemShippingWorkFee(item) > 0 ? 1 : 0), 0);
+}
+
 function invoiceShippingWorkFee(invoice) {
-  if (hasValue(invoice?.totalShippingWorkFee)) {
+  if (invoiceHasExplicitShippingWorkFee(invoice)) {
     return feeValue(invoice.totalShippingWorkFee);
   }
 
-  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0);
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + itemShippingWorkFee(item), 0);
+}
+
+function invoiceShippingFareFee(invoice) {
+  if (invoiceHasExplicitShippingWorkFee(invoice)) {
+    return feeValue(invoice.totalShippingFee);
+  }
+
+  return Math.max(0, feeValue(invoice?.totalShippingFee) - invoiceShippingWorkFee(invoice));
 }
 
 function buildInvoiceItems(member, month) {
@@ -4769,10 +4832,11 @@ function buildInvoiceItems(member, month) {
 
       const inspectionFee = inspectionInMonth ? inspectionFeeFor(product, member) : 0;
       const isBundledShipping = shippingInMonth && shipmentDisplayGroupKey(product) && !shippingChargeProductIds.has(product.id);
-      const shippingFee = shippingInMonth
+      const shippingChargeFee = shippingInMonth
         ? isBundledShipping ? 0 : shippingFeeFor(product, member)
         : 0;
       const shippingWorkFee = shippingInMonth && !isBundledShipping ? SHIPPING_WORK_UNIT_FEE : 0;
+      const shippingFareFee = Math.max(0, shippingChargeFee - shippingWorkFee);
 
       return {
         productId: product.id,
@@ -4788,9 +4852,9 @@ function buildInvoiceItems(member, month) {
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
-        shippingFee: shippingInMonth ? shippingFee : "-",
+        shippingFee: shippingInMonth ? shippingFareFee : "-",
         shippingNote: isBundledShipping ? "同梱" : "",
-        total: inspectionFee + shippingFee
+        total: inspectionFee + shippingWorkFee + shippingFareFee
       };
     })
     .filter(Boolean)
@@ -4909,14 +4973,19 @@ function firstInvoiceDate(item) {
       const invoice = invoicesCache?.[uid]?.[month];
       if (!invoice) return;
 
-      const items = Object.values(invoice.items || {});
-      const rows = [
-        ["請求月", invoice.month || ""],
-        ["会員", invoice.memberName || ""],
-        ["管理番号", invoice.managementNumber || ""],
-        [],
-        ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "合計"],
-        ...items.map((item) => [
+    const items = Object.values(invoice.items || {});
+    const csvItems = items.map((item) => ({
+      ...item,
+      shippingWorkFeeForDisplay: itemShippingWorkFee(item),
+      shippingFareFeeForDisplay: itemShippingFareFee(item)
+    }));
+    const rows = [
+      ["請求月", invoice.month || ""],
+      ["会員", invoice.memberName || ""],
+      ["管理番号", invoice.managementNumber || ""],
+      [],
+      ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "合計"],
+        ...csvItems.map((item) => [
           item.name || "",
           item.numbering || "",
           item.workRequest || "",
@@ -4925,16 +4994,16 @@ function firstInvoiceDate(item) {
           item.options || "",
           item.inspectionDate || "-",
           item.inspectionFee ?? "-",
-          item.shippingWorkFee ?? "-",
+          itemHasShippingCharge(item) ? item.shippingWorkFeeForDisplay : "-",
           item.shippingDate || "-",
-          item.shippingFee ?? "-",
+          itemHasShippingCharge(item) ? item.shippingFareFeeForDisplay : "-",
           item.total || 0
         ]),
         [],
         ["検品料金合計", invoice.totalInspectionFee || 0],
-        ["発送作業件数", invoice.totalShippingWorkCount || 0],
+        ["発送作業件数", invoiceShippingWorkCount(invoice)],
         ["発送作業代合計", invoiceShippingWorkFee(invoice)],
-        ["発送料金合計", invoice.totalShippingFee || 0],
+        ["発送料金合計", invoiceShippingFareFee(invoice)],
         ["合計", invoice.grandTotal || 0]
       ];
 
@@ -5097,11 +5166,11 @@ function firstInvoiceDate(item) {
       return items
         .map((item) => {
           const hasInspection = item.inspectionFee !== "-";
-          const hasShipping = item.shippingFee !== "-";
-          const hasShippingWork = item.shippingWorkFee !== "-";
+          const hasShipping = itemHasShippingCharge(item);
+          const hasShippingWork = itemShippingWorkFee(item) > 0;
           const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
-          const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
-          const shippingWorkFee = hasShippingWork ? feeValue(item.shippingWorkFee) : 0;
+          const shippingFee = hasShipping ? itemShippingFareFee(item) : 0;
+          const shippingWorkFee = hasShippingWork ? itemShippingWorkFee(item) : 0;
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
           const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
           if (item.shippingNote) noteParts.push(item.shippingNote);
@@ -5116,7 +5185,7 @@ function firstInvoiceDate(item) {
             shippingWorkFee,
             hasShipping,
             shippingFee,
-            total: inspectionFee + shippingFee,
+            total: inspectionFee + shippingWorkFee + shippingFee,
             note: noteParts.join(" / ")
           };
         })
@@ -5518,10 +5587,9 @@ function firstInvoiceDate(item) {
     }
 
     function matchesMonth(dateValue, selectedMonth) {
-      if (!selectedMonth) return true;
-      if (!hasValue(dateValue)) return false;
-      return String(dateValue).startsWith(selectedMonth);
-    }
+  if (!selectedMonth) return true;
+  return normalizeInvoiceMonth(dateValue) === selectedMonth;
+}
 
     function downloadCsv(rows, filename) {
       const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");

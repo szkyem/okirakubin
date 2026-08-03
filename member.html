@@ -1428,7 +1428,7 @@ function renderOriginList() {
 
 function renderInvoiceList() {
   const year = "2026";
-  const months = ["01", "02", "03", "04", "05", "06"];
+  const months = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"));
 
   invoiceList.innerHTML = `
     <div class="invoice-year">
@@ -2672,7 +2672,24 @@ function shippingRegionFor(prefecture) {
 
 function matchesMonth(dateValue, selectedMonth) {
   if (!dateValue || !selectedMonth) return false;
-  return String(dateValue).slice(0, 7) === selectedMonth;
+  return normalizeInvoiceMonth(dateValue) === selectedMonth;
+}
+
+function normalizeInvoiceMonth(value) {
+  if (!hasValue(value)) return "";
+
+  if (typeof value === "number") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+  }
+
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4})[-\/年\.\s](\d{1,2})/);
+  if (!match) return "";
+
+  return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}`;
 }
 
 function shippingDetailHtml(product) {
