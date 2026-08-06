@@ -1513,7 +1513,7 @@ function addProductEntry() {
         <label>オプション</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionVideo"> 動画撮影</label>
         <label><input class="shipping-check" type="checkbox" data-field="optionThanksCard"> Thanksカード同梱</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked> お気楽便Thanksカード・チラシ同梱</label>
+        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked> お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</label>
       </div>
 
       <div class="form-group full">
@@ -1939,7 +1939,7 @@ window.openProductEdit = function(productId) {
           <label>オプション</label>
           <label><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}> 動画撮影</label>
           <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}> Thanksカード同梱</label>
-          <label><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> お気楽便Thanksカード・チラシ同梱</label>
+          <label><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</label>
         </div>
 
         <div class="form-group full">
