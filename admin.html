@@ -4269,32 +4269,59 @@
 
 
     async function lookupAuthUserByEmailWithGas(email) {
-      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
-        throw new Error("GAS_WEB_APP_URLが未設定です。");
-      }
-
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "lookupAuthUserByEmail",
-          token: GAS_WEB_APP_TOKEN,
-          email
-        })
+      const result = await requestGasJsonp({
+        action: "lookupAuthUserByEmail",
+        token: GAS_WEB_APP_TOKEN,
+        email
       });
 
-      const responseText = await response.text();
-      let result = {};
-      try {
-        result = JSON.parse(responseText || "{}");
-      } catch (error) {
-        throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
-      }
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || `Authユーザー検索に失敗しました。status=${response.status}`);
+      if (!result.ok) {
+        throw new Error(result.error || "Authユーザー検索に失敗しました。");
       }
 
       return result.found ? result : null;
+    }
+
+    function requestGasJsonp(params) {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
+        return Promise.reject(new Error("GAS_WEB_APP_URLが未設定です。"));
+      }
+
+      return new Promise((resolve, reject) => {
+        const callbackName = `okirakubinGasCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const script = document.createElement("script");
+        const url = new URL(GAS_WEB_APP_URL);
+
+        Object.entries(params || {}).forEach(([key, value]) => {
+          url.searchParams.set(key, value == null ? "" : String(value));
+        });
+        url.searchParams.set("callback", callbackName);
+
+        const cleanup = () => {
+          delete window[callbackName];
+          script.remove();
+        };
+
+        const timer = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("GASの応答がタイムアウトしました。デプロイと権限を確認してください。"));
+        }, 30000);
+
+        window[callbackName] = (result) => {
+          window.clearTimeout(timer);
+          cleanup();
+          resolve(result || {});
+        };
+
+        script.onerror = () => {
+          window.clearTimeout(timer);
+          cleanup();
+          reject(new Error("GASの読み込みに失敗しました。WebアプリURL・公開設定・再デプロイを確認してください。"));
+        };
+
+        script.src = url.toString();
+        document.body.appendChild(script);
+      });
     }
     async function createDriveFolderWithGas(driveBaseUrl, folderName) {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
