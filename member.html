@@ -64,7 +64,8 @@ textarea{min-height:62px;resize:vertical}
 .products-table tr.bundle-middle td:first-child::after,.products-table tr.bundle-last td:first-child::after{content:"";position:absolute;left:14px;top:50%;width:12px;height:1px;background:#cbd5e1}
 .products-table tr.bundle-last td:first-child::before{bottom:50%}
 .shipping-check{width:auto}
-.checkbox-line{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:700;color:var(--ink)}
+.checkbox-line{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:700;color:var(--ink);cursor:default}
+.checkbox-line span{pointer-events:none}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
 .status-pill.overseas{background:#dcfce7;color:#15803d}
@@ -559,6 +560,14 @@ memberSettingsBtn.addEventListener("click", () => {
   openMemberSettings();
 });
 
+document.addEventListener("click", (event) => {
+  const checkboxLine = event.target.closest?.(".checkbox-line");
+  if (!checkboxLine) return;
+  if (event.target.matches?.("input[type=checkbox]")) return;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
 emailChangeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await requestLoginEmailChange();
@@ -996,8 +1005,7 @@ async function activatePendingMember(user) {
       role: "member",
       createdAt: now,
       lastLoginAt: now
-    },
-    [`pendingMembers/${key}`]: null
+    }
   });
 
   return true;
