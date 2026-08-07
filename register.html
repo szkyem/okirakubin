@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Okirakubin Registration</title>
+<title>お気楽便 会員登録申請</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{min-height:100vh;font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#0f172a;background:linear-gradient(135deg,#4f7cff 0%,#5f4fc9 100%);padding:24px}
 .panel{width:min(720px,100%);margin:40px auto;background:#fff;border-radius:12px;box-shadow:0 18px 50px rgba(15,23,42,.18);padding:28px}
 h1{font-size:28px;margin-bottom:8px;color:#2563eb}
 p{line-height:1.7;color:#475569}
-.notice{margin:18px 0;padding:14px 16px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
 .error{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#fef2f2;color:#b91c1c}
 .error.show{display:block}
 .success{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#ecfdf5;color:#047857}
@@ -33,11 +32,7 @@ button,a.button{border:0;border-radius:8px;padding:13px 16px;font-weight:700;fon
 <body>
 <main class="panel">
   <h1>お気楽便 会員登録申請</h1>
-  <p>メールリンクで本人確認を行い、管理者の承認後に会員として利用できるようになります。</p>
-
-  <div class="notice">
-    申請後、入力したメールアドレス宛に確認リンクを送信します。メールのリンクを開くとUIDが発行され、管理者が本登録できる状態になります。
-  </div>
+  <p>会員登録を申請するため、下記内容を入力してください。</p>
 
   <div class="error" id="errorMessage"></div>
   <div class="success" id="successMessage"></div>
@@ -59,7 +54,7 @@ button,a.button{border:0;border-radius:8px;padding:13px 16px;font-weight:700;fon
       <button class="primary" id="sendLinkBtn" type="submit">確認メールを送信する</button>
       <a class="button secondary" href="index.html">入口へ戻る</a>
     </div>
-    <p class="muted">すでに確認メールを送信済みの場合も、同じメールアドレスで再送信できます。</p>
+    <p class="muted">確認メールが届いたら、メール内のリンクを開いて申請を完了してください。</p>
   </form>
 </main>
 
@@ -87,6 +82,8 @@ const firebaseConfig = {
   appId: "1:387991576787:web:db731b898f46dc8214f426"
 };
 
+const ADMIN_NOTIFICATION_EMAIL = "mail@okirakubin.com";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app, "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app");
@@ -110,7 +107,7 @@ registrationForm.addEventListener("submit", async (event) => {
   const note = noteInput.value.trim();
 
   if (!name || !email) {
-    showError("Please enter name and email.");
+    showError("氏名とメールアドレスを入力してください。");
     return;
   }
 
@@ -126,10 +123,10 @@ registrationForm.addEventListener("submit", async (event) => {
   try {
     sendLinkBtn.disabled = true;
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    showSuccess("Confirmation email sent. Open the link in the email to complete the request.");
+    showSuccess("確認メールを送信しました。メール内のリンクを開いて申請を完了してください。");
   } catch (error) {
     console.error(error);
-    showError("Failed to send confirmation email. Check Firebase Authentication settings.");
+    showError("確認メールの送信に失敗しました。Firebase Authenticationの設定を確認してください。");
   } finally {
     sendLinkBtn.disabled = false;
   }
@@ -142,12 +139,12 @@ async function completeRegistrationLink() {
 
   let email = localStorage.getItem("okirakubinEmailForSignIn") || "";
   if (!email) {
-    email = window.prompt("Enter the email address used for registration.") || "";
+    email = window.prompt("申請したメールアドレスを入力してください。") || "";
   }
   email = email.trim().toLowerCase();
 
   if (!email) {
-    showError("Email could not be confirmed.");
+    showError("メールアドレスを確認できないため、申請を完了できませんでした。");
     return;
   }
 
@@ -169,6 +166,7 @@ async function completeRegistrationLink() {
         note,
         status: "pending",
         source: "selfRegistration",
+        notifyTo: ADMIN_NOTIFICATION_EMAIL,
         createdAt: stored.requestedAt || now,
         updatedAt: now
       },
@@ -188,10 +186,10 @@ async function completeRegistrationLink() {
     await signOut(auth);
 
     registrationForm.classList.add("hidden");
-    showSuccess("Registration request completed. You can log in after admin approval.");
+    showSuccess("会員登録申請が完了しました。管理者の本登録後にログインできるようになります。");
   } catch (error) {
     console.error(error);
-    showError("Failed to save registration request. Check Realtime Database rules.");
+    showError("会員登録申請の保存に失敗しました。Realtime Databaseのルールを確認してください。");
   }
 }
 
