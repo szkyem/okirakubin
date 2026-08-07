@@ -2028,12 +2028,15 @@
       if (!pending) return;
 
       const email = String(pending.email || "").trim().toLowerCase();
-      const matchedEntry = Object.entries(loginUsersCache || {}).find(([, user]) => {
-        return String(user?.email || "").trim().toLowerCase() === email;
-      });
+      const pendingUid = String(pending.uid || "").trim();
+      const matchedEntry = pendingUid
+        ? [pendingUid, loginUsersCache?.[pendingUid] || {}]
+        : Object.entries(loginUsersCache || {}).find(([, user]) => {
+            return String(user?.email || "").trim().toLowerCase() === email;
+          });
 
       if (!matchedEntry) {
-        showError(appError, "この会員のログイン確認がまだです。会員に一度Googleログインを試してもらってから、本登録してください。");
+        showError(appError, "この会員のUIDがまだ取得できていません。会員登録申請ページからメール確認を完了してもらってください。");
         return;
       }
 

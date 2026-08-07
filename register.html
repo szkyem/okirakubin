@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Okirakubin Registration</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;color:#0f172a;background:linear-gradient(135deg,#4f7cff 0%,#5f4fc9 100%);padding:24px}
+.panel{width:min(720px,100%);margin:40px auto;background:#fff;border-radius:12px;box-shadow:0 18px 50px rgba(15,23,42,.18);padding:28px}
+h1{font-size:28px;margin-bottom:8px;color:#2563eb}
+p{line-height:1.7;color:#475569}
+.notice{margin:18px 0;padding:14px 16px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+.error{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#fef2f2;color:#b91c1c}
+.error.show{display:block}
+.success{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#ecfdf5;color:#047857}
+.success.show{display:block}
+form{display:grid;gap:14px;margin-top:22px}
+label{display:grid;gap:7px;font-weight:700;color:#334155}
+input,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;font:inherit}
+textarea{min-height:96px;resize:vertical}
+.actions{display:grid;gap:10px;margin-top:8px}
+button,a.button{border:0;border-radius:8px;padding:13px 16px;font-weight:700;font-size:15px;text-align:center;text-decoration:none;cursor:pointer}
+.primary{background:#2563eb;color:#fff}
+.primary:hover{background:#1d4ed8}
+.secondary{background:#eef2f7;color:#1f2937}
+.secondary:hover{background:#dfe7f1}
+.muted{font-size:13px;color:#64748b}
+.hidden{display:none}
+@media(max-width:640px){body{padding:12px}.panel{margin:16px auto;padding:20px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main class="panel">
+  <h1>お気楽便 会員登録申請</h1>
+  <p>メールリンクで本人確認を行い、管理者の承認後に会員として利用できるようになります。</p>
+
+  <div class="notice">
+    申請後、入力したメールアドレス宛に確認リンクを送信します。メールのリンクを開くとUIDが発行され、管理者が本登録できる状態になります。
+  </div>
+
+  <div class="error" id="errorMessage"></div>
+  <div class="success" id="successMessage"></div>
+
+  <form id="registrationForm">
+    <label>
+      氏名
+      <input id="nameInput" type="text" autocomplete="name" required placeholder="例: 鈴木康将">
+    </label>
+    <label>
+      メールアドレス
+      <input id="emailInput" type="email" autocomplete="email" required placeholder="example@gmail.com">
+    </label>
+    <label>
+      連絡事項
+      <textarea id="noteInput" placeholder="管理者への連絡事項があれば入力してください"></textarea>
+    </label>
+    <div class="actions">
+      <button class="primary" id="sendLinkBtn" type="submit">確認メールを送信する</button>
+      <a class="button secondary" href="index.html">入口へ戻る</a>
+    </div>
+    <p class="muted">すでに確認メールを送信済みの場合も、同じメールアドレスで再送信できます。</p>
+  </form>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getAuth,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  update
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
+  authDomain: "okirakubin-manager.firebaseapp.com",
+  projectId: "okirakubin-manager",
+  storageBucket: "okirakubin-manager.firebasestorage.app",
+  messagingSenderId: "387991576787",
+  appId: "1:387991576787:web:db731b898f46dc8214f426"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app, "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app");
+
+const registrationForm = document.getElementById("registrationForm");
+const nameInput = document.getElementById("nameInput");
+const emailInput = document.getElementById("emailInput");
+const noteInput = document.getElementById("noteInput");
+const sendLinkBtn = document.getElementById("sendLinkBtn");
+const errorMessage = document.getElementById("errorMessage");
+const successMessage = document.getElementById("successMessage");
+
+await completeRegistrationLink();
+
+registrationForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearMessages();
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
+  const note = noteInput.value.trim();
+
+  if (!name || !email) {
+    showError("Please enter name and email.");
+    return;
+  }
+
+  const payload = { name, email, note, requestedAt: Date.now() };
+  localStorage.setItem("okirakubinRegistrationRequest", JSON.stringify(payload));
+  localStorage.setItem("okirakubinEmailForSignIn", email);
+
+  const actionCodeSettings = {
+    url: new URL("register.html", location.href).toString(),
+    handleCodeInApp: true
+  };
+
+  try {
+    sendLinkBtn.disabled = true;
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    showSuccess("Confirmation email sent. Open the link in the email to complete the request.");
+  } catch (error) {
+    console.error(error);
+    showError("Failed to send confirmation email. Check Firebase Authentication settings.");
+  } finally {
+    sendLinkBtn.disabled = false;
+  }
+});
+
+async function completeRegistrationLink() {
+  if (!isSignInWithEmailLink(auth, location.href)) return;
+
+  clearMessages();
+
+  let email = localStorage.getItem("okirakubinEmailForSignIn") || "";
+  if (!email) {
+    email = window.prompt("Enter the email address used for registration.") || "";
+  }
+  email = email.trim().toLowerCase();
+
+  if (!email) {
+    showError("Email could not be confirmed.");
+    return;
+  }
+
+  try {
+    const credential = await signInWithEmailLink(auth, email, location.href);
+    const user = credential.user;
+    const stored = readStoredRegistration(email);
+    const now = Date.now();
+    const key = emailKey(email);
+    const name = stored.name || user.displayName || "";
+    const note = stored.note || "";
+
+    await update(ref(db), {
+      [`pendingMembers/${key}`]: {
+        key,
+        uid: user.uid,
+        name,
+        email,
+        note,
+        status: "pending",
+        source: "selfRegistration",
+        createdAt: stored.requestedAt || now,
+        updatedAt: now
+      },
+      [`loginUsers/${user.uid}`]: {
+        uid: user.uid,
+        name,
+        email,
+        role: "pending",
+        createdAt: now,
+        lastLoginAt: now
+      }
+    });
+
+    localStorage.removeItem("okirakubinRegistrationRequest");
+    localStorage.removeItem("okirakubinEmailForSignIn");
+    history.replaceState({}, document.title, location.pathname);
+    await signOut(auth);
+
+    registrationForm.classList.add("hidden");
+    showSuccess("Registration request completed. You can log in after admin approval.");
+  } catch (error) {
+    console.error(error);
+    showError("Failed to save registration request. Check Realtime Database rules.");
+  }
+}
+
+function readStoredRegistration(email) {
+  try {
+    const stored = JSON.parse(localStorage.getItem("okirakubinRegistrationRequest") || "{}");
+    if (String(stored.email || "").trim().toLowerCase() === email) return stored;
+  } catch (error) {
+    console.warn(error);
+  }
+  return { email };
+}
+
+function emailKey(email) {
+  return String(email || "").trim().toLowerCase().replace(/[.#$\[\]@]/g, "_");
+}
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.classList.add("show");
+}
+
+function showSuccess(message) {
+  successMessage.textContent = message;
+  successMessage.classList.add("show");
+}
+
+function clearMessages() {
+  errorMessage.textContent = "";
+  successMessage.textContent = "";
+  errorMessage.classList.remove("show");
+  successMessage.classList.remove("show");
+}
+</script>
+</body>
+</html>
