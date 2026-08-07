@@ -179,6 +179,12 @@ textarea{min-height:62px;resize:vertical}
   <h1 class="login-title">お気楽便</h1>
   <p class="login-text">会員としてログインしてください。</p>
   <button class="login-button" id="loginBtn" type="button">Googleで会員ログイン</button>
+  <div style="margin-top:16px;border-top:1px solid #d7dde8;padding-top:16px;">
+    <label for="emailLinkInput" style="display:block;margin-bottom:8px;font-weight:700;">メールリンクでログイン</label>
+    <input id="emailLinkInput" type="email" autocomplete="email" placeholder="メールアドレス" style="width:100%;margin-bottom:10px;">
+    <button class="secondary" id="emailLinkBtn" type="button" style="width:100%;">ログインリンクを送信</button>
+    <p class="muted" style="margin-top:8px;font-size:12px;">届いたメールのリンクからログインできます。</p>
+  </div>
 </section>
 
 <div class="container hidden" id="appArea">
@@ -439,6 +445,9 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -505,6 +514,8 @@ let selectedProductIds = new Set();
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
 const loginBtn = document.getElementById("loginBtn");
+const emailLinkInput = document.getElementById("emailLinkInput");
+const emailLinkBtn = document.getElementById("emailLinkBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userEmail = document.getElementById("userEmail");
 const memberBadge = document.getElementById("memberBadge");
@@ -552,6 +563,31 @@ loginBtn.addEventListener("click", async () => {
   }
 });
 
+emailLinkBtn?.addEventListener("click", async () => {
+  clearLoginError();
+
+  const email = String(emailLinkInput?.value || "").trim().toLowerCase();
+  if (!email) {
+    showLoginError("メールアドレスを入力してください。");
+    return;
+  }
+
+  const actionCodeSettings = {
+    url: new URL("member.html", location.href).toString(),
+    handleCodeInApp: true
+  };
+
+  try {
+    localStorage.setItem("okirakubinEmailForSignIn", email);
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    clearLoginError();
+    alert("ログインリンクを送信しました。メールを確認してください。");
+  } catch (error) {
+    console.error(error);
+    showLoginError("ログインリンクの送信に失敗しました。Firebase Authenticationの設定を確認してください。");
+  }
+});
+
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   showLoginUI();
@@ -572,6 +608,8 @@ emailChangeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await requestLoginEmailChange();
 });
+
+await completeEmailLinkSignIn();
 
 onAuthStateChanged(auth, async (user) => {
   clearLoginError();
@@ -610,6 +648,8 @@ onAuthStateChanged(auth, async (user) => {
       activeMemberUid = proxyUid;
       isMember = true;
     } else {
+      await recordLoginAttemptForAdminRegistration(user);
+
       const memberSnapshot = await get(ref(database, `members/${user.uid}`));
       isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
 
@@ -636,7 +676,10 @@ onAuthStateChanged(auth, async (user) => {
       }
 
       if (!isMember) {
-        isMember = await activatePendingMember(user);
+        const hasPending = await hasPendingMemberRegistration(user);
+        if (hasPending) {
+          migrationLoginError = "管理者の本登録待ちです。管理者に本登録を依頼してください。";
+        }
       }
 
       activeMemberUid = user.uid;
@@ -679,8 +722,71 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+async function completeEmailLinkSignIn() {
+  if (!isSignInWithEmailLink(auth, location.href)) return;
+
+  clearLoginError();
+
+  let email = localStorage.getItem("okirakubinEmailForSignIn") || "";
+  if (!email) {
+    email = window.prompt("ログイン用メールアドレスを入力してください。") || "";
+  }
+
+  email = String(email).trim().toLowerCase();
+  if (!email) {
+    showLoginUI();
+    showLoginError("メールアドレスを確認できないため、ログインできませんでした。");
+    return;
+  }
+
+  try {
+    await signInWithEmailLink(auth, email, location.href);
+    localStorage.removeItem("okirakubinEmailForSignIn");
+    history.replaceState({}, document.title, location.pathname);
+  } catch (error) {
+    console.error(error);
+    showLoginUI();
+    showLoginError("メールリンクでのログインに失敗しました。リンクを再送信してください。");
+  }
+}
 
 
+
+async function recordLoginAttemptForAdminRegistration(user) {
+  if (!user?.uid) return;
+
+  const email = String(user.email || "").trim().toLowerCase();
+  const now = Date.now();
+  const payload = {
+    uid: user.uid,
+    email,
+    role: "pending",
+    loginAttemptAt: now,
+    lastLoginAt: now
+  };
+
+  if (user.displayName) payload.name = user.displayName;
+
+  try {
+    await update(ref(database, `loginUsers/${user.uid}`), payload);
+  } catch (error) {
+    console.warn("login attempt record failed", error);
+  }
+}
+
+async function hasPendingMemberRegistration(user) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (!email) return false;
+
+  try {
+    const key = emailKey(email);
+    const pendingSnapshot = await get(ref(database, `pendingMembers/${key}`));
+    return pendingSnapshot.exists();
+  } catch (error) {
+    console.warn("pending member check failed", error);
+    return false;
+  }
+}
 async function repairMemberRecordFromSettings(user) {
   const email = String(user?.email || "").trim().toLowerCase();
   if (!user?.uid || !email) return { activated: false, message: "" };

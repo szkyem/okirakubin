@@ -2032,30 +2032,12 @@
         return String(user?.email || "").trim().toLowerCase() === email;
       });
 
-      let uid = matchedEntry ? matchedEntry[0] : "";
-      let existingUser = matchedEntry ? matchedEntry[1] : null;
-
-      if (!uid) {
-        try {
-          const authUser = await lookupAuthUserByEmailWithGas(email);
-          if (!authUser?.uid) {
-            showError(appError, "Firebase Authenticationにこのメールアドレスのユーザーが見つかりません。会員に一度Googleログインを試してもらってから、本登録してください。");
-            return;
-          }
-          uid = authUser.uid;
-          existingUser = {
-            uid: authUser.uid,
-            email: authUser.email || email,
-            name: authUser.displayName || "",
-            createdAt: Number(authUser.createdAt || 0) || "",
-            lastLoginAt: Number(authUser.lastLoginAt || 0) || ""
-          };
-        } catch (error) {
-          console.error(error);
-          showError(appError, `Firebase AuthenticationのUID検索に失敗しました。${error && error.message ? error.message : "GASの権限・デプロイを確認してください。"}`);
-          return;
-        }
+      if (!matchedEntry) {
+        showError(appError, "この会員のログイン確認がまだです。会員に一度Googleログインを試してもらってから、本登録してください。");
+        return;
       }
+
+      const [uid, existingUser] = matchedEntry;
       const ok = confirm(`${pending.name || email} を本登録しますか？`);
       if (!ok) return;
 
