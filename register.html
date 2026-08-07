@@ -126,7 +126,7 @@ registrationForm.addEventListener("submit", async (event) => {
     showSuccess("確認メールを送信しました。メール内のリンクを開いて申請を完了してください。");
   } catch (error) {
     console.error(error);
-    showError("確認メールの送信に失敗しました。Firebase Authenticationの設定を確認してください。");
+    showError(`確認メールの送信に失敗しました。Firebase Authenticationの設定を確認してください。詳細: ${error.code || "unknown"} / ${error.message || error}`);
   } finally {
     sendLinkBtn.disabled = false;
   }
