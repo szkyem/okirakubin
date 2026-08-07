@@ -64,6 +64,7 @@ textarea{min-height:62px;resize:vertical}
 .products-table tr.bundle-middle td:first-child::after,.products-table tr.bundle-last td:first-child::after{content:"";position:absolute;left:14px;top:50%;width:12px;height:1px;background:#cbd5e1}
 .products-table tr.bundle-last td:first-child::before{bottom:50%}
 .shipping-check{width:auto}
+.checkbox-line{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:700;color:var(--ink)}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
 .status-pill.overseas{background:#dcfce7;color:#15803d}
@@ -186,7 +187,7 @@ textarea{min-height:62px;resize:vertical}
     <h1 class="title">お気楽便</h1>
     <div class="user">
       <span id="userEmail"></span>
-      <span class="badge">会員</span>
+      <span class="badge" id="memberBadge">会員</span>
       <button class="secondary compact-btn" id="memberSettingsBtn" type="button">設定変更</button>
       <button class="logout" id="logoutBtn" type="button">ログアウト</button>
     </div>
@@ -494,6 +495,7 @@ let originsCache = [];
 let announcementsCache = [];
 let invoicesCache = {};
 let companyInfoCache = {};
+let memberProfileCache = {};
 let entryCount = 0;
 let storedView = "stored";
 let shippingView = "unshipped";
@@ -504,6 +506,7 @@ const appArea = document.getElementById("appArea");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userEmail = document.getElementById("userEmail");
+const memberBadge = document.getElementById("memberBadge");
 const memberSettingsBtn = document.getElementById("memberSettingsBtn");
 const loginError = document.getElementById("loginError");
 const errorMessage = document.getElementById("errorMessage");
@@ -1289,6 +1292,8 @@ async function loadData() {
     const originsSnapshot = await get(ref(database, `shippingOrigins/${dataUid()}`));
     const announcementsSnapshot = await get(ref(database, "announcements"));
     const invoicesSnapshot = await get(ref(database, `invoices/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const memberSettingsSnapshot = await get(ref(database, `memberSettings/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const loginUserSnapshot = await get(ref(database, `loginUsers/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     productsCache = productsSnapshot.exists()
@@ -1308,7 +1313,12 @@ async function loadData() {
       : [];
 
     invoicesCache = invoicesSnapshot.exists() ? invoicesSnapshot.val() : {};
+    memberProfileCache = {
+      ...(loginUserSnapshot.exists() ? loginUserSnapshot.val() : {}),
+      ...(memberSettingsSnapshot.exists() ? memberSettingsSnapshot.val() : {})
+    };
     companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
+    renderMemberBadge();
 
     const registeredProducts = getRegisteredProducts();
     const storedProducts = getStoredProducts();
@@ -1511,9 +1521,9 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>オプション</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionVideo"> 動画撮影</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionThanksCard"> Thanksカード同梱</label>
-        <label><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked> お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</label>
+        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionVideo"><span>動画撮影</span></div>
+        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionThanksCard"><span>Thanksカード同梱</span></div>
+        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked><span>お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</span></div>
       </div>
 
       <div class="form-group full">
@@ -1937,9 +1947,9 @@ window.openProductEdit = function(productId) {
 
         <div class="form-group full">
           <label>オプション</label>
-          <label><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}> 動画撮影</label>
-          <label><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}> Thanksカード同梱</label>
-          <label><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}> お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</label>
+          <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}><span>動画撮影</span></div>
+          <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}><span>Thanksカード同梱</span></div>
+          <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}><span>お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</span></div>
         </div>
 
         <div class="form-group full">
@@ -2778,6 +2788,8 @@ function closeShippingModal() {
 
 function showLoginUI() {
   currentUser = null;
+  memberProfileCache = {};
+  if (memberBadge) memberBadge.textContent = "会員";
   loginArea.classList.remove("hidden");
   appArea.classList.add("hidden");
 }
@@ -2786,7 +2798,14 @@ function showAppUI(user) {
   loginArea.classList.add("hidden");
   appArea.classList.remove("hidden");
   userEmail.textContent = user.email || user.displayName || user.uid;
+  renderMemberBadge();
   renderMemberSettings();
+}
+
+function renderMemberBadge() {
+  if (!memberBadge) return;
+  const managementNumber = String(memberProfileCache.managementNumber || "").trim();
+  memberBadge.textContent = managementNumber ? `会員番号 ${managementNumber}` : "会員";
 }
 
 function emptyHtml(message) {
