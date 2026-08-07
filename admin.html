@@ -2033,7 +2033,24 @@
       });
 
       if (!matchedEntry) {
-        showError(appError, "この会員のUIDがまだ取得できていません。会員に一度ログインを試してもらってください。");
+        const ok = confirm(`${pending.name || email} はまだUID未取得です。ログイン時に自動で本登録される状態にしますか？`);
+        if (!ok) return;
+
+        try {
+          const now = Date.now();
+          await update(ref(db, `pendingMembers/${key}`), {
+            status: "approved",
+            approvedAt: now,
+            approvedBy: currentUser?.uid || "",
+            updatedAt: now,
+            updatedBy: currentUser?.uid || ""
+          });
+          showError(appError, "仮登録を承認済みにしました。会員がこのメールアドレスでログインすると自動で本登録されます。");
+          await loadAllData();
+        } catch (error) {
+          console.error(error);
+          showError(appError, "仮登録の承認に失敗しました。Realtime Databaseのルールを確認してください。");
+        }
         return;
       }
 
