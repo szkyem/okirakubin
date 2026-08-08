@@ -297,6 +297,12 @@
       height: 16px;
     }
 
+    .billing-adjustment-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin: 12px 0 0;
+    }
+
     .inquiry-table-wrap {
       margin-bottom: 30px;
     }
@@ -3582,6 +3588,7 @@
         feeDetailLine(member, product, "inspection"),
         feeDetailLine(member, product, "shipping")
       ];
+      const adjustments = billingAdjustmentsForProduct(product);
 
       return `
         <div class="info-box">
@@ -3621,7 +3628,60 @@
             </tbody>
           </table>
         </div>
+
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>調整内容</th>
+                <th>請求月</th>
+                <th>金額</th>
+                <th>メモ</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${adjustments.length ? adjustments.map((adjustment) => `
+                <tr>
+                  <td>${escapeHtml(adjustment.title || "-")}</td>
+                  <td>${escapeHtml(adjustment.targetMonth || "-")}</td>
+                  <td>${yen(adjustment.amount)}円</td>
+                  <td>${escapeHtml(adjustment.note || "-")}</td>
+                  <td>
+                    <button class="mini-btn" onclick="openBillingAdjustmentEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}','${escapeAttr(adjustment.id)}')">編集</button>
+                    <button class="danger-btn" onclick="deleteBillingAdjustment('${escapeAttr(member.uid)}','${escapeAttr(product.id)}','${escapeAttr(adjustment.id)}')">削除</button>
+                  </td>
+                </tr>
+              `).join("") : `
+                <tr><td colspan="5"><div class="empty">調整内容はありません。</div></td></tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="billing-adjustment-actions">
+          <button class="primary-btn" onclick="openBillingAdjustmentEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">調整内容を追加</button>
+        </div>
       `;
+    }
+
+    function billingAdjustmentsForProduct(product) {
+      const source = product?.billingAdjustments || {};
+      return Object.entries(source)
+        .map(([id, value]) => ({
+          id,
+          title: value?.title || "",
+          targetMonth: value?.targetMonth || "",
+          amount: feeValue(value?.amount),
+          note: value?.note || "",
+          createdAt: value?.createdAt || 0,
+          updatedAt: value?.updatedAt || 0
+        }))
+        .sort((a, b) => {
+          const monthCompare = String(a.targetMonth || "").localeCompare(String(b.targetMonth || ""));
+          if (monthCompare !== 0) return monthCompare;
+          return Number(a.createdAt || 0) - Number(b.createdAt || 0);
+        });
     }
 
     function feeDetailLine(member, product, type) {
@@ -4024,6 +4084,73 @@
       editModalBackdrop.classList.add("show");
     }
 
+    function openBillingAdjustmentEdit(uid, productId, adjustmentId = "") {
+      const product = findProduct(uid, productId);
+      const adjustment = adjustmentId ? product?.billingAdjustments?.[adjustmentId] || {} : {};
+      if (!product) return;
+
+      activeEdit = { type: "billingAdjustment", uid, productId, adjustmentId };
+
+      editModalTitle.textContent = adjustmentId ? "調整内容を編集" : "調整内容を追加";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            調整内容
+            <input name="title" value="${escapeAttr(adjustment.title || "")}" placeholder="例：追加相談対応" required />
+          </label>
+
+          <label>
+            請求月
+            <input name="targetMonth" type="month" value="${escapeAttr(adjustment.targetMonth || todayString().slice(0, 7))}" required />
+          </label>
+
+          <label>
+            金額
+            <input name="amount" type="number" step="1" value="${escapeAttr(hasValue(adjustment.amount) ? adjustment.amount : "")}" placeholder="例：500 / -500" required />
+          </label>
+
+          <label class="full">
+            メモ
+            <textarea name="note" placeholder="調整理由や補足">${escapeHtml(adjustment.note || "")}</textarea>
+          </label>
+        </div>
+
+        <p class="form-note">プラス金額は追加請求、マイナス金額は値引きとして請求書に反映されます。</p>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+      bindAutoResizeTextareas(editForm);
+    }
+
+    async function deleteBillingAdjustment(uid, productId, adjustmentId) {
+      const product = findProduct(uid, productId);
+      if (!product || !adjustmentId) return;
+
+      const target = {
+        uid,
+        productId,
+        beforeProduct: clonePlain(product),
+        existingMonths: Object.keys(invoicesCache?.[uid] || {})
+      };
+
+      if (!confirm("この調整内容を削除しますか？")) return;
+
+      try {
+        await remove(ref(db, `products/${uid}/${productId}/billingAdjustments/${adjustmentId}`));
+        await loadAllData();
+        await refreshExistingInvoicesForProduct(target);
+        await loadAllData();
+        openFeeDetailModal(uid, productId);
+      } catch (error) {
+        showError(appError, "調整内容の削除に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     editForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!activeEdit) return;
@@ -4032,7 +4159,7 @@
 
       const formData = new FormData(editForm);
       const now = Date.now();
-      const invoiceRefreshTarget = (activeEdit.type === "adminFields" || activeEdit.type === "status" || activeEdit.type === "storedMemberFields")
+      const invoiceRefreshTarget = (activeEdit.type === "adminFields" || activeEdit.type === "status" || activeEdit.type === "storedMemberFields" || activeEdit.type === "billingAdjustment")
         ? {
             uid: activeEdit.uid,
             productId: activeEdit.productId,
@@ -4064,6 +4191,25 @@
             driveBaseUrl,
             planType,
             updatedAt: now
+          });
+        }
+
+        if (activeEdit.type === "billingAdjustment") {
+          const adjustmentId = activeEdit.adjustmentId || `adj_${now}_${Math.random().toString(36).slice(2, 8)}`;
+          const amount = feeValue(getFormValue(formData, "amount"));
+
+          await set(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}/billingAdjustments/${adjustmentId}`), {
+            id: adjustmentId,
+            title: getFormValue(formData, "title"),
+            targetMonth: getFormValue(formData, "targetMonth"),
+            amount,
+            note: getFormValue(formData, "note"),
+            createdAt: activeEdit.adjustmentId
+              ? findProduct(activeEdit.uid, activeEdit.productId)?.billingAdjustments?.[activeEdit.adjustmentId]?.createdAt || now
+              : now,
+            updatedAt: now,
+            updatedBy: currentUser?.uid || "",
+            updatedByEmail: currentUser?.email || ""
           });
         }
 
@@ -4213,6 +4359,10 @@
 
         if (finishedEdit.type === "status") {
           openShippingInfo(finishedEdit.uid, finishedEdit.productId);
+        }
+
+        if (finishedEdit.type === "billingAdjustment") {
+          openFeeDetailModal(finishedEdit.uid, finishedEdit.productId);
         }
 
         if (finishedEdit.type === "announcement") {
@@ -4724,6 +4874,7 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
   const totalShippingWorkCount = items.reduce((sum, item) => sum + (feeValue(item.shippingWorkFee) > 0 ? 1 : 0), 0);
   const totalShippingWorkFee = items.reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0);
   const totalShippingFee = items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0);
+  const totalAdjustmentFee = items.reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
   const grandTotal = items.reduce((sum, item) => sum + feeValue(item.total), 0);
 
   const itemMap = {};
@@ -4753,6 +4904,7 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
     totalShippingWorkCount,
     totalShippingWorkFee,
     totalShippingFee,
+    totalAdjustmentFee,
     grandTotal,
     items: itemMap
   });
@@ -4804,11 +4956,17 @@ async function refreshExistingInvoicesForMember(uid) {
 
 function productAppliesToInvoiceMonth(product, month) {
   if (!product || !month) return false;
-  return matchesMonth(product.shootingDate, month) || matchesMonth(product.shippedDate, month);
+  return matchesMonth(product.shootingDate, month)
+    || matchesMonth(product.shippedDate, month)
+    || billingAdjustmentsForProduct(product).some((adjustment) => adjustment.targetMonth === month);
 }
 
 function invoiceMonthsForProduct(product) {
-  return [monthFromDate(product?.shootingDate), monthFromDate(product?.shippedDate)].filter(Boolean);
+  return [
+    monthFromDate(product?.shootingDate),
+    monthFromDate(product?.shippedDate),
+    ...billingAdjustmentsForProduct(product).map((adjustment) => adjustment.targetMonth)
+  ].filter(Boolean);
 }
 
 function monthFromDate(value) {
@@ -4926,6 +5084,14 @@ function invoiceShippingFareFee(invoice) {
   return Math.max(0, feeValue(invoice?.totalShippingFee) - invoiceShippingWorkFee(invoice));
 }
 
+function invoiceAdjustmentFee(invoice) {
+  if (hasOwnValue(invoice, "totalAdjustmentFee")) {
+    return feeValue(invoice.totalAdjustmentFee);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
+}
+
 function buildInvoiceItems(member, month) {
   const shippingChargeProductIds = chargedShippingProductIds(member.products, month);
 
@@ -4933,8 +5099,17 @@ function buildInvoiceItems(member, month) {
     .map((product) => {
       const inspectionInMonth = matchesMonth(product.shootingDate, month);
       const shippingInMonth = matchesMonth(product.shippedDate, month);
+      const billingAdjustments = billingAdjustmentsForProduct(product)
+        .filter((adjustment) => adjustment.targetMonth === month);
+      const adjustmentFee = billingAdjustments.reduce((sum, adjustment) => sum + feeValue(adjustment.amount), 0);
+      const adjustmentText = billingAdjustments.map((adjustment) => {
+        const title = adjustment.title || "調整";
+        const amount = feeValue(adjustment.amount);
+        const note = adjustment.note ? `：${adjustment.note}` : "";
+        return `${title} ${amount >= 0 ? "+" : ""}${yen(amount)}円${note}`;
+      }).join(" / ");
 
-      if (!inspectionInMonth && !shippingInMonth) return null;
+      if (!inspectionInMonth && !shippingInMonth && !billingAdjustments.length) return null;
 
       const inspectionFee = inspectionInMonth ? inspectionFeeFor(product, member) : 0;
       const isBundledShipping = shippingInMonth && shipmentDisplayGroupKey(product) && !shippingChargeProductIds.has(product.id);
@@ -4960,7 +5135,10 @@ function buildInvoiceItems(member, month) {
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
         shippingFee: shippingInMonth ? shippingFareFee : "-",
         shippingNote: isBundledShipping ? "同梱" : "",
-        total: inspectionFee + shippingWorkFee + shippingFareFee
+        adjustmentFee: billingAdjustments.length ? adjustmentFee : "-",
+        adjustmentText,
+        adjustments: billingAdjustments,
+        total: inspectionFee + shippingWorkFee + shippingFareFee + adjustmentFee
       };
     })
     .filter(Boolean)
@@ -5100,7 +5278,7 @@ function firstInvoiceDate(item) {
       ["会員", invoice.memberName || ""],
       ["管理番号", invoice.managementNumber || ""],
       [],
-      ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "合計"],
+      ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
         ...csvItems.map((item) => [
           item.name || "",
           item.numbering || "",
@@ -5113,6 +5291,8 @@ function firstInvoiceDate(item) {
           itemHasShippingCharge(item) ? item.shippingWorkFeeForDisplay : "-",
           item.shippingDate || "-",
           itemHasShippingCharge(item) ? item.shippingFareFeeForDisplay : "-",
+          item.adjustmentFee ?? "-",
+          item.adjustmentText || "-",
           item.total || 0
         ]),
         [],
@@ -5120,6 +5300,7 @@ function firstInvoiceDate(item) {
         ["発送作業件数", invoiceShippingWorkCount(invoice)],
         ["発送作業代合計", invoiceShippingWorkFee(invoice)],
         ["発送料金合計", invoiceShippingFareFee(invoice)],
+        ["調整合計", invoiceAdjustmentFee(invoice)],
         ["合計", invoice.grandTotal || 0]
       ];
 
@@ -5151,6 +5332,7 @@ function firstInvoiceDate(item) {
           <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
           <td class="num">${row.hasShippingWork ? yen(row.shippingWorkFee) : "-"}</td>
           <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
+          <td class="num">${row.hasAdjustment ? yen(row.adjustmentFee) : "-"}</td>
           <td class="num">${yen(row.total)}</td>
           <td class="num">10%</td>
           <td>${escapeHtml(row.note || "-")}</td>
@@ -5222,6 +5404,7 @@ function firstInvoiceDate(item) {
                   <th>検品</th>
                   <th>発送作業代</th>
                   <th>送料</th>
+                  <th>調整</th>
                   <th>合計</th>
                   <th>税率</th>
                   <th>適用</th>
@@ -5284,13 +5467,16 @@ function firstInvoiceDate(item) {
           const hasInspection = item.inspectionFee !== "-";
           const hasShipping = itemHasShippingCharge(item);
           const hasShippingWork = itemShippingWorkFee(item) > 0;
+          const hasAdjustment = item.adjustmentFee !== "-";
           const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
           const shippingFee = hasShipping ? itemShippingFareFee(item) : 0;
           const shippingWorkFee = hasShippingWork ? itemShippingWorkFee(item) : 0;
+          const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
           const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
           if (item.shippingNote) noteParts.push(item.shippingNote);
           if (item.options && item.options !== "-") noteParts.push(item.options);
+          if (item.adjustmentText) noteParts.push(item.adjustmentText);
 
           return {
             date: dates[0] || "-",
@@ -5301,11 +5487,13 @@ function firstInvoiceDate(item) {
             shippingWorkFee,
             hasShipping,
             shippingFee,
-            total: inspectionFee + shippingWorkFee + shippingFee,
+            hasAdjustment,
+            adjustmentFee,
+            total: inspectionFee + shippingWorkFee + shippingFee + adjustmentFee,
             note: noteParts.join(" / ")
           };
         })
-        .filter((row) => row.total > 0 || row.hasShipping)
+        .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
         .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
     }
 
@@ -5764,6 +5952,8 @@ function firstInvoiceDate(item) {
     window.openStoredMemberFieldsEdit = openStoredMemberFieldsEdit;
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
+    window.openBillingAdjustmentEdit = openBillingAdjustmentEdit;
+    window.deleteBillingAdjustment = deleteBillingAdjustment;
     window.updateShippingBatchPrice = updateShippingBatchPrice;
     window.saveShippingBatch = saveShippingBatch;
     window.runYupackOcr = runYupackOcr;

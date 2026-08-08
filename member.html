@@ -2256,7 +2256,7 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "合計"],
+    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "調整", "調整内容", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
@@ -2268,11 +2268,14 @@ window.downloadInvoiceCsv = function(month) {
       item.inspectionFee ?? "-",
       item.shippingDate || "-",
       item.shippingFee ?? "-",
+      item.adjustmentFee ?? "-",
+      item.adjustmentText || "-",
       item.total || 0
     ]),
     [],
     ["検品料金合計", invoice.totalInspectionFee || 0],
     ["発送料金合計", invoice.totalShippingFee || 0],
+    ["調整合計", invoiceAdjustmentFee(invoice)],
     ["合計", invoice.grandTotal || 0]
   ];
 
@@ -2303,6 +2306,7 @@ window.downloadInvoicePdf = function(month) {
       <td>${escapeHtml(row.numbering || "-")}</td>
       <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
       <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
+      <td class="num">${row.hasAdjustment ? yen(row.adjustmentFee) : "-"}</td>
       <td class="num">${yen(row.total)}</td>
       <td class="num">10%</td>
       <td>${escapeHtml(row.note || "-")}</td>
@@ -2373,6 +2377,7 @@ window.downloadInvoicePdf = function(month) {
             <th>管理番号</th>
             <th>検品</th>
             <th>送料</th>
+            <th>調整</th>
             <th>合計</th>
             <th>税率</th>
             <th>適用</th>
@@ -2434,12 +2439,15 @@ function buildPdfInvoiceRows(items) {
     .map((item) => {
       const hasInspection = item.inspectionFee !== "-";
       const hasShipping = item.shippingFee !== "-";
+      const hasAdjustment = item.adjustmentFee !== "-";
       const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
       const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
+      const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
       const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
       const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
       if (item.shippingNote) noteParts.push(item.shippingNote);
       if (item.options && item.options !== "-") noteParts.push(item.options);
+      if (item.adjustmentText) noteParts.push(item.adjustmentText);
 
       return {
         date: dates[0] || "-",
@@ -2448,11 +2456,13 @@ function buildPdfInvoiceRows(items) {
         inspectionFee,
         hasShipping,
         shippingFee,
-        total: inspectionFee + shippingFee,
+        hasAdjustment,
+        adjustmentFee,
+        total: inspectionFee + shippingFee + adjustmentFee,
         note: noteParts.join(" / ")
       };
     })
-    .filter((row) => row.total > 0 || row.hasShipping)
+    .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
 }
 
@@ -3003,6 +3013,14 @@ function feeValue(value) {
   const cleaned = String(value ?? "").replace(/[^\d.-]/g, "");
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function invoiceAdjustmentFee(invoice) {
+  if (invoice && Object.prototype.hasOwnProperty.call(invoice, "totalAdjustmentFee")) {
+    return feeValue(invoice.totalAdjustmentFee);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
 }
 
 function numberValue(value) {
