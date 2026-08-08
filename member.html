@@ -217,7 +217,10 @@ textarea{min-height:62px;resize:vertical}
       <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
 
-    <h2 style="margin-bottom:16px;">最近のお知らせ</h2>
+    <h2 style="margin-bottom:16px;">基本情報</h2>
+    <div id="basicInfoBox"></div>
+
+    <h2 style="margin:24px 0 16px;">最近のお知らせ</h2>
     <div id="recentAnnouncements"></div>
   </section>
 
@@ -503,6 +506,7 @@ let isAdminProxyMode = false;
 let productsCache = [];
 let originsCache = [];
 let announcementsCache = [];
+let basicInfoCache = {};
 let invoicesCache = {};
 let companyInfoCache = {};
 let memberProfileCache = {};
@@ -1405,6 +1409,7 @@ async function loadData() {
     const productsSnapshot = await get(ref(database, `products/${dataUid()}`));
     const originsSnapshot = await get(ref(database, `shippingOrigins/${dataUid()}`));
     const announcementsSnapshot = await get(ref(database, "announcements"));
+    const basicInfoSnapshot = await get(ref(database, "settings/basicInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
     const invoicesSnapshot = await get(ref(database, `invoices/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const memberSettingsSnapshot = await get(ref(database, `memberSettings/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const loginUserSnapshot = await get(ref(database, `loginUsers/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
@@ -1421,10 +1426,11 @@ async function loadData() {
     originsCache = originsSnapshot.exists()
       ? Object.values(originsSnapshot.val()).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"))
       : [];
-
     announcementsCache = announcementsSnapshot.exists()
       ? Object.values(announcementsSnapshot.val()).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
       : [];
+
+    basicInfoCache = basicInfoSnapshot.exists() ? basicInfoSnapshot.val() : {};
 
     invoicesCache = invoicesSnapshot.exists() ? invoicesSnapshot.val() : {};
     memberProfileCache = {
@@ -1443,7 +1449,7 @@ async function loadData() {
     document.getElementById("storedCount").textContent = storedProducts.length;
     document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped")).length;
     document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => product.shippingStatus === "shipped")).length;
-
+    document.getElementById("basicInfoBox").innerHTML = basicInfoHtml();
     document.getElementById("recentAnnouncements").innerHTML = recentAnnouncementsHtml();
 
     renderStoredList();
@@ -1824,6 +1830,22 @@ function shipmentGroupNote(product, enabled) {
   return enabled && product.shipmentGroupCount > 1
     ? `<div class="bundle-note">同梱 ${escapeHtml(product.shipmentGroupCount)}点</div>`
     : "";
+}
+
+function basicInfoHtml() {
+  const message = String(basicInfoCache.message || "").trim();
+
+  if (!message) {
+    return emptyHtml("基本情報はまだありません");
+  }
+
+  return `
+    <div class="announcement-list">
+      <div class="announcement-card">
+        <div class="announcement-message">${escapeHtml(message)}</div>
+      </div>
+    </div>
+  `;
 }
 
 function recentAnnouncementsHtml() {

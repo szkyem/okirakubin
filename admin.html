@@ -1540,6 +1540,16 @@
 
       <div class="announcement-form">
         <label>
+          基本情報
+          <textarea id="basicInfoInput" placeholder="営業時間、対応内容、注意事項などを入力してください"></textarea>
+        </label>
+        <div class="announcement-actions">
+          <button class="primary-btn" onclick="saveBasicInfo()">保存する</button>
+        </div>
+      </div>
+
+      <div class="announcement-form">
+        <label>
           アナウンス内容
           <textarea id="announcementInput" placeholder="会員全員に知らせる内容を入力してください"></textarea>
         </label>
@@ -1723,6 +1733,7 @@
     const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
     const invoiceShippingWorkTotal = document.getElementById("invoiceShippingWorkTotal");
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
+    const basicInfoInput = document.getElementById("basicInfoInput");
     const announcementInput = document.getElementById("announcementInput");
     const announcementList = document.getElementById("announcementList");
     const companyInfoInput = document.getElementById("companyInfoInput");
@@ -1745,6 +1756,7 @@
     let loginUsersCache = {};
     let invoicesCache = {};
     let announcementsCache = {};
+    let basicInfoCache = {};
     let memberSettingsCache = {};
     let pendingMembersCache = {};
     let activePendingMemberKey = null;
@@ -1845,12 +1857,13 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
+        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
           get(ref(db, "announcements")),
+          get(ref(db, "settings/basicInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/confirmationTemplateBase")).catch(() => ({ val: () => null })),
@@ -1864,6 +1877,7 @@
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
         announcementsCache = announcementsSnap.val() || {};
+        basicInfoCache = basicInfoSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
         companyInfoCache = companyInfoSnap.val() || {};
         confirmationBaseCache = confirmationBaseSnap.val() || defaultConfirmationBase();
@@ -1909,6 +1923,7 @@
         renderInvoices();
         renderCompanyInfo();
         renderConfirmationBase();
+        renderBasicInfo();
         renderAnnouncements();
         renderDiscordNotifications();
       } catch (error) {
@@ -5536,6 +5551,30 @@ function firstInvoiceDate(item) {
       }
     }
 
+    function renderBasicInfo() {
+      if (basicInfoInput) basicInfoInput.value = basicInfoCache.message || "";
+    }
+
+    async function saveBasicInfo() {
+      hideError(appError);
+
+      const message = String(basicInfoInput?.value || "").trim();
+
+      try {
+        await set(ref(db, "settings/basicInfo"), cleanForFirebase({
+          message,
+          updatedAt: Date.now(),
+          updatedBy: currentUser?.uid || "",
+          updatedByEmail: currentUser?.email || ""
+        }));
+
+        await loadAllData();
+        setMainTab("announcements");
+      } catch (error) {
+        showError(appError, `基本情報の保存に失敗しました。${error && error.message ? error.message : error}`);
+      }
+    }
+
     function renderAnnouncements() {
       const announcements = Object.entries(announcementsCache || {})
         .map(([id, value]) => ({
@@ -5720,6 +5759,7 @@ function firstInvoiceDate(item) {
     window.deleteInvoice = deleteInvoice;
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
     window.saveCompanyInfo = saveCompanyInfo;
+    window.saveBasicInfo = saveBasicInfo;
     window.saveConfirmationBase = saveConfirmationBase;
     window.resetConfirmationBaseToDefault = resetConfirmationBaseToDefault;
     window.setConfirmationBaseView = setConfirmationBaseView;
