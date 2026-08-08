@@ -10,51 +10,69 @@ body{min-height:100vh;font-family:"Segoe UI","Yu Gothic","Meiryo",sans-serif;col
 .panel{width:min(720px,100%);margin:40px auto;background:#fff;border-radius:12px;box-shadow:0 18px 50px rgba(15,23,42,.18);padding:28px}
 h1{font-size:28px;margin-bottom:8px;color:#2563eb}
 p{line-height:1.7;color:#475569}
-.error{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#fef2f2;color:#b91c1c}
+.error{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#fef2f2;color:#b91c1c;white-space:pre-wrap}
 .error.show{display:block}
-.success{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#ecfdf5;color:#047857}
+.success{display:none;margin:18px 0;padding:14px 16px;border-radius:8px;background:#ecfdf5;color:#047857;white-space:pre-wrap}
 .success.show{display:block}
-form{display:grid;gap:14px;margin-top:22px}
+.account-box{display:grid;gap:10px;margin:18px 0;padding:14px 16px;border:1px solid #dbe3ef;border-radius:10px;background:#f8fafc}
+.account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.account-email{font-weight:700;color:#1f2937}
+form{display:grid;gap:14px;margin-top:18px}
 label{display:grid;gap:7px;font-weight:700;color:#334155}
 input,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;font:inherit}
+input[readonly]{background:#f1f5f9;color:#475569}
 textarea{min-height:96px;resize:vertical}
 .actions{display:grid;gap:10px;margin-top:8px}
 button,a.button{border:0;border-radius:8px;padding:13px 16px;font-weight:700;font-size:15px;text-align:center;text-decoration:none;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
 .primary{background:#2563eb;color:#fff}
 .primary:hover{background:#1d4ed8}
 .secondary{background:#eef2f7;color:#1f2937}
 .secondary:hover{background:#dfe7f1}
+.light-blue{background:#dbeafe;color:#1d4ed8}
+.light-blue:hover{background:#bfdbfe}
 .muted{font-size:13px;color:#64748b}
-.hidden{display:none}
-@media(max-width:640px){body{padding:12px}.panel{margin:16px auto;padding:20px}h1{font-size:24px}}
+.hidden{display:none!important}
+@media(max-width:640px){body{padding:12px}.panel{margin:16px auto;padding:20px}h1{font-size:24px}.account-row{align-items:stretch;flex-direction:column}}
 </style>
 </head>
 <body>
 <main class="panel">
   <h1>お気楽便 会員登録申請</h1>
-  <p>会員登録を申請するため、下記内容を入力してください。</p>
+  <p>Googleアカウントで本人確認を行い、会員登録を申請します。</p>
 
   <div class="error" id="errorMessage"></div>
   <div class="success" id="successMessage"></div>
 
-  <form id="registrationForm">
+  <div class="account-box" id="accountBox">
+    <div class="account-row">
+      <div>
+        <div class="muted">登録に使うGoogleアカウント</div>
+        <div class="account-email" id="googleAccountText">未ログイン</div>
+      </div>
+      <button class="light-blue" id="googleRegisterBtn" type="button">Googleで登録申請</button>
+    </div>
+    <p class="muted">Googleログイン後、取得したメールアドレスとUIDを使って登録申請します。</p>
+  </div>
+
+  <form id="registrationForm" class="hidden">
     <label>
       氏名
       <input id="nameInput" type="text" autocomplete="name" required placeholder="例: 鈴木康将">
     </label>
     <label>
       メールアドレス
-      <input id="emailInput" type="email" autocomplete="email" required placeholder="example@gmail.com">
+      <input id="emailInput" type="email" autocomplete="email" readonly>
     </label>
     <label>
       連絡事項
       <textarea id="noteInput" placeholder="管理者への連絡事項があれば入力してください"></textarea>
     </label>
     <div class="actions">
-      <button class="primary" id="sendLinkBtn" type="submit">確認メールを送信する</button>
+      <button class="primary" id="submitBtn" type="submit">この内容で申請する</button>
+      <button class="secondary" id="switchAccountBtn" type="button">別のGoogleアカウントで申請する</button>
       <a class="button secondary" href="index.html">入口へ戻る</a>
     </div>
-    <p class="muted">入力したメールアドレス宛に確認メールを送信します。届かない場合は迷惑メールも確認してください。</p>
   </form>
 </main>
 
@@ -62,9 +80,10 @@ button,a.button{border:0;border-radius:8px;padding:13px 16px;font-weight:700;fon
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getDatabase,
@@ -86,136 +105,138 @@ const ADMIN_NOTIFICATION_EMAIL = "mail@okirakubin.com";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 const db = getDatabase(app, "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app");
 
+let currentUser = null;
+
 const registrationForm = document.getElementById("registrationForm");
+const googleRegisterBtn = document.getElementById("googleRegisterBtn");
+const googleAccountText = document.getElementById("googleAccountText");
 const nameInput = document.getElementById("nameInput");
 const emailInput = document.getElementById("emailInput");
 const noteInput = document.getElementById("noteInput");
-const sendLinkBtn = document.getElementById("sendLinkBtn");
+const submitBtn = document.getElementById("submitBtn");
+const switchAccountBtn = document.getElementById("switchAccountBtn");
 const errorMessage = document.getElementById("errorMessage");
 const successMessage = document.getElementById("successMessage");
 
-await completeRegistrationLink();
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+  clearMessages();
+
+  if (!user) {
+    googleAccountText.textContent = "未ログイン";
+    googleRegisterBtn.classList.remove("hidden");
+    registrationForm.classList.add("hidden");
+    return;
+  }
+
+  const email = String(user.email || "").trim().toLowerCase();
+  googleAccountText.textContent = email || "Googleログイン済み";
+  googleRegisterBtn.classList.add("hidden");
+  registrationForm.classList.remove("hidden");
+  emailInput.value = email;
+  if (!nameInput.value.trim()) nameInput.value = user.displayName || "";
+});
+
+googleRegisterBtn.addEventListener("click", async () => {
+  clearMessages();
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error(error);
+    showError(`Googleログインに失敗しました。詳細: ${error.code || "unknown"} / ${error.message || error}`);
+  }
+});
+
+switchAccountBtn.addEventListener("click", async () => {
+  clearMessages();
+  await signOut(auth);
+});
 
 registrationForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearMessages();
 
-  const name = nameInput.value.trim();
-  const email = emailInput.value.trim().toLowerCase();
+  if (!currentUser?.uid) {
+    showError("Googleログインを行ってから申請してください。");
+    return;
+  }
+
+  const name = nameInput.value.trim() || currentUser.displayName || "";
+  const email = String(currentUser.email || "").trim().toLowerCase();
   const note = noteInput.value.trim();
 
   if (!name || !email) {
-    showError("氏名とメールアドレスを入力してください。");
-    return;
-  }
-
-  const payload = { name, email, note, requestedAt: Date.now() };
-  localStorage.setItem("okirakubinRegistrationRequest", JSON.stringify(payload));
-  localStorage.setItem("okirakubinEmailForSignIn", email);
-
-  const actionCodeSettings = {
-    url: new URL("register.html", location.href).toString(),
-    handleCodeInApp: true
-  };
-
-  try {
-    sendLinkBtn.disabled = true;
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    showSuccess(`${email} 宛に確認メールを送信しました。メール内のリンクを開いて申請を完了してください。届かない場合は迷惑メールも確認してください。`);
-  } catch (error) {
-    console.error(error);
-    showError(`確認メールの送信に失敗しました。Firebase Authenticationの設定を確認してください。詳細: ${error.code || "unknown"} / ${error.message || error}`);
-  } finally {
-    sendLinkBtn.disabled = false;
-  }
-});
-
-async function completeRegistrationLink() {
-  if (!isSignInWithEmailLink(auth, location.href)) return;
-
-  clearMessages();
-
-  let email = localStorage.getItem("okirakubinEmailForSignIn") || "";
-  if (!email) {
-    email = window.prompt("申請したメールアドレスを入力してください。") || "";
-  }
-  email = email.trim().toLowerCase();
-
-  if (!email) {
-    showError("メールアドレスを確認できないため、申請を完了できませんでした。");
+    showError("氏名とGoogleメールアドレスを確認してください。");
     return;
   }
 
   try {
-    const credential = await signInWithEmailLink(auth, email, location.href);
-    const user = credential.user;
-    const stored = readStoredRegistration(email);
-    const now = Date.now();
-    const key = emailKey(email);
-    const name = stored.name || user.displayName || "";
-    const note = stored.note || "";
-
-    const pendingSnapshot = await get(ref(db, `pendingMembers/${key}`));
-    const existingPending = pendingSnapshot.val() || {};
-    const displayName = existingPending.name || name;
-
-    await update(ref(db), {
-      [`members/${user.uid}`]: true,
-      [`pendingMembers/${key}`]: {
-        ...existingPending,
-        key,
-        uid: user.uid,
-        name: displayName,
-        email,
-        note: note || existingPending.note || "",
-        status: "verified",
-        source: existingPending.source || "selfRegistration",
-        notifyTo: existingPending.notifyTo || ADMIN_NOTIFICATION_EMAIL,
-        createdAt: existingPending.createdAt || stored.requestedAt || now,
-        verifiedAt: now,
-        updatedAt: now
-      },
-      [`memberSettings/${user.uid}/email`]: email,
-      [`memberSettings/${user.uid}/pendingEmailKey`]: key,
-      [`memberSettings/${user.uid}/managementNumber`]: existingPending.managementNumber || "",
-      [`memberSettings/${user.uid}/planType`]: existingPending.planType || "",
-      [`memberSettings/${user.uid}/driveBaseUrl`]: existingPending.driveBaseUrl || "",
-      [`memberSettings/${user.uid}/discordWebhookUrl`]: existingPending.discordWebhookUrl || "",
-      [`memberSettings/${user.uid}/activatedAt`]: now,
-      [`memberSettings/${user.uid}/updatedAt`]: now,
-      [`loginUsers/${user.uid}`]: {
-        uid: user.uid,
-        name: displayName,
-        email,
-        role: "member",
-        createdAt: existingPending.createdAt || now,
-        lastLoginAt: now
-      }
-    });
-
-    localStorage.removeItem("okirakubinRegistrationRequest");
-    localStorage.removeItem("okirakubinEmailForSignIn");
-    history.replaceState({}, document.title, location.pathname);
-
+    submitBtn.disabled = true;
+    await saveRegistration({ user: currentUser, name, email, note });
     registrationForm.classList.add("hidden");
-    showSuccess("本人確認が完了しました。会員ページにログインできます。");
+    showSuccess("会員登録申請が完了しました。会員ページにログインできます。");
     successMessage.insertAdjacentHTML("beforeend", `<div style="margin-top:12px;"><a class="button secondary" href="member.html">会員ログインへ</a></div>`);
   } catch (error) {
     console.error(error);
-    showError("会員登録申請の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+    showError(`会員登録申請の保存に失敗しました。Realtime Databaseのルールを確認してください。詳細: ${error.message || error}`);
+  } finally {
+    submitBtn.disabled = false;
   }
-}
+});
 
-function readStoredRegistration(email) {
-  try {
-    const stored = JSON.parse(localStorage.getItem("okirakubinRegistrationRequest") || "{}");
-    if (String(stored.email || "").trim().toLowerCase() === email) return stored;
-  } catch (error) {
-    console.warn(error);
-  }
-  return { email };
+async function saveRegistration({ user, name, email, note }) {
+  const now = Date.now();
+  const key = emailKey(email);
+  const uid = user.uid;
+
+  const [pendingSnapshot, settingsSnapshot, loginUserSnapshot] = await Promise.all([
+    get(ref(db, `pendingMembers/${key}`)),
+    get(ref(db, `memberSettings/${uid}`)),
+    get(ref(db, `loginUsers/${uid}`))
+  ]);
+
+  const existingPending = pendingSnapshot.val() || {};
+  const existingSettings = settingsSnapshot.val() || {};
+  const existingLoginUser = loginUserSnapshot.val() || {};
+  const displayName = existingPending.name || name;
+
+  await update(ref(db), {
+    [`members/${uid}`]: true,
+    [`pendingMembers/${key}`]: {
+      ...existingPending,
+      key,
+      uid,
+      name: displayName,
+      email,
+      note: note || existingPending.note || "",
+      status: "verified",
+      source: existingPending.source || "googleRegistration",
+      notifyTo: existingPending.notifyTo || ADMIN_NOTIFICATION_EMAIL,
+      createdAt: existingPending.createdAt || now,
+      verifiedAt: existingPending.verifiedAt || now,
+      updatedAt: now
+    },
+    [`memberSettings/${uid}/email`]: email,
+    [`memberSettings/${uid}/pendingEmailKey`]: key,
+    [`memberSettings/${uid}/managementNumber`]: existingSettings.managementNumber || existingPending.managementNumber || "",
+    [`memberSettings/${uid}/planType`]: existingSettings.planType || existingPending.planType || "",
+    [`memberSettings/${uid}/driveBaseUrl`]: existingSettings.driveBaseUrl || existingPending.driveBaseUrl || "",
+    [`memberSettings/${uid}/discordWebhookUrl`]: existingSettings.discordWebhookUrl || existingPending.discordWebhookUrl || "",
+    [`memberSettings/${uid}/activatedAt`]: existingSettings.activatedAt || now,
+    [`memberSettings/${uid}/updatedAt`]: now,
+    [`loginUsers/${uid}`]: {
+      ...existingLoginUser,
+      uid,
+      name: displayName,
+      email,
+      role: "member",
+      createdAt: existingLoginUser.createdAt || existingPending.createdAt || now,
+      lastLoginAt: now
+    }
+  });
 }
 
 function emailKey(email) {
