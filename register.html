@@ -69,6 +69,7 @@ import {
 import {
   getDatabase,
   ref,
+  get,
   update
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
@@ -156,25 +157,40 @@ async function completeRegistrationLink() {
     const name = stored.name || user.displayName || "";
     const note = stored.note || "";
 
+    const pendingSnapshot = await get(ref(db, `pendingMembers/${key}`));
+    const existingPending = pendingSnapshot.val() || {};
+    const displayName = existingPending.name || name;
+
     await update(ref(db), {
+      [`members/${user.uid}`]: true,
       [`pendingMembers/${key}`]: {
+        ...existingPending,
         key,
         uid: user.uid,
-        name,
+        name: displayName,
         email,
-        note,
-        status: "pending",
-        source: "selfRegistration",
-        notifyTo: ADMIN_NOTIFICATION_EMAIL,
-        createdAt: stored.requestedAt || now,
+        note: note || existingPending.note || "",
+        status: "verified",
+        source: existingPending.source || "selfRegistration",
+        notifyTo: existingPending.notifyTo || ADMIN_NOTIFICATION_EMAIL,
+        createdAt: existingPending.createdAt || stored.requestedAt || now,
+        verifiedAt: now,
         updatedAt: now
       },
+      [`memberSettings/${user.uid}/email`]: email,
+      [`memberSettings/${user.uid}/pendingEmailKey`]: key,
+      [`memberSettings/${user.uid}/managementNumber`]: existingPending.managementNumber || "",
+      [`memberSettings/${user.uid}/planType`]: existingPending.planType || "",
+      [`memberSettings/${user.uid}/driveBaseUrl`]: existingPending.driveBaseUrl || "",
+      [`memberSettings/${user.uid}/discordWebhookUrl`]: existingPending.discordWebhookUrl || "",
+      [`memberSettings/${user.uid}/activatedAt`]: now,
+      [`memberSettings/${user.uid}/updatedAt`]: now,
       [`loginUsers/${user.uid}`]: {
         uid: user.uid,
-        name,
+        name: displayName,
         email,
-        role: "pending",
-        createdAt: now,
+        role: "member",
+        createdAt: existingPending.createdAt || now,
         lastLoginAt: now
       }
     });
@@ -184,7 +200,7 @@ async function completeRegistrationLink() {
     history.replaceState({}, document.title, location.pathname);
 
     registrationForm.classList.add("hidden");
-    showSuccess("本人確認が完了しました。管理者の本登録後に会員ページを利用できます。");
+    showSuccess("本人確認が完了しました。会員ページにログインできます。");
     successMessage.insertAdjacentHTML("beforeend", `<div style="margin-top:12px;"><a class="button secondary" href="member.html">会員ログインへ</a></div>`);
   } catch (error) {
     console.error(error);
