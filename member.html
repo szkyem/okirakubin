@@ -207,6 +207,7 @@ textarea{min-height:62px;resize:vertical}
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
     <button class="tab" data-tab="invoices" type="button">請求書DL</button>
+    <button class="tab" data-tab="basicInfo" type="button">基本情報</button>
   </nav>
 
   <section class="section show" id="overview">
@@ -217,11 +218,13 @@ textarea{min-height:62px;resize:vertical}
       <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
 
+    <h2 style="margin-bottom:16px;">最近のお知らせ</h2>
+    <div id="recentAnnouncements"></div>
+  </section>
+
+  <section class="section" id="basicInfo">
     <h2 style="margin-bottom:16px;">基本情報</h2>
     <div id="basicInfoBox"></div>
-
-    <h2 style="margin:24px 0 16px;">最近のお知らせ</h2>
-    <div id="recentAnnouncements"></div>
   </section>
 
   <section class="section" id="register">
@@ -1648,7 +1651,7 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>オプションコメント</label>
-        <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄"></textarea>
+        <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"></textarea>
       </div>
 
     </div>
