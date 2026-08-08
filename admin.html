@@ -1087,13 +1087,14 @@
 
       <div class="section-title-row">
         <h2>会員一覧</h2>
-        <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・会員氏名で検索" />
+        <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・識別名・会員氏名で検索" />
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>管理番号</th>
+              <th>識別名</th>
               <th>会員</th>
               <th>登録済み商品</th>
               <th>保管商品</th>
@@ -1902,6 +1903,7 @@
               role: user.role || "member",
               lastLoginAt: user.lastLoginAt || "",
               managementNumber: memberSettings.managementNumber || user.managementNumber || "",
+              adminDisplayName: memberSettings.adminDisplayName || "",
               driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
               discordWebhookUrl: memberSettings.discordWebhookUrl || "",
               planType: memberSettings.planType || user.planType || "",
@@ -2127,20 +2129,20 @@
       totalUnshipped.textContent = totalUnshippedCount;
 
       if (!membersCache.length) {
-        memberListBody.innerHTML = `<tr><td colspan="8"><div class="empty">会員が登録されていません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="9"><div class="empty">会員が登録されていません。</div></td></tr>`;
         return;
       }
 
       const searchKeyword = normalizeSearch(memberSearchInput.value);
       const displayMembers = searchKeyword
         ? membersCache.filter((member) => {
-            const target = normalizeSearch(`${member.managementNumber || ""} ${member.name || ""}`);
+            const target = normalizeSearch(`${member.managementNumber || ""} ${member.adminDisplayName || ""} ${member.name || ""}`);
             return target.includes(searchKeyword);
           })
         : membersCache;
 
       if (!displayMembers.length) {
-        memberListBody.innerHTML = `<tr><td colspan="8"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="9"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
         return;
       }
 
@@ -2155,6 +2157,7 @@
                 <button class="mini-btn" onclick="event.stopPropagation(); openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
               </div>
             </td>
+            <td>${escapeHtml(member.adminDisplayName || "-")}</td>
             <td>
               <div class="member-name">${escapeHtml(member.name || "-")}</div>
               <div class="member-meta">${escapeHtml(member.email || "-")}</div>
@@ -3788,12 +3791,17 @@
 
       activeEdit = { type: "memberManagement", uid };
 
-      editModalTitle.textContent = "管理番号を編集";
+      editModalTitle.textContent = "会員管理情報を編集";
       editForm.innerHTML = `
         <div class="form-grid">
           <label>
             管理番号
             <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
+          </label>
+
+          <label>
+            管理者用識別名
+            <input name="adminDisplayName" value="${escapeAttr(member.adminDisplayName || "")}" />
           </label>
 
           <label>
@@ -4034,12 +4042,14 @@
       try {
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
+          const adminDisplayName = getFormValue(formData, "adminDisplayName");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
+            adminDisplayName,
             driveBaseUrl,
             discordWebhookUrl,
             planType,
