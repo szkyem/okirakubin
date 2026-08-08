@@ -1434,6 +1434,7 @@
               <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
               <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
               <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
+              <tr><td>お気楽便チラシ同梱なし</td><td>100円</td><td>お気楽便チラシ同梱を不要にする場合</td></tr>
             </tbody>
           </table>
         </div>
@@ -1624,6 +1625,7 @@
       reshoot: 500,
       video: 500,
       thanksCard: 0,
+      flyerRemoval: 100,
       overseasHandling: 500
     };
 
@@ -5003,13 +5005,23 @@ function firstInvoiceDate(item) {
       const prices = priceTableForMember(member);
       if (product.workRequest === "保管のみ") return 0;
       if (product.workRequest === "返品対応" || shippingKey(product.shippingRequest) === "return") return prices.returnHandling;
-      if (product.workRequest === "写真のみ") return prices.photoOnly;
-      if (product.workRequest === "検品のみ") return prices.inspectionOnly;
 
-      let fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * prices.additionalKitItem;
+      let fee = 0;
+
+      if (product.workRequest === "写真のみ") {
+        fee = prices.photoOnly;
+      } else if (product.workRequest === "検品のみ") {
+        fee = prices.inspectionOnly;
+      } else {
+        fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * prices.additionalKitItem;
+      }
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
         fee += prices.video;
+      }
+
+      if (!isConsultingMember(member) && isOkirakuInsertDeclined(product)) {
+        fee += prices.flyerRemoval || 0;
       }
 
       return fee;
@@ -5800,6 +5812,7 @@ function firstInvoiceDate(item) {
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
       if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
+      if (isOkirakuInsertDeclined(product)) options.push("お気楽便Thanksカード・チラシ同梱なし");
 
       optionLabels.forEach((label) => {
         if (label && !options.includes(label)) options.push(label);
@@ -5810,6 +5823,15 @@ function firstInvoiceDate(item) {
 
     function isOptionEnabled(value) {
       return value === true || value === "true" || value === "on" || value === 1 || value === "1";
+    }
+
+    function isOptionExplicitlyDisabled(value) {
+      return value === false || value === "false" || value === 0 || value === "0" || value === "off";
+    }
+
+    function isOkirakuInsertDeclined(product) {
+      const optionObject = product?.options || {};
+      return isOptionExplicitlyDisabled(product?.optionOkirakuInsert) || isOptionExplicitlyDisabled(optionObject.okirakuInsert);
     }
 
     function planTypeLabel(value) {
