@@ -225,6 +225,9 @@ textarea{min-height:62px;resize:vertical}
   <section class="section" id="basicInfo">
     <h2 style="margin-bottom:16px;">基本情報</h2>
     <div id="basicInfoBox"></div>
+
+    <h2 style="margin:24px 0 16px;">過去のお知らせ</h2>
+    <div id="pastAnnouncements"></div>
   </section>
 
   <section class="section" id="register">
@@ -1454,6 +1457,7 @@ async function loadData() {
     document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => product.shippingStatus === "shipped")).length;
     document.getElementById("basicInfoBox").innerHTML = basicInfoHtml();
     document.getElementById("recentAnnouncements").innerHTML = recentAnnouncementsHtml();
+    document.getElementById("pastAnnouncements").innerHTML = pastAnnouncementsHtml();
 
     renderStoredList();
     renderShippingList();
@@ -1852,15 +1856,38 @@ function basicInfoHtml() {
 }
 
 function recentAnnouncementsHtml() {
-  const recent = announcementsCache.slice(0, 5);
+  const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recent = announcementsCache
+    .filter((item) => Number(item.createdAt || 0) >= oneMonthAgo)
+    .slice(0, 10);
 
   if (!recent.length) {
-    return emptyHtml("お知らせはまだありません");
+    return emptyHtml("直近30日のお知らせはありません。過去のお知らせは基本情報をご確認ください。");
   }
 
   return `
     <div class="announcement-list">
       ${recent.map((item) => `
+        <div class="announcement-card">
+          <div class="announcement-date">${escapeHtml(formatDate(item.createdAt))}</div>
+          <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function pastAnnouncementsHtml() {
+  const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const past = announcementsCache.filter((item) => Number(item.createdAt || 0) < oneMonthAgo);
+
+  if (!past.length) {
+    return emptyHtml("過去のお知らせはまだありません");
+  }
+
+  return `
+    <div class="announcement-list">
+      ${past.map((item) => `
         <div class="announcement-card">
           <div class="announcement-date">${escapeHtml(formatDate(item.createdAt))}</div>
           <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
