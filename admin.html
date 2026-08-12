@@ -1636,6 +1636,8 @@
     };
 
     const SHIPPING_WORK_UNIT_FEE = 400;
+    const PREPAID_LABEL_REQUEST = "送料会員事前負担";
+    const PREPAID_LABEL_WORK_FEE = 500;
 
     const CONSULTING_PRICE_TABLE = {
       inspectionBase: 1000,
@@ -2611,7 +2613,9 @@
         const status = isShippedStatus(product.shippingStatus) ? product.shippingStatus : "shipped";
         const size = product.shippingSize || "";
         const calculatedPrice = autoShippingPriceFor(product, size, status, member);
-        const price = status === "cash_on_delivery" ? "0" : hasValue(calculatedPrice) ? calculatedPrice : product.shippingPrice || "";
+        const price = shippingKey(product.shippingRequest) === "prepaidLabel"
+          ? String(PREPAID_LABEL_WORK_FEE)
+          : status === "cash_on_delivery" ? "0" : hasValue(calculatedPrice) ? calculatedPrice : product.shippingPrice || "";
         const trackingNumber = product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "";
         const bundleText = unit.products.length > 1 ? `<div class="member-meta">同梱 ${escapeHtml(unit.products.length)}点</div>` : "";
 
@@ -2655,9 +2659,11 @@
       const priceInput = document.querySelector(`[data-shipping-batch-price="${index}"]`);
       if (!priceInput) return;
 
-      const price = status === "cash_on_delivery"
-        ? "0"
-        : autoShippingPriceFor(unit.parent, size, status, unit.member);
+      const price = shippingKey(unit.parent.shippingRequest) === "prepaidLabel"
+        ? String(PREPAID_LABEL_WORK_FEE)
+        : status === "cash_on_delivery"
+          ? "0"
+          : autoShippingPriceFor(unit.parent, size, status, unit.member);
 
       priceInput.value = hasValue(price) ? price : "";
     }
@@ -3177,7 +3183,9 @@
         for (const { unit, index } of selected) {
           const status = document.querySelector(`[data-shipping-batch-status="${index}"]`)?.value || "shipped";
           const shippingSize = document.querySelector(`[data-shipping-batch-size="${index}"]`)?.value || "";
-          const shippingPrice = status === "cash_on_delivery" ? "0" : document.querySelector(`[data-shipping-batch-price="${index}"]`)?.value.trim() || "";
+          const shippingPrice = shippingKey(unit.parent.shippingRequest) === "prepaidLabel"
+            ? String(PREPAID_LABEL_WORK_FEE)
+            : status === "cash_on_delivery" ? "0" : document.querySelector(`[data-shipping-batch-price="${index}"]`)?.value.trim() || "";
           const trackingNumber = document.querySelector(`[data-shipping-batch-tracking="${index}"]`)?.value.trim() || "";
 
           if (status === "shipped" && !trackingNumber) {
@@ -3374,6 +3382,7 @@
         domestic: "国内発送",
         international: "海外発送",
         return: "返品依頼",
+        prepaidLabel: PREPAID_LABEL_REQUEST,
         speedpak: "SpeedPAK",
         none: "なし"
       };
@@ -3387,6 +3396,7 @@
         domestic: "国内発送",
         international: "海外発送",
         return: "返品依頼",
+        prepaidLabel: PREPAID_LABEL_REQUEST,
         speedpak: "SpeedPAK",
         none: "-"
       };
@@ -3400,6 +3410,7 @@
       if (text === "domestic" || text === "国内発送") return "domestic";
       if (text === "international" || text === "海外発送") return "international";
       if (text === "return" || text === "返品依頼") return "return";
+      if (text === "prepaidLabel" || text === PREPAID_LABEL_REQUEST || text === "ラベル発送依頼" || text === "QRコード発送依頼") return "prepaidLabel";
       if (text === "speedpak" || text === "SpeedPAK") return "speedpak";
 
       return "none";
@@ -3696,7 +3707,7 @@
 
       if (isBilled) {
         return {
-          label: isInspection ? "検品代金" : "送料",
+          label: isInspection ? "検品代金" : shippingKey(product.shippingRequest) === "prepaidLabel" ? "ラベル発送作業代" : "送料",
           date: date || "-",
           month: month || "-",
           amount: feeValue(billedAmount),
@@ -3720,7 +3731,7 @@
       const hasShipping = hasValue(product.shippedDate) || hasValue(product.shippingRequest);
       const shippingMonth = hasValue(product.shippedDate) ? String(product.shippedDate).slice(0, 7) : "-";
       return {
-        label: "送料",
+        label: shippingKey(product.shippingRequest) === "prepaidLabel" ? "ラベル発送作業代" : "送料",
         date: product.shippedDate || "-",
         month: shippingMonth,
         amount: hasShipping ? scheduledShippingFeeFor(member, product) : "-",
@@ -5116,7 +5127,7 @@ function buildInvoiceItems(member, month) {
       const shippingChargeFee = shippingInMonth
         ? isBundledShipping ? 0 : shippingFeeFor(product, member)
         : 0;
-      const shippingWorkFee = shippingInMonth && !isBundledShipping ? SHIPPING_WORK_UNIT_FEE : 0;
+      const shippingWorkFee = shippingInMonth && !isBundledShipping ? shippingWorkFeeFor(product) : 0;
       const shippingFareFee = Math.max(0, shippingChargeFee - shippingWorkFee);
 
       return {
@@ -5147,6 +5158,10 @@ function buildInvoiceItems(member, month) {
       if (dateCompare !== 0) return dateCompare;
       return String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
     });
+}
+
+function shippingWorkFeeFor(product) {
+  return shippingKey(product?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : SHIPPING_WORK_UNIT_FEE;
 }
 
 function chargedShippingProductIds(products, month) {
@@ -5206,6 +5221,7 @@ function firstInvoiceDate(item) {
     }
 
     function shippingFeeFor(product, member) {
+      if (shippingKey(product.shippingRequest) === "prepaidLabel") return PREPAID_LABEL_WORK_FEE;
       if (product.shippingStatus === "cash_on_delivery") return 0;
       const tablePrice = autoShippingPriceFor(product, product.shippingSize, product.shippingStatus, member);
       if (hasValue(tablePrice)) return numberValue(tablePrice);

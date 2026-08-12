@@ -436,7 +436,22 @@ textarea{min-height:62px;resize:vertical}
         </div>
       </div>
 
-      <div class="modal-section-title">発送元住所</div>
+      <div id="prepaidLabelSection" style="display:none;">
+        <div class="modal-section-title">QRコード・ラベル画像</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>QRコード・ラベル画像 <span class="required">必須</span></label>
+            <input id="prepaidLabelFile" type="file" accept="image/*,.pdf">
+          </div>
+          <div class="form-group full">
+            <label>ラベル発送メモ</label>
+            <textarea id="prepaidLabelMemo" placeholder="任意。管理者へ伝えたい内容があれば入力してください。"></textarea>
+          </div>
+        </div>
+        <p class="member-meta" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。</p>
+      </div>
+
+      <div class="modal-section-title shipping-origin-section">発送元住所</div>
 
       <div class="form-group">
         <label>登録済み発送元 <span class="required">必須</span></label>
@@ -486,6 +501,11 @@ const database = getDatabase(
   app,
   "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app"
 );
+
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyE_73N7gEwKmFoxvY0Plwc9kxmdPQdASEcP7MesXwh9PZq3QUca_MpvrhYXT7QD1Ae/exec";
+const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
+const PREPAID_LABEL_REQUEST = "送料会員事前負担";
+const PREPAID_LABEL_WORK_FEE = 500;
 
 const PRICE_TABLE = {
   inspectionBase: 1300,
@@ -1321,13 +1341,25 @@ shippingForm.addEventListener("submit", async (event) => {
 
   if (!currentUser || !selectedProductIds.size) return;
 
+  const requestType = shippingRequestType.value;
+  const isPrepaidLabel = requestType === PREPAID_LABEL_REQUEST;
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
-  if (!selectedOrigin) {
+  if (!isPrepaidLabel && !selectedOrigin) {
     showError("発送元を選択してください。");
     return;
   }
 
-  const destination = {
+  const destination = isPrepaidLabel ? {
+    name: "会員発行ラベル",
+    postalCode: "",
+    prefecture: "",
+    address: "",
+    building: "",
+    phone: "",
+    deliveryDate: "",
+    deliveryTime: "",
+    note: document.getElementById("shippingNote").value.trim()
+  } : {
     name: document.getElementById("destName").value.trim(),
     postalCode: document.getElementById("destPostalCode").value.trim(),
     prefecture: document.getElementById("destPrefecture").value.trim(),
@@ -1339,14 +1371,20 @@ shippingForm.addEventListener("submit", async (event) => {
     note: document.getElementById("shippingNote").value.trim()
   };
 
-  if (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address) {
+  if (!isPrepaidLabel && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
     showError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
+    return;
+  }
+
+  const labelFile = document.getElementById("prepaidLabelFile")?.files?.[0] || null;
+  const labelMemo = document.getElementById("prepaidLabelMemo")?.value.trim() || "";
+  if (isPrepaidLabel && !labelFile) {
+    showError("QRコード・ラベル画像を選択してください。");
     return;
   }
 
   try {
     const now = Date.now();
-    const requestType = shippingRequestType.value;
     const selectedIds = [...selectedProductIds];
     const selectedProducts = productsCache.filter((product) => selectedProductIds.has(product.id));
     const shipmentGroupId = `${now}_${requestType}`;
@@ -1354,16 +1392,29 @@ shippingForm.addEventListener("submit", async (event) => {
     const shipmentGroupNames = selectedProducts.map((product) => product.name || "").filter(Boolean).join(" / ");
     const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
+    if (isPrepaidLabel) {
+      await sendPrepaidLabelToDiscord({
+        file: labelFile,
+        memo: labelMemo,
+        selectedProducts,
+        shipmentGroupNames,
+        shipmentGroupNumberings
+      });
+    }
+
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
         shippingStatus: "unshipped",
         shippingDestination: destination,
-        shippingOrigin: selectedOrigin,
+        shippingOrigin: isPrepaidLabel ? {} : selectedOrigin,
         shipmentGroupId,
         shipmentGroupCount,
         shipmentGroupNames,
         shipmentGroupNumberings,
+        prepaidLabelFileName: isPrepaidLabel ? labelFile.name || "" : "",
+        prepaidLabelMemo: isPrepaidLabel ? labelMemo : "",
+        prepaidLabelDiscordSentAt: isPrepaidLabel ? now : "",
         shippingRequestedAt: now,
         updatedAt: now
       });
@@ -1373,10 +1424,10 @@ shippingForm.addEventListener("submit", async (event) => {
     shippingForm.reset();
     closeShippingModal();
     await loadData();
-    alert("発送依頼を作成しました。");
+    alert(isPrepaidLabel ? "ラベル発送依頼を作成し、Discordへ送信しました。" : "発送依頼を作成しました。");
   } catch (error) {
     console.error(error);
-    showError("発送依頼の作成に失敗しました。");
+    showError(`発送依頼の作成に失敗しました。${error && error.message ? error.message : ""}`);
   }
 });
 
@@ -1765,6 +1816,7 @@ function bulkActionBar() {
       <button type="button" class="bulk-btn domestic" onclick="openShippingModal('国内発送')">選択中を国内発送する</button>
       <button type="button" class="bulk-btn overseas" onclick="openShippingModal('海外発送')">選択中を海外発送する</button>
       <button type="button" class="bulk-btn return" onclick="openShippingModal('返品依頼')">選択中を返品依頼する</button>
+      <button type="button" class="bulk-btn domestic" onclick="openShippingModal(PREPAID_LABEL_REQUEST)">選択中を送料会員事前負担で国内発送する（フリマサイト等）</button>
     </div>
   `;
 }
@@ -1921,7 +1973,7 @@ function originCard(origin) {
 }
 
 function shippingPill(value) {
-  const className = value === "国内発送" ? "domestic" : value === "海外発送" ? "overseas" : value === "返品依頼" ? "return" : "none";
+  const className = value === "国内発送" || value === PREPAID_LABEL_REQUEST ? "domestic" : value === "海外発送" ? "overseas" : value === "返品依頼" ? "return" : "none";
   return `<span class="status-pill ${className}">${escapeHtml(value || "未選択")}</span>`;
 }
 
@@ -2017,22 +2069,41 @@ window.toggleProductSelection = function(productId, checked) {
 window.openShippingModal = function(type) {
   if (!selectedProductIds.size) return;
 
-  if (!originsCache.length) {
+  const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
+  if (!isPrepaidLabel && !originsCache.length) {
     showError("発送元を先に登録してください。");
     document.querySelector('[data-tab="origins"]').click();
     return;
   }
 
   clearError();
+  shippingForm.reset();
   shippingRequestType.value = type;
-  document.querySelectorAll(".delivery-option-field").forEach((field) => {
-    field.style.display = type === "海外発送" ? "none" : "";
+
+  ["destName", "destPostalCode", "destPrefecture", "destAddress"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) input.required = !isPrepaidLabel;
   });
-  if (type === "海外発送") {
+
+  const originSelectElement = document.getElementById("originSelect");
+  if (originSelectElement) originSelectElement.required = !isPrepaidLabel;
+
+  document.querySelectorAll(".delivery-option-field").forEach((field) => {
+    field.style.display = type === "海外発送" || isPrepaidLabel ? "none" : "";
+  });
+  document.querySelectorAll(".shipping-origin-section, #originSelect").forEach((field) => {
+    field.style.display = isPrepaidLabel ? "none" : "";
+  });
+  const prepaidSection = document.getElementById("prepaidLabelSection");
+  if (prepaidSection) prepaidSection.style.display = isPrepaidLabel ? "" : "none";
+  const labelFile = document.getElementById("prepaidLabelFile");
+  if (labelFile) labelFile.required = isPrepaidLabel;
+
+  if (type === "海外発送" || isPrepaidLabel) {
     document.getElementById("deliveryDate").value = "";
     document.getElementById("deliveryTime").value = "";
   }
-  document.getElementById("shippingModalTitle").textContent = `${type}の発送先情報`;
+  document.getElementById("shippingModalTitle").textContent = isPrepaidLabel ? "ラベル発送依頼" : `${type}の発送先情報`;
   shippingModalBackdrop.classList.add("show");
 };
 
@@ -2719,7 +2790,7 @@ function feeDetailLine(product, type) {
 
   if (isBilled) {
     return {
-      label: isInspection ? "検品代金" : "送料",
+      label: isInspection ? "検品代金" : shippingKey(product.shippingRequest) === "prepaidLabel" ? "ラベル発送作業代" : "送料",
       date: date || "-",
       month: month || "-",
       amount: feeValue(billedAmount),
@@ -2741,7 +2812,7 @@ function feeDetailLine(product, type) {
   const hasShipping = hasValue(product.shippedDate) || hasValue(product.shippingRequest);
   const shippingMonth = hasValue(product.shippedDate) ? String(product.shippedDate).slice(0, 7) : "-";
   return {
-    label: "送料",
+    label: shippingKey(product.shippingRequest) === "prepaidLabel" ? "ラベル発送作業代" : "送料",
     date: product.shippedDate || "-",
     month: shippingMonth,
     amount: hasShipping ? scheduledShippingFeeFor(product) : "-",
@@ -2782,6 +2853,7 @@ function scheduledShippingFeeFor(product) {
 }
 
 function shippingFeeFor(product) {
+  if (shippingKey(product.shippingRequest) === "prepaidLabel") return PREPAID_LABEL_WORK_FEE;
   if (product.shippingStatus === "cash_on_delivery") return 0;
   if (hasValue(product.shippingPrice)) return numberValue(product.shippingPrice);
 
@@ -2833,6 +2905,7 @@ function shippingKey(value) {
   if (value === "国内発送") return "domestic";
   if (value === "海外発送") return "overseas";
   if (value === "返品依頼") return "return";
+  if (value === PREPAID_LABEL_REQUEST || value === "ラベル発送依頼" || value === "QRコード発送依頼") return "prepaidLabel";
   return "";
 }
 
@@ -2876,6 +2949,57 @@ function normalizeInvoiceMonth(value) {
   if (!match) return "";
 
   return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}`;
+}
+
+async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings }) {
+  if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
+  if (!memberProfileCache.discordWebhookUrl) throw new Error("Discord Webhook URLが未設定です。管理者に設定を依頼してください。");
+
+  const imageBase64 = await fileToBase64(file);
+  const message = [
+    "【ラベル発送依頼】",
+    `会員：${memberProfileCache.name || currentUser?.displayName || "-"}`,
+    `メール：${memberProfileCache.email || currentUser?.email || "-"}`,
+    `管理番号：${memberProfileCache.managementNumber || "-"}`,
+    `商品名：${shipmentGroupNames || "-"}`,
+    `ナンバリング：${shipmentGroupNumberings || "-"}`,
+    `件数：${selectedProducts.length}件`,
+    memo ? `メモ：${memo}` : ""
+  ].filter(Boolean).join("\n");
+
+  const response = await fetch(GAS_WEB_APP_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "discordNotifyFile",
+      token: GAS_WEB_APP_TOKEN,
+      webhookUrl: memberProfileCache.discordWebhookUrl,
+      message,
+      fileName: file.name || "label.png",
+      mimeType: file.type || "image/png",
+      fileBase64: imageBase64
+    })
+  });
+
+  const responseText = await response.text();
+  let result = {};
+  try {
+    result = JSON.parse(responseText || "{}");
+  } catch (error) {
+    throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
+  }
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || `Discordへのラベル送信に失敗しました。status=${response.status}`);
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+    reader.onerror = () => reject(new Error("ファイルの読み込みに失敗しました。"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function shippingDetailHtml(product) {

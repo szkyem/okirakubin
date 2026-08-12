@@ -1,0 +1,17 @@
+{
+  "admins": {
+    "e4Fy6cTguHS3oX8m0yZMuBgT1My2": true
+  },
+  "members": {
+    "e4Fy6cTguHS3oX8m0yZMuBgT1My2": true
+  },
+  "loginUsers": {
+    "e4Fy6cTguHS3oX8m0yZMuBgT1My2": {
+      "email": "szkyem01@gmail.com",
+      "lastLoginAt": 1779688677930,
+      "name": "鈴木康将",
+      "role": "admin",
+      "uid": "e4Fy6cTguHS3oX8m0yZMuBgT1My2"
+    }
+  }
+}
