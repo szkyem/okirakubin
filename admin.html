@@ -1798,6 +1798,10 @@
       button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
     });
 
+    infoModalBackdrop.addEventListener("click", (event) => {
+      if (event.target === infoModalBackdrop) closeInfoModal();
+    });
+
     editModalCloseBtn.addEventListener("click", closeEditModal);
 
     memberSearchInput.addEventListener("input", renderMembers);
