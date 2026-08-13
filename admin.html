@@ -4740,6 +4740,27 @@
         throw new Error(`GASの返却がJSONではありません。GASのデプロイ・権限を確認してください。${responseText.slice(0, 160)}`);
       }
 
+      if (!Array.isArray(result.results) && /Drive URL置き場|フォルダ名|createDriveFolder/i.test(String(result.error || ""))) {
+        const results = [];
+        for (const item of notifications) {
+          try {
+            await sendDiscordMessageWithGas(item.webhookUrl, item.message);
+            results.push({ uid: item.uid, ok: true });
+            await sleep(1400);
+          } catch (error) {
+            results.push({
+              uid: item.uid,
+              ok: false,
+              error: error && error.message ? error.message : "送信失敗"
+            });
+          }
+        }
+        return {
+          ok: results.every((item) => item.ok === true),
+          results
+        };
+      }
+
       if (!response.ok && !Array.isArray(result.results)) {
         throw new Error(result.error || `Discord通知に失敗しました。status=${response.status}`);
       }
@@ -6774,7 +6795,6 @@ function firstInvoiceDate(item) {
   </script>
 </body>
 </html>
-
 
 
 
