@@ -380,9 +380,10 @@ textarea{min-height:62px;resize:vertical}
     <form class="modal-form" id="shippingForm">
       <input type="hidden" id="shippingRequestType">
 
-      <div class="modal-section-title">発送先住所</div>
+      <div class="shipping-destination-section">
+        <div class="modal-section-title">発送先住所</div>
 
-      <div class="form-grid">
+        <div class="form-grid">
         <div class="form-group">
           <label>宛名 <span class="required">必須</span></label>
           <input id="destName" type="text" required>
@@ -434,6 +435,7 @@ textarea{min-height:62px;resize:vertical}
           <label>備考</label>
           <textarea id="shippingNote"></textarea>
         </div>
+        </div>
       </div>
 
       <div id="prepaidLabelSection" style="display:none;">
@@ -453,7 +455,7 @@ textarea{min-height:62px;resize:vertical}
 
       <div class="modal-section-title shipping-origin-section">発送元住所</div>
 
-      <div class="form-group">
+      <div class="form-group shipping-origin-select-section">
         <label>登録済み発送元 <span class="required">必須</span></label>
         <select id="originSelect" required></select>
       </div>
@@ -1349,17 +1351,7 @@ shippingForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const destination = isPrepaidLabel ? {
-    name: "会員発行ラベル",
-    postalCode: "",
-    prefecture: "",
-    address: "",
-    building: "",
-    phone: "",
-    deliveryDate: "",
-    deliveryTime: "",
-    note: document.getElementById("shippingNote").value.trim()
-  } : {
+  const destination = isPrepaidLabel ? {} : {
     name: document.getElementById("destName").value.trim(),
     postalCode: document.getElementById("destPostalCode").value.trim(),
     prefecture: document.getElementById("destPrefecture").value.trim(),
@@ -2091,7 +2083,7 @@ window.openShippingModal = function(type) {
   document.querySelectorAll(".delivery-option-field").forEach((field) => {
     field.style.display = type === "海外発送" || isPrepaidLabel ? "none" : "";
   });
-  document.querySelectorAll(".shipping-origin-section, #originSelect").forEach((field) => {
+  document.querySelectorAll(".shipping-destination-section, .shipping-origin-section, .shipping-origin-select-section").forEach((field) => {
     field.style.display = isPrepaidLabel ? "none" : "";
   });
   const prepaidSection = document.getElementById("prepaidLabelSection");
