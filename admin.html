@@ -4613,7 +4613,6 @@
       let sentCount = 0;
       let skippedCount = 0;
       const failedMembers = [];
-      const jobs = [];
 
       try {
         for (const member of membersCache) {
@@ -4629,38 +4628,21 @@
             continue;
           }
 
-          jobs.push({
-            uid: member.uid,
-            name: member.name || member.email || member.uid,
-            webhookUrl: member.discordWebhookUrl,
-            message: buildDiscordDailyMessage(member, date, items),
-            items
+          try {
+            await sendDiscordMessageWithGas(member.discordWebhookUrl, buildDiscordDailyMessage(member, date, items));
+          } catch (error) {
+            skippedCount += items.length;
+            failedMembers.push(`${member.name || member.email || member.uid}：${error && error.message ? error.message : "送信失敗"}`);
+            continue;
+          }
+
+          items.forEach((item) => {
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentAt`] = Date.now();
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
           });
-        }
-
-        if (jobs.length) {
-          const result = await sendDiscordBatchWithGas(jobs.map((job) => ({
-            uid: job.uid,
-            webhookUrl: job.webhookUrl,
-            message: job.message
-          })));
-          const resultsByUid = Object.fromEntries((result.results || []).map((item) => [item.uid, item]));
-
-          jobs.forEach((job) => {
-            const sendResult = resultsByUid[job.uid];
-            if (sendResult && sendResult.ok) {
-              job.items.forEach((item) => {
-                updates[`discordNotificationQueue/${job.uid}/${date}/${item.id}/sent`] = true;
-                updates[`discordNotificationQueue/${job.uid}/${date}/${item.id}/sentAt`] = Date.now();
-                updates[`discordNotificationQueue/${job.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
-              });
-              sentCount += job.items.length;
-              return;
-            }
-
-            skippedCount += job.items.length;
-            failedMembers.push(`${job.name}：${sendResult?.error || "送信結果を確認できませんでした。"}`);
-          });
+          sentCount += items.length;
+          await sleep(1500);
         }
 
         if (Object.keys(updates).length) {
@@ -4716,60 +4698,6 @@
       const status = Number(result.status || result.statusCode || responseStatus || 0);
       const errorText = String(result.error || result.message || "");
       return status === 429 || /status\s*=\s*429|rate\s*limit|too many requests/i.test(errorText);
-    }
-
-    async function sendDiscordBatchWithGas(notifications) {
-      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
-        throw new Error("GAS_WEB_APP_URLが未設定です。");
-      }
-
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "discordNotifyBatch",
-          token: GAS_WEB_APP_TOKEN,
-          notifications
-        })
-      });
-
-      const responseText = await response.text();
-      let result = {};
-      try {
-        result = JSON.parse(responseText || "{}");
-      } catch (error) {
-        throw new Error(`GASの返却がJSONではありません。GASのデプロイ・権限を確認してください。${responseText.slice(0, 160)}`);
-      }
-
-      if (!Array.isArray(result.results) && /Drive URL置き場|フォルダ名|createDriveFolder/i.test(String(result.error || ""))) {
-        const results = [];
-        for (const item of notifications) {
-          try {
-            await sendDiscordMessageWithGas(item.webhookUrl, item.message);
-            results.push({ uid: item.uid, ok: true });
-            await sleep(1400);
-          } catch (error) {
-            results.push({
-              uid: item.uid,
-              ok: false,
-              error: error && error.message ? error.message : "送信失敗"
-            });
-          }
-        }
-        return {
-          ok: results.every((item) => item.ok === true),
-          results
-        };
-      }
-
-      if (!response.ok && !Array.isArray(result.results)) {
-        throw new Error(result.error || `Discord通知に失敗しました。status=${response.status}`);
-      }
-
-      if (!Array.isArray(result.results)) {
-        throw new Error(result.error || "Discord通知結果を取得できませんでした。");
-      }
-
-      return result;
     }
 
     async function sendDiscordMessageWithGas(webhookUrl, message) {
