@@ -1133,7 +1133,8 @@ async function activatePendingMember(user) {
       managementNumber: pending.managementNumber || "",
       planType: pending.planType || "",
       driveBaseUrl: pending.driveBaseUrl || "",
-      discordWebhookUrl: pending.discordWebhookUrl || "",
+            discordWebhookUrl: pending.discordWebhookUrl || "",
+      discordLabelWebhookUrl: pending.discordLabelWebhookUrl || pending.discordWebhookUrl || "",
       pendingEmailKey: key,
       activatedAt: now,
       updatedAt: now
@@ -2947,19 +2948,16 @@ function normalizeInvoiceMonth(value) {
 
 async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
-  if (!memberProfileCache.discordWebhookUrl) throw new Error("Discord Webhook URLが未設定です。管理者に設定を依頼してください。");
+  const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
+  if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
 
   const imageBase64 = await fileToBase64(file);
   const message = [
-    "【ラベル発送依頼】",
-    `会員：${memberProfileCache.name || currentUser?.displayName || "-"}`,
-    `メール：${memberProfileCache.email || currentUser?.email || "-"}`,
-    `管理番号：${memberProfileCache.managementNumber || "-"}`,
-    `商品名：${shipmentGroupNames || "-"}`,
+    "【商品発送依頼】",
+    "",
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
-    `件数：${selectedProducts.length}件`,
-    memo ? `メモ：${memo}` : ""
-  ].filter(Boolean).join("\n");
+    `商品名：${shipmentGroupNames || "-"}`
+  ].join("\n");
 
   const requestUrl = new URL(GAS_WEB_APP_URL);
   requestUrl.searchParams.set("action", "discordNotifyFile");
@@ -2969,7 +2967,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmen
     body: JSON.stringify({
       action: "discordNotifyFile",
       token: GAS_WEB_APP_TOKEN,
-      webhookUrl: memberProfileCache.discordWebhookUrl,
+      webhookUrl: labelWebhookUrl,
       message,
       fileName: file.name || "label.png",
       mimeType: file.type || "image/png",

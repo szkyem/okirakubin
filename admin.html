@@ -1147,8 +1147,12 @@
             <input id="pendingMemberDriveBaseUrl" type="url" placeholder="https://drive.google.com/drive/folders/..." />
           </label>
           <label class="full">
-            Discord Webhook URL
+            Discord Webhook URL(検品発送連絡用)
             <input id="pendingMemberDiscordWebhookUrl" type="url" placeholder="https://discord.com/api/webhooks/..." />
+          </label>
+          <label class="full">
+            Discord Webhook URL(発送ラベル連絡用)
+            <input id="pendingMemberDiscordLabelWebhookUrl" type="url" placeholder="https://discord.com/api/webhooks/..." />
           </label>
         </div>
         <div class="announcement-actions">
@@ -1709,6 +1713,7 @@
     const pendingMemberPlanType = document.getElementById("pendingMemberPlanType");
     const pendingMemberDriveBaseUrl = document.getElementById("pendingMemberDriveBaseUrl");
     const pendingMemberDiscordWebhookUrl = document.getElementById("pendingMemberDiscordWebhookUrl");
+    const pendingMemberDiscordLabelWebhookUrl = document.getElementById("pendingMemberDiscordLabelWebhookUrl");
     const pendingMemberSubmitBtn = document.getElementById("pendingMemberSubmitBtn");
     const pendingMemberCancelBtn = document.getElementById("pendingMemberCancelBtn");
     const memberSearchInput = document.getElementById("memberSearchInput");
@@ -1920,6 +1925,7 @@
               adminDisplayName: memberSettings.adminDisplayName || "",
               driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
               discordWebhookUrl: memberSettings.discordWebhookUrl || "",
+              discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
               planType: memberSettings.planType || user.planType || "",
               products
             };
@@ -1964,6 +1970,7 @@
       const planType = pendingMemberPlanType.value;
       const driveBaseUrl = pendingMemberDriveBaseUrl.value.trim();
       const discordWebhookUrl = pendingMemberDiscordWebhookUrl.value.trim();
+      const discordLabelWebhookUrl = pendingMemberDiscordLabelWebhookUrl.value.trim();
 
       if (!name || !email) {
         showError(appError, "氏名とメールアドレスを入力してください。");
@@ -1984,6 +1991,7 @@
           planType,
           driveBaseUrl,
           discordWebhookUrl,
+          discordLabelWebhookUrl,
           status: "pending",
           createdAt: existing.createdAt || now,
           updatedAt: now,
@@ -2032,6 +2040,7 @@
       pendingMemberPlanType.value = member.planType || "";
       pendingMemberDriveBaseUrl.value = member.driveBaseUrl || "";
       pendingMemberDiscordWebhookUrl.value = member.discordWebhookUrl || "";
+      pendingMemberDiscordLabelWebhookUrl.value = member.discordLabelWebhookUrl || member.discordWebhookUrl || "";
       pendingMemberSubmitBtn.textContent = "更新する";
       pendingMemberCancelBtn.classList.remove("hidden");
       pendingMemberEmail.disabled = false;
@@ -2084,6 +2093,7 @@
             planType: pending.planType || "",
             driveBaseUrl: pending.driveBaseUrl || "",
             discordWebhookUrl: pending.discordWebhookUrl || "",
+            discordLabelWebhookUrl: pending.discordLabelWebhookUrl || pending.discordWebhookUrl || "",
             pendingEmailKey: key,
             activatedAt: now,
             updatedAt: now,
@@ -2123,7 +2133,10 @@
           <td>${escapeHtml(member.name || "-")}</td>
           <td>${escapeHtml(member.email || "-")}</td>
           <td>${escapeHtml(planTypeLabel(member.planType))}</td>
-          <td>${member.discordWebhookUrl ? '<span class="status-pill blue">設定済み</span>' : '<span class="status-pill gray">未設定</span>'}</td>
+          <td>
+            <span class="status-pill ${member.discordWebhookUrl ? "blue" : "gray"}">検品発送${member.discordWebhookUrl ? "設定済み" : "未設定"}</span>
+            <span class="status-pill ${member.discordLabelWebhookUrl ? "blue" : "gray"}">ラベル${member.discordLabelWebhookUrl ? "設定済み" : "未設定"}</span>
+          </td>
           <td>${escapeHtml(formatDateTime(member.createdAt))}</td>
           <td>
             <button class="primary-btn" onclick="activatePendingMemberFromAdmin('${escapeAttr(member.key)}')">本登録</button>
@@ -3887,8 +3900,13 @@
           </label>
 
           <label>
-            Discord Webhook URL
+            Discord Webhook URL(検品発送連絡用)
             <input name="discordWebhookUrl" value="${escapeAttr(member.discordWebhookUrl || "")}" />
+          </label>
+
+          <label>
+            Discord Webhook URL(発送ラベル連絡用)
+            <input name="discordLabelWebhookUrl" value="${escapeAttr(member.discordLabelWebhookUrl || member.discordWebhookUrl || "")}" />
           </label>
 
           <label>
@@ -4189,6 +4207,7 @@
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
+          const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
           const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
@@ -4196,6 +4215,7 @@
             adminDisplayName,
             driveBaseUrl,
             discordWebhookUrl,
+            discordLabelWebhookUrl,
             planType,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
