@@ -1192,6 +1192,7 @@
           <div class="detail-actions">
             <input id="detailInvoiceMonthInput" class="detail-invoice-input" type="month" />
             <button class="primary-btn" onclick="createInvoiceForSelectedMember()">この会員の請求書作成</button>
+            <button class="secondary-btn" onclick="diagnoseInvoiceForSelectedMember()">🔍 請求対象の診断</button>
             <button id="reloadBtn" class="secondary-btn">再読み込み</button>
           </div>
         </div>
@@ -4833,10 +4834,12 @@
 
       try {
         let createdCount = 0;
+        const skippedMembers = [];
 
         for (const member of membersCache) {
           const created = await createInvoiceForMember(member, month, false, { forceRecreate: shouldRecreate });
           if (created) createdCount++;
+          else skippedMembers.push(member.adminDisplayName || member.name || member.email || member.uid);
         }
 
         if (createdCount === 0) {
@@ -4846,6 +4849,11 @@
 
         await loadAllData();
         setMainTab("invoices");
+
+        // \u8acb\u6c42\u5bfe\u8c61\u304c\u306a\u304f\u4f5c\u6210\u3055\u308c\u306a\u304b\u3063\u305f\u4f1a\u54e1\u3092\u660e\u793a\uff08\u8acb\u6c42\u6f0f\u308c\u306e\u898b\u843d\u3068\u3057\u9632\u6b62\uff09
+        if (skippedMembers.length) {
+          alert(`\u8acb\u6c42\u66f8\u3092\u4f5c\u6210\u3057\u306a\u304b\u3063\u305f\u4f1a\u54e1\uff08${month} \u306b\u691c\u54c1\u65e5\u30fb\u767a\u9001\u65e5\u30fb\u8abf\u6574\u306e\u3042\u308b\u5546\u54c1\u306a\u3057\uff09:\n\u30fb${skippedMembers.join("\n\u30fb")}\n\n\u672c\u6765\u8acb\u6c42\u304c\u3042\u308b\u306f\u305a\u306e\u4f1a\u54e1\u304c\u542b\u307e\u308c\u3066\u3044\u308b\u5834\u5408\u306f\u3001\u4f1a\u54e1\u8a73\u7d30\u306e\u300c\ud83d\udd0d \u8acb\u6c42\u5bfe\u8c61\u306e\u8a3a\u65ad\u300d\u3067\u539f\u56e0\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002`);
+        }
       } catch (error) {
         console.error(error);
         showError(appError, `\u8acb\u6c42\u66f8\u306e\u4f5c\u6210\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002${error && error.message ? error.message : error}`);
@@ -5126,6 +5134,50 @@ function invoiceAdjustmentFee(invoice) {
 
   return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
 }
+
+/* 請求対象の診断: 選択中の会員×対象月について、各商品がなぜ請求書に入る/入らないかを一覧表示する。
+   「検品したのに請求書に出ない」等の原因（検品日の未入力・日付形式・月ズレ・商品の紐付け先）を特定する用途。 */
+function diagnoseInvoiceForSelectedMember() {
+  const member = membersCache.find((item) => item.uid === selectedMemberUid);
+  const month = detailInvoiceMonthInput?.value || invoiceMonthInput?.value || "";
+
+  if (!member) { alert("会員を選択してください。"); return; }
+  if (!month) { alert("対象月を選択してください。"); return; }
+
+  const rows = (member.products || []).map((product) => {
+    const insMonth = normalizeInvoiceMonth(product.shootingDate);
+    const shipMonth = normalizeInvoiceMonth(product.shippedDate);
+    const adj = billingAdjustmentsForProduct(product).filter((a) => a.targetMonth === month);
+    const inTarget = insMonth === month || shipMonth === month || adj.length > 0;
+    let reason = "";
+    if (inTarget) reason = "✅ 請求書に入ります";
+    else if (!hasValue(product.shootingDate) && !hasValue(product.shippedDate)) reason = "❌ 検品日・発送日とも未入力";
+    else if (hasValue(product.shootingDate) && !insMonth) reason = `❌ 検品日「${product.shootingDate}」の形式が読み取れません`;
+    else reason = `❌ 対象月(${month})と不一致`;
+    return `<tr>
+      <td>${escapeHtml(product.numbering || "-")}</td>
+      <td>${escapeHtml(product.name || "-")}</td>
+      <td>${escapeHtml(product.shootingDate || "-")}<br><small>→判定月: ${escapeHtml(insMonth || "なし")}</small></td>
+      <td>${escapeHtml(product.shippedDate || "-")}<br><small>→判定月: ${escapeHtml(shipMonth || "なし")}</small></td>
+      <td>${adj.length}</td>
+      <td>${reason}</td>
+    </tr>`;
+  }).join("");
+
+  const w = window.open("", "_blank", "width=900,height=600");
+  w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>請求対象の診断</title>
+    <style>body{font-family:sans-serif;font-size:13px;padding:16px;} table{border-collapse:collapse;width:100%;}
+    th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;vertical-align:top;} th{background:#f5f5f5;}
+    small{color:#777;}</style></head><body>
+    <h2>請求対象の診断: ${escapeHtml(member.adminDisplayName || member.name || "")}（管理番号: ${escapeHtml(member.managementNumber || "-")}） / 対象月 ${escapeHtml(month)}</h2>
+    <p>この会員に紐づく商品: <b>${(member.products || []).length}件</b>（uid: ${escapeHtml(member.uid)}）<br>
+    ※「検品したはずの商品がこの一覧に無い」場合は、商品が別の会員（別uid）に登録されています。会員一覧で重複登録がないか確認してください。</p>
+    <table><thead><tr><th>管理番号</th><th>商品名</th><th>検品日</th><th>発送日</th><th>調整</th><th>判定</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="6">商品がありません（この会員のuidに商品が1件も紐づいていません）</td></tr>'}</tbody></table>
+    </body></html>`);
+  w.document.close();
+}
+window.diagnoseInvoiceForSelectedMember = diagnoseInvoiceForSelectedMember;
 
 function buildInvoiceItems(member, month) {
   const shippingChargeProductIds = chargedShippingProductIds(member.products, month);
