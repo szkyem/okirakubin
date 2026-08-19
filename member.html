@@ -2946,6 +2946,58 @@ function normalizeInvoiceMonth(value) {
   return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}`;
 }
 
+function gasRequestId(prefix) {
+  return [prefix || "gas", Date.now(), Math.random().toString(36).slice(2, 10)].join("_").replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+function gasResponseLooksHtml(text) {
+  return /^\s*<!doctype html/i.test(text || "") || /^\s*<html/i.test(text || "");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGasJson(action, payload = {}, options = {}) {
+  if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
+  const maxAttempts = options.maxAttempts || 2;
+  const requestId = payload.requestId || gasRequestId(action);
+  let lastText = "";
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const requestUrl = new URL(GAS_WEB_APP_URL);
+    requestUrl.searchParams.set("action", action);
+
+    const response = await fetch(requestUrl.toString(), {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        action,
+        token: GAS_WEB_APP_TOKEN,
+        requestId
+      })
+    });
+
+    lastText = await response.text();
+    try {
+      const result = JSON.parse(lastText || "{}");
+      result.responseStatus = response.status;
+      return result;
+    } catch (error) {
+      if (attempt < maxAttempts - 1) {
+        await sleep(options.retryDelayMs || 2500);
+        continue;
+      }
+      const hint = gasResponseLooksHtml(lastText)
+        ? "GASがGoogle側のHTMLを返しました。公開設定・権限・実行制限・再デプロイを確認してください。"
+        : "GASの返却がJSONではありません。";
+      throw new Error(`${hint}${lastText ? " " + lastText.slice(0, 160) : ""}`);
+    }
+  }
+
+  throw new Error(`GASの返却がJSONではありません。${lastText.slice(0, 160)}`);
+}
+
 async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
@@ -2959,36 +3011,21 @@ async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmen
     `商品名：${shipmentGroupNames || "-"}`
   ].join("\n");
 
-  const requestUrl = new URL(GAS_WEB_APP_URL);
-  requestUrl.searchParams.set("action", "discordNotifyFile");
+  const result = await callGasJson("discordNotifyFile", {
+    webhookUrl: labelWebhookUrl,
+    message,
+    fileName: file.name || "label.png",
+    mimeType: file.type || "image/png",
+    fileBase64: imageBase64,
+    requestId: gasRequestId("discord_label")
+  }, { maxAttempts: 2, retryDelayMs: 3000 });
 
-  const response = await fetch(requestUrl.toString(), {
-    method: "POST",
-    body: JSON.stringify({
-      action: "discordNotifyFile",
-      token: GAS_WEB_APP_TOKEN,
-      webhookUrl: labelWebhookUrl,
-      message,
-      fileName: file.name || "label.png",
-      mimeType: file.type || "image/png",
-      fileBase64: imageBase64
-    })
-  });
-
-  const responseText = await response.text();
-  let result = {};
-  try {
-    result = JSON.parse(responseText || "{}");
-  } catch (error) {
-    throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
-  }
-
-  if (!response.ok || !result.ok) {
+  if (!result.ok) {
     const errorText = String(result.error || "");
     if (/Drive URL置き場|フォルダ名|createDriveFolder/i.test(errorText)) {
       throw new Error("GASの公開版がラベル発送用の discordNotifyFile に未対応、または別のGAS URLを参照しています。Apps Scriptに最新版を反映して再デプロイしてください。");
     }
-    throw new Error(result.error || `Discordへのラベル送信に失敗しました。status=${response.status}`);
+    throw new Error(result.error || `Discordへのラベル送信に失敗しました。status=${result.responseStatus || "-"}`);
   }
 }
 

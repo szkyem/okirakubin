@@ -2775,33 +2775,75 @@
       applyAllYupackOcrMatches();
     }
 
+    function gasRequestId(prefix) {
+      return [prefix || "gas", Date.now(), Math.random().toString(36).slice(2, 10)].join("_").replace(/[^A-Za-z0-9_-]/g, "");
+    }
+
+    function gasResponseLooksHtml(text) {
+      return /^\s*<!doctype html/i.test(text || "") || /^\s*<html/i.test(text || "");
+    }
+
+    async function callGasJson(action, payload = {}, options = {}) {
+      if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
+        throw new Error("GAS_WEB_APP_URLが未設定です。");
+      }
+
+      const maxAttempts = options.maxAttempts || 2;
+      const requestId = payload.requestId || gasRequestId(action);
+      let lastText = "";
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            action,
+            token: GAS_WEB_APP_TOKEN,
+            requestId
+          })
+        });
+
+        lastText = await response.text();
+        let result = {};
+
+        try {
+          result = JSON.parse(lastText || "{}");
+        } catch (error) {
+          if (attempt < maxAttempts - 1) {
+            await sleep(options.retryDelayMs || 2000);
+            continue;
+          }
+          const hint = gasResponseLooksHtml(lastText)
+            ? "GASがGoogle側のHTMLを返しました。公開設定・権限・実行制限・再デプロイを確認してください。"
+            : "GASの返却がJSONではありません。";
+          throw new Error(`${hint}${lastText ? " " + lastText.slice(0, 160) : ""}`);
+        }
+
+        if (!response.ok || !result.ok) {
+          result.responseStatus = response.status;
+          return result;
+        }
+
+        return result;
+      }
+
+      throw new Error(`GASの返却がJSONではありません。${lastText.slice(0, 160)}`);
+    }
+
     async function requestYupackOcr(imageDataUrl, file) {
       if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes("ここに")) {
         throw new Error("GAS_WEB_APP_URLが未設定です。");
       }
 
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "ocrTrackingScreenshot",
-          token: GAS_WEB_APP_TOKEN,
-          fileName: file.name || `clipboard_screenshot_${Date.now()}.png`,
-          mimeType: file.type || "image/png",
-          imageBase64: imageDataUrl.split(",")[1] || imageDataUrl
-        })
-      });
+      const result = await callGasJson("ocrTrackingScreenshot", {
+        fileName: file.name || `clipboard_screenshot_${Date.now()}.png`,
+        mimeType: file.type || "image/png",
+        imageBase64: imageDataUrl.split(",")[1] || imageDataUrl
+      }, { maxAttempts: 2, retryDelayMs: 2500 });
 
-      const responseText = await response.text();
-      let result = {};
-      try {
-        result = JSON.parse(responseText || "{}");
-      } catch (error) {
-        throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
-      }
-
-      if (!response.ok || !result.ok) {
-        const detail = result.error || result.message || responseText.slice(0, 240);
-        throw new Error(`OCRに失敗しました。status=${response.status} ${detail}`);
+      if (!result.ok) {
+        const detail = result.error || result.message || "";
+        throw new Error(`OCRに失敗しました。status=${result.responseStatus || "-"} ${detail}`);
       }
 
       return result;
@@ -4526,26 +4568,13 @@
         throw new Error("GAS_WEB_APP_URLが未設定です。");
       }
 
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "createDriveFolder",
-          token: GAS_WEB_APP_TOKEN,
-          driveBaseUrl,
-          folderName
-        })
-      });
+      const result = await callGasJson("createDriveFolder", {
+        driveBaseUrl,
+        folderName
+      }, { maxAttempts: 3, retryDelayMs: 2500 });
 
-      const responseText = await response.text();
-      let result = {};
-      try {
-        result = JSON.parse(responseText || "{}");
-      } catch (error) {
-        throw new Error(`GASの返却がJSONではありません。GASのデプロイ・権限を確認してください。${responseText.slice(0, 160)}`);
-      }
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || `Driveフォルダ作成に失敗しました。status=${response.status}`);
+      if (!result.ok) {
+        throw new Error(result.error || `Driveフォルダ作成に失敗しました。status=${result.responseStatus || "-"}`);
       }
 
       if (!result.folderUrl) {
@@ -4730,34 +4759,22 @@
       let lastResult = {};
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const response = await fetch(GAS_WEB_APP_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "discordNotify",
-            token: GAS_WEB_APP_TOKEN,
-            webhookUrl,
-            message
-          })
-        });
-
-        const responseText = await response.text();
-        let result = {};
-        try {
-          result = JSON.parse(responseText || "{}");
-        } catch (error) {
-          throw new Error(`GASの返却がJSONではありません。${responseText.slice(0, 160)}`);
-        }
+        const result = await callGasJson("discordNotify", {
+          webhookUrl,
+          message,
+          requestId: gasRequestId("discord_daily")
+        }, { maxAttempts: 2, retryDelayMs: 2500 });
 
         lastResult = result;
 
-        if (response.ok && result.ok) return;
+        if (result.ok) return;
 
-        if (isDiscordRateLimitResult(result, response.status) && attempt < maxAttempts - 1) {
+        if (isDiscordRateLimitResult(result, result.responseStatus || 200) && attempt < maxAttempts - 1) {
           await sleep(discordRetryDelayMs(result, attempt));
           continue;
         }
 
-        throw new Error(result.error || `Discord通知に失敗しました。status=${response.status}`);
+        throw new Error(result.error || `Discord通知に失敗しました。status=${result.responseStatus || "-"}`);
       }
 
       throw new Error(lastResult.error || "Discord通知に失敗しました。");
@@ -4766,25 +4783,41 @@
     function renderInvoices() {
       const month = invoiceMonthInput.value || todayString().slice(0, 7);
       const invoices = [];
+      const createdInvoices = [];
+      const createdUidSet = new Set();
 
       Object.entries(invoicesCache || {}).forEach(([uid, monthMap]) => {
         const invoice = monthMap && monthMap[month];
-        if (invoice) invoices.push(invoice);
+        if (!invoice) return;
+        createdUidSet.add(uid);
+        createdInvoices.push(invoice);
+        invoices.push(invoice);
+      });
+
+      membersCache.forEach((member) => {
+        if (createdUidSet.has(member.uid)) return;
+        const items = buildInvoiceItems(member, month);
+        if (!items.length) return;
+        invoices.push(buildInvoicePreview(member, month, items));
       });
 
       invoiceMemberCount.textContent = membersCache.length;
-      invoiceCount.textContent = invoices.length;
+      invoiceCount.textContent = invoices.length ? `${createdInvoices.length} / 対象 ${invoices.length}` : "0";
       invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
       invoiceShippingWorkTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice), 0);
       invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="11"><div class="empty">対象月の請求書はまだ作成されていません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="11"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
         return;
       }
 
       invoiceListBody.innerHTML = invoices
-        .sort((a, b) => String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja"))
+        .sort((a, b) => {
+          const numberCompare = String(a.managementNumber || "").localeCompare(String(b.managementNumber || ""), "ja", { numeric: true });
+          if (numberCompare !== 0) return numberCompare;
+          return String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja");
+        })
         .map((invoice) => `
           <tr>
             <td>${escapeHtml(invoice.month || "-")}</td>
@@ -4798,16 +4831,43 @@
             <td>${escapeHtml(invoiceShippingWorkFee(invoice))}</td>
             <td>${escapeHtml(invoiceShippingFareFee(invoice))}</td>
             <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
-            <td>${escapeHtml(formatDateTime(invoice.createdAt))}</td>
+            <td>${invoice.isPreview ? '<span class="status-pill warn">未作成</span>' : escapeHtml(formatDateTime(invoice.createdAt))}</td>
             <td>
               <div class="inline-actions">
-                <button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV</button>
-                <button class="mini-btn" onclick="downloadInvoicePdf('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">PDF</button>
+                ${invoice.isPreview
+                  ? `<button class="mini-btn" onclick="createInvoiceForUid('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">作成</button>`
+                  : `<button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV</button>
+                <button class="mini-btn" onclick="downloadInvoicePdf('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">PDF</button>`}
               </div>
             </td>
-            <td><button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button></td>
+            <td>${invoice.isPreview ? "-" : `<button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button>`}</td>
           </tr>
         `).join("");
+    }
+
+    function buildInvoicePreview(member, month, items) {
+      const itemMap = {};
+      items.forEach((item) => {
+        itemMap[item.productId] = cleanForFirebase(item);
+      });
+
+      return {
+        uid: member.uid,
+        memberName: member.name || "",
+        email: member.email || "",
+        managementNumber: member.managementNumber || "",
+        planType: member.planType || "",
+        planLabel: planTypeLabel(member.planType),
+        month,
+        isPreview: true,
+        totalInspectionFee: items.reduce((sum, item) => sum + feeValue(item.inspectionFee), 0),
+        totalShippingWorkCount: items.reduce((sum, item) => sum + (feeValue(item.shippingWorkFee) > 0 ? 1 : 0), 0),
+        totalShippingWorkFee: items.reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0),
+        totalShippingFee: items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0),
+        totalAdjustmentFee: items.reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0),
+        grandTotal: items.reduce((sum, item) => sum + feeValue(item.total), 0),
+        items: itemMap
+      };
     }
 
     function renderCompanyInfo() {
@@ -4896,6 +4956,32 @@
 
 async function createInvoiceForMember(member, month, showNoTargetError = true, options = {}) {
   return writeInvoiceForMember(member, month, showNoTargetError, false, options);
+}
+
+async function createInvoiceForUid(uid, month) {
+  hideError(appError);
+  const member = findMember(uid);
+
+  if (!member) {
+    showError(appError, "会員情報が見つかりません。再読み込みしてください。");
+    return;
+  }
+
+  if (!month) {
+    showError(appError, "対象月を選択してください。");
+    return;
+  }
+
+  try {
+    const created = await createInvoiceForMember(member, month, true, { forceRecreate: false });
+    if (!created) return;
+    invoiceMonthInput.value = month;
+    await loadAllData();
+    setMainTab("invoices");
+  } catch (error) {
+    console.error(error);
+    showError(appError, `請求書の作成に失敗しました。${error && error.message ? error.message : error}`);
+  }
 }
 
 async function writeInvoiceForMember(member, month, showNoTargetError = true, removeWhenEmpty = false, options = {}) {
@@ -4999,17 +5085,22 @@ async function refreshExistingInvoicesForMember(uid) {
 
 function productAppliesToInvoiceMonth(product, month) {
   if (!product || !month) return false;
-  return matchesMonth(product.shootingDate, month)
+  return matchesMonth(invoiceInspectionDate(product), month)
     || matchesMonth(product.shippedDate, month)
     || billingAdjustmentsForProduct(product).some((adjustment) => adjustment.targetMonth === month);
 }
 
 function invoiceMonthsForProduct(product) {
   return [
-    monthFromDate(product?.shootingDate),
+    monthFromDate(invoiceInspectionDate(product)),
     monthFromDate(product?.shippedDate),
     ...billingAdjustmentsForProduct(product).map((adjustment) => adjustment.targetMonth)
   ].filter(Boolean);
+}
+
+function invoiceInspectionDate(product) {
+  if (!product) return "";
+  return hasValue(product.shootingDate) ? product.shootingDate : product.confirmationDate || "";
 }
 
 function monthFromDate(value) {
@@ -5184,7 +5275,8 @@ function buildInvoiceItems(member, month) {
 
   return member.products
     .map((product) => {
-      const inspectionInMonth = matchesMonth(product.shootingDate, month);
+      const inspectionDate = invoiceInspectionDate(product);
+      const inspectionInMonth = matchesMonth(inspectionDate, month);
       const shippingInMonth = matchesMonth(product.shippedDate, month);
       const billingAdjustments = billingAdjustmentsForProduct(product)
         .filter((adjustment) => adjustment.targetMonth === month);
@@ -5216,7 +5308,7 @@ function buildInvoiceItems(member, month) {
         bodyCount: product.bodyCount || "",
         lensCount: product.lensCount || "",
         options: optionSummary(product),
-        inspectionDate: inspectionInMonth ? product.shootingDate || "" : "-",
+        inspectionDate: inspectionInMonth ? inspectionDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
@@ -6058,6 +6150,7 @@ function firstInvoiceDate(item) {
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
     window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
+    window.createInvoiceForUid = createInvoiceForUid;
     window.downloadInvoiceCsv = downloadInvoiceCsv;
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
