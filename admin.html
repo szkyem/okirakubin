@@ -1785,6 +1785,8 @@
     let yupackOcrRecordsCache = [];
     let selectedMemberUid = null;
     let detailView = "registered";
+    let currentMainTab = "members";
+    let isApplyingHistoryState = false;
     let activeEdit = null;
 
     loginBtn.addEventListener("click", async () => {
@@ -1801,8 +1803,10 @@
     });
 
     document.querySelectorAll("[data-main-tab]").forEach((button) => {
-      button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
+      button.addEventListener("click", () => setMainTab(button.dataset.mainTab, { pushHistory: true }));
     });
+
+    window.addEventListener("popstate", handleAdminPopState);
 
     infoModalBackdrop.addEventListener("click", (event) => {
       if (event.target === infoModalBackdrop) closeInfoModal();
@@ -3410,7 +3414,7 @@
       detailView = "registered";
       if (detailProductSearchInput) detailProductSearchInput.value = "";
       renderMemberDetail();
-      setMainTab("detail");
+      setMainTab("detail", { pushHistory: true });
     }
 
     function setDetailView(view) {
@@ -3419,21 +3423,71 @@
       renderMemberDetail();
     }
 
-    function setMainTab(tabName) {
+    function setMainTab(tabName, options = {}) {
+      const safeTabName = document.querySelector(`[data-main-tab="${tabName}"]`) ? tabName : "members";
+      currentMainTab = safeTabName;
+
       document.querySelectorAll("[data-main-tab]").forEach((button) => {
-        button.classList.toggle("active", button.dataset.mainTab === tabName);
+        button.classList.toggle("active", button.dataset.mainTab === safeTabName);
       });
 
-      membersSection.classList.toggle("hidden", tabName !== "members");
-      pendingMembersSection.classList.toggle("hidden", tabName !== "pendingMembers");
-      detailSection.classList.toggle("hidden", tabName !== "detail");
-      shippingBatchSection.classList.toggle("hidden", tabName !== "shippingBatch");
-      invoicesSection.classList.toggle("hidden", tabName !== "invoices");
-      companySection.classList.toggle("hidden", tabName !== "company");
-      pricesSection.classList.toggle("hidden", tabName !== "prices");
-      confirmationBaseSection.classList.toggle("hidden", tabName !== "confirmationBase");
-      announcementsSection.classList.toggle("hidden", tabName !== "announcements");
-      discordSection.classList.toggle("hidden", tabName !== "discord");
+      membersSection.classList.toggle("hidden", safeTabName !== "members");
+      pendingMembersSection.classList.toggle("hidden", safeTabName !== "pendingMembers");
+      detailSection.classList.toggle("hidden", safeTabName !== "detail");
+      shippingBatchSection.classList.toggle("hidden", safeTabName !== "shippingBatch");
+      invoicesSection.classList.toggle("hidden", safeTabName !== "invoices");
+      companySection.classList.toggle("hidden", safeTabName !== "company");
+      pricesSection.classList.toggle("hidden", safeTabName !== "prices");
+      confirmationBaseSection.classList.toggle("hidden", safeTabName !== "confirmationBase");
+      announcementsSection.classList.toggle("hidden", safeTabName !== "announcements");
+      discordSection.classList.toggle("hidden", safeTabName !== "discord");
+
+      if (!isApplyingHistoryState && options.pushHistory) {
+        pushAdminHistory(safeTabName);
+      }
+    }
+
+    function adminHistoryState(tabName = "members") {
+      return {
+        okirakubinApp: "admin",
+        tab: tabName,
+        memberUid: selectedMemberUid || ""
+      };
+    }
+
+    function initializeAdminHistory() {
+      try {
+        history.replaceState(adminHistoryState("members"), document.title, location.href);
+      } catch (error) {
+        console.warn("admin history init failed", error);
+      }
+    }
+
+    function pushAdminHistory(tabName) {
+      try {
+        history.replaceState(adminHistoryState("members"), document.title, location.href);
+        if (tabName === "members") return;
+        history.pushState(adminHistoryState(tabName), document.title, location.href);
+      } catch (error) {
+        console.warn("admin history push failed", error);
+      }
+    }
+
+    function handleAdminPopState(event) {
+      if (!currentUser || appView.classList.contains("hidden")) return;
+
+      const state = event.state || {};
+      isApplyingHistoryState = true;
+
+      if (state.okirakubinApp === "admin") {
+        if (state.memberUid) selectedMemberUid = state.memberUid;
+        setMainTab(state.tab || "members");
+      } else {
+        setMainTab("members");
+        initializeAdminHistory();
+      }
+
+      isApplyingHistoryState = false;
     }
 
     function shippingBadge(value) {
@@ -5100,7 +5154,24 @@ function invoiceMonthsForProduct(product) {
 
 function invoiceInspectionDate(product) {
   if (!product) return "";
-  return hasValue(product.shootingDate) ? product.shootingDate : product.confirmationDate || "";
+
+  const candidates = [
+    product.shootingDate,
+    product.confirmationDate,
+    product.inspectionDate,
+    product.inspectedDate,
+    product.checkDate,
+    product.checkedDate,
+    product.photoDate,
+    product.photoShootingDate,
+    product.adminInspectionDate
+  ];
+
+  for (const candidate of candidates) {
+    if (hasValue(candidate) && normalizeInvoiceMonth(candidate)) return candidate;
+  }
+
+  return candidates.find((candidate) => hasValue(candidate)) || "";
 }
 
 function monthFromDate(value) {
@@ -5111,17 +5182,33 @@ function normalizeInvoiceMonth(value) {
   if (!hasValue(value)) return "";
 
   if (typeof value === "number") {
-    const date = new Date(value);
+    const milliseconds = value > 0 && value < 100000000000 ? value * 1000 : value;
+    const date = new Date(milliseconds);
     if (!Number.isNaN(date.getTime())) {
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     }
   }
 
-  const text = String(value || "").trim();
+  const text = normalizeDateText(value);
+  const compactMatch = text.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (compactMatch) {
+    return `${compactMatch[1]}-${compactMatch[2]}`;
+  }
+
   const match = text.match(/^(\d{4})[-\/年\.\s](\d{1,2})/);
   if (!match) return "";
 
   return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}`;
+}
+
+function normalizeDateText(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[０-９]/g, (char) => String(char.charCodeAt(0) - 0xFF10))
+    .replace(/[－ー―]/g, "-")
+    .replace(/月/g, "-")
+    .replace(/日/g, "")
+    .replace(/\s+/g, " ");
 }
 
 function cleanForFirebase(value) {
@@ -5236,19 +5323,20 @@ function diagnoseInvoiceForSelectedMember() {
   if (!month) { alert("対象月を選択してください。"); return; }
 
   const rows = (member.products || []).map((product) => {
-    const insMonth = normalizeInvoiceMonth(product.shootingDate);
+    const inspectionDate = invoiceInspectionDate(product);
+    const insMonth = normalizeInvoiceMonth(inspectionDate);
     const shipMonth = normalizeInvoiceMonth(product.shippedDate);
     const adj = billingAdjustmentsForProduct(product).filter((a) => a.targetMonth === month);
-    const inTarget = insMonth === month || shipMonth === month || adj.length > 0;
+    const inTarget = matchesMonth(inspectionDate, month) || matchesMonth(product.shippedDate, month) || adj.length;
     let reason = "";
     if (inTarget) reason = "✅ 請求書に入ります";
-    else if (!hasValue(product.shootingDate) && !hasValue(product.shippedDate)) reason = "❌ 検品日・発送日とも未入力";
-    else if (hasValue(product.shootingDate) && !insMonth) reason = `❌ 検品日「${product.shootingDate}」の形式が読み取れません`;
+    else if (!hasValue(inspectionDate) && !hasValue(product.shippedDate)) reason = "❌ 検品日・発送日とも未入力";
+    else if (hasValue(inspectionDate) && !insMonth) reason = `❌ 検品日「${inspectionDate}」の形式が読み取れません`;
     else reason = `❌ 対象月(${month})と不一致`;
     return `<tr>
       <td>${escapeHtml(product.numbering || "-")}</td>
       <td>${escapeHtml(product.name || "-")}</td>
-      <td>${escapeHtml(product.shootingDate || "-")}<br><small>→判定月: ${escapeHtml(insMonth || "なし")}</small></td>
+      <td>${escapeHtml(inspectionDate || "-")}<br><small>→判定月: ${escapeHtml(insMonth || "なし")}</small></td>
       <td>${escapeHtml(product.shippedDate || "-")}<br><small>→判定月: ${escapeHtml(shipMonth || "なし")}</small></td>
       <td>${adj.length}</td>
       <td>${reason}</td>
@@ -5307,7 +5395,7 @@ function buildInvoiceItems(member, month) {
         workRequest: product.workRequest || "",
         bodyCount: product.bodyCount || "",
         lensCount: product.lensCount || "",
-        options: optionSummary(product),
+        options: invoiceOptionSummary(product, member),
         inspectionDate: inspectionInMonth ? inspectionDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
@@ -5469,7 +5557,7 @@ function firstInvoiceDate(item) {
           item.workRequest || "",
           item.bodyCount || "",
           item.lensCount || "",
-          item.options || "",
+          invoiceOptionsForDisplay(item.options, invoice),
           item.inspectionDate || "-",
           item.inspectionFee ?? "-",
           itemHasShippingCharge(item) ? item.shippingWorkFeeForDisplay : "-",
@@ -5508,7 +5596,7 @@ function firstInvoiceDate(item) {
       const taxAmount = billedAmount - taxableAmount;
       const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
       const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
-      const detailRows = buildPdfInvoiceRows(items);
+      const detailRows = buildPdfInvoiceRows(items, invoice);
       const rowsHtml = detailRows.map((row) => `
         <tr>
           <td>${escapeHtml(row.date || "-")}</td>
@@ -5645,7 +5733,7 @@ function firstInvoiceDate(item) {
       }
     }
 
-    function buildPdfInvoiceRows(items) {
+    function buildPdfInvoiceRows(items, invoice = {}) {
       return items
         .map((item) => {
           const hasInspection = item.inspectionFee !== "-";
@@ -5659,7 +5747,8 @@ function firstInvoiceDate(item) {
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
           const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
           if (item.shippingNote) noteParts.push(item.shippingNote);
-          if (item.options && item.options !== "-") noteParts.push(item.options);
+          const optionText = invoiceOptionsForDisplay(item.options, invoice);
+          if (optionText && optionText !== "-") noteParts.push(optionText);
           if (item.adjustmentText) noteParts.push(item.adjustmentText);
 
           return {
@@ -6180,20 +6269,47 @@ function firstInvoiceDate(item) {
       `).join("");
     }
 
+    const OKIRAKU_INSERT_DECLINED_OPTION_LABEL = "お気楽便Thanksカード・チラシ同梱なし";
+    const OKIRAKU_INSERT_DECLINED_BILLING_LABEL = "お気楽便Thanksカード・チラシ同梱なし（オプション +100円）";
+
     function optionSummary(product) {
+      return optionSummaryParts(product).join("、") || "-";
+    }
+
+    function optionSummaryParts(product) {
       const options = [];
       const optionObject = product.options || {};
       const optionLabels = Array.isArray(product.optionLabels) ? product.optionLabels : [];
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
       if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
-      if (isOkirakuInsertDeclined(product)) options.push("お気楽便Thanksカード・チラシ同梱なし");
+      if (isOkirakuInsertDeclined(product)) options.push(OKIRAKU_INSERT_DECLINED_OPTION_LABEL);
 
       optionLabels.forEach((label) => {
         if (label && !options.includes(label)) options.push(label);
       });
 
-      return options.length ? options.join("、") : "-";
+      return options;
+    }
+
+    function invoiceOptionSummary(product, member) {
+      const options = optionSummaryParts(product);
+      if (!isConsultingMember(member) && isOkirakuInsertDeclined(product)) {
+        return options
+          .map((label) => label === OKIRAKU_INSERT_DECLINED_OPTION_LABEL ? OKIRAKU_INSERT_DECLINED_BILLING_LABEL : label)
+          .join("、") || "-";
+      }
+
+      return options.join("、") || "-";
+    }
+
+    function invoiceOptionsForDisplay(value, invoice = {}) {
+      const text = String(value || "").trim();
+      if (!text || text === "-") return text || "-";
+      if (String(invoice.planType || "").trim() === "consulting") return text;
+      if (text.includes(OKIRAKU_INSERT_DECLINED_BILLING_LABEL)) return text;
+      if (!text.includes(OKIRAKU_INSERT_DECLINED_OPTION_LABEL)) return text;
+      return text.replaceAll(OKIRAKU_INSERT_DECLINED_OPTION_LABEL, OKIRAKU_INSERT_DECLINED_BILLING_LABEL);
     }
 
     function isOptionEnabled(value) {
