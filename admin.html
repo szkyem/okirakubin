@@ -1046,7 +1046,6 @@
 
     <nav class="tabs">
       <button class="tab active" data-main-tab="members">会員一覧</button>
-      <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="shippingBatch">発送待ち情報</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
@@ -1056,6 +1055,7 @@
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
       <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
+      <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -6342,6 +6342,8 @@ function firstInvoiceDate(item) {
     window.closeInfoModal = closeInfoModal;
     window.closeEditModal = closeEditModal;
     window.selectMember = selectMember;
+    window.deactivateMember = deactivateMember;
+    window.reactivateMember = reactivateMember;
     window.setDetailView = setDetailView;
     window.openMemberProxyEdit = openMemberProxyEdit;
     window.openInfoModal = openInfoModal;
