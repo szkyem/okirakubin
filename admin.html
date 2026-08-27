@@ -1046,6 +1046,7 @@
 
     <nav class="tabs">
       <button class="tab active" data-main-tab="members">会員一覧</button>
+      <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="shippingBatch">発送待ち情報</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
@@ -1108,9 +1109,34 @@
               <th>発送済み</th>
               <th>最終ログイン</th>
               <th>代理修正</th>
+              <th>会員状態</th>
             </tr>
           </thead>
           <tbody id="memberListBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="inactiveMembersSection" class="section hidden">
+      <div class="section-title-row">
+        <h2>非会員一覧</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>管理番号</th>
+              <th>識別名</th>
+              <th>会員</th>
+              <th>登録済み商品</th>
+              <th>保管商品</th>
+              <th>未発送</th>
+              <th>発送済み</th>
+              <th>非会員化日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="inactiveMemberListBody"></tbody>
         </table>
       </div>
     </section>
@@ -1689,6 +1715,7 @@
     const userEmail = document.getElementById("userEmail");
 
     const membersSection = document.getElementById("membersSection");
+    const inactiveMembersSection = document.getElementById("inactiveMembersSection");
     const pendingMembersSection = document.getElementById("pendingMembersSection");
     const detailSection = document.getElementById("detailSection");
     const shippingBatchSection = document.getElementById("shippingBatchSection");
@@ -1705,6 +1732,7 @@
     const totalRegistered = document.getElementById("totalRegistered");
     const totalUnshipped = document.getElementById("totalUnshipped");
     const memberListBody = document.getElementById("memberListBody");
+    const inactiveMemberListBody = document.getElementById("inactiveMemberListBody");
     const inquiryListBody = document.getElementById("inquiryListBody");
     const pendingMemberForm = document.getElementById("pendingMemberForm");
     const pendingMemberListBody = document.getElementById("pendingMemberListBody");
@@ -1770,6 +1798,7 @@
 
     let currentUser = null;
     let membersCache = [];
+    let inactiveMembersCache = [];
     let loginUsersCache = {};
     let invoicesCache = {};
     let announcementsCache = {};
@@ -1830,6 +1859,7 @@
       if (!user) {
         currentUser = null;
         membersCache = [];
+        inactiveMembersCache = [];
         loginUsersCache = {};
         invoicesCache = {};
         announcementsCache = {};
@@ -1882,8 +1912,9 @@
       hideError(appError);
 
       try {
-        const [membersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
+        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
           get(ref(db, "members")),
+          get(ref(db, "inactiveMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
@@ -1897,6 +1928,7 @@
         ]);
 
         const membersRaw = membersSnap.val() || {};
+        const inactiveMembersRaw = inactiveMembersSnap.val() || {};
         const usersRaw = usersSnap.val() || {};
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
@@ -1909,33 +1941,44 @@
         pendingMembersCache = pendingMembersSnap.val() || {};
         discordNotificationQueueCache = discordQueueSnap.val() || {};
 
-        membersCache = Object.keys(membersRaw)
-          .filter((uid) => membersRaw[uid] === true)
-          .map((uid) => {
-            const user = usersRaw[uid] || {};
-            const memberSettings = memberSettingsCache[uid] || {};
-            const productMap = productsRaw[uid] || {};
-            const products = Object.entries(productMap).map(([id, value]) => ({
-              id,
-              ...value
-            }));
+        const buildMemberRecord = (uid, membershipStatus) => {
+          const user = usersRaw[uid] || {};
+          const memberSettings = memberSettingsCache[uid] || {};
+          const productMap = productsRaw[uid] || {};
+          const products = Object.entries(productMap).map(([id, value]) => ({
+            id,
+            ...value
+          }));
 
-            return {
-              uid,
-              name: user.name || user.email || uid,
-              email: user.email || "",
-              role: user.role || "member",
-              lastLoginAt: user.lastLoginAt || "",
-              managementNumber: memberSettings.managementNumber || user.managementNumber || "",
-              adminDisplayName: memberSettings.adminDisplayName || "",
-              driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
-              discordWebhookUrl: memberSettings.discordWebhookUrl || "",
-              discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
-              planType: memberSettings.planType || user.planType || "",
-              products
-            };
-          })
+          return {
+            uid,
+            membershipStatus,
+            name: user.name || memberSettings.name || user.email || uid,
+            email: user.email || memberSettings.email || "",
+            role: user.role || "member",
+            lastLoginAt: user.lastLoginAt || "",
+            managementNumber: memberSettings.managementNumber || user.managementNumber || "",
+            adminDisplayName: memberSettings.adminDisplayName || "",
+            driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
+            discordWebhookUrl: memberSettings.discordWebhookUrl || "",
+            discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
+            planType: memberSettings.planType || user.planType || "",
+            inactiveAt: memberSettings.inactiveAt || "",
+            inactiveReason: memberSettings.inactiveReason || "",
+            writeLocked: memberSettings.writeLocked === true,
+            products
+          };
+        };
+
+        membersCache = Object.keys(membersRaw)
+          .filter((uid) => membersRaw[uid] === true && inactiveMembersRaw[uid] !== true)
+          .map((uid) => buildMemberRecord(uid, "active"))
           .sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+
+        inactiveMembersCache = Object.keys(inactiveMembersRaw)
+          .filter((uid) => inactiveMembersRaw[uid] === true)
+          .map((uid) => buildMemberRecord(uid, "inactive"))
+          .sort((a, b) => Number(b.inactiveAt || 0) - Number(a.inactiveAt || 0));
 
         if (!selectedMemberUid && membersCache.length) {
           selectedMemberUid = membersCache[0].uid;
@@ -1944,6 +1987,7 @@
         setDefaultMonths();
         renderPendingMembers();
         renderMembers();
+        renderInactiveMembers();
         renderInquiries();
         renderMemberDetail();
         renderShippingBatch();
@@ -2161,7 +2205,7 @@
       totalUnshipped.textContent = totalUnshippedCount;
 
       if (!membersCache.length) {
-        memberListBody.innerHTML = `<tr><td colspan="9"><div class="empty">会員が登録されていません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="10"><div class="empty">会員が登録されていません。</div></td></tr>`;
         return;
       }
 
@@ -2174,7 +2218,7 @@
         : membersCache;
 
       if (!displayMembers.length) {
-        memberListBody.innerHTML = `<tr><td colspan="9"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
+        memberListBody.innerHTML = `<tr><td colspan="10"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
         return;
       }
 
@@ -2201,9 +2245,94 @@
             <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
             <td>${formatDateTime(member.lastLoginAt)}</td>
             <td><button class="mini-btn" onclick="event.stopPropagation(); openMemberProxyEdit('${escapeAttr(member.uid)}')">修正モード</button></td>
+            <td><button class="danger-mini-btn" onclick="event.stopPropagation(); deactivateMember('${escapeAttr(member.uid)}')">非会員化</button></td>
           </tr>
         `;
       }).join("");
+    }
+
+    function renderInactiveMembers() {
+      if (!inactiveMemberListBody) return;
+
+      if (!inactiveMembersCache.length) {
+        inactiveMemberListBody.innerHTML = `<tr><td colspan="9"><div class="empty">非会員はいません。</div></td></tr>`;
+        return;
+      }
+
+      inactiveMemberListBody.innerHTML = inactiveMembersCache.map((member) => {
+        const groups = getProductGroups(member);
+
+        return `
+          <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
+            <td><strong>${escapeHtml(member.managementNumber || "-")}</strong></td>
+            <td>${escapeHtml(member.adminDisplayName || "-")}</td>
+            <td>
+              <div class="member-name">${escapeHtml(member.name || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
+              <div class="member-meta">${escapeHtml(member.uid)}</div>
+            </td>
+            <td>${countPill(groups.registered.length, "neutral-hi")}</td>
+            <td>${countPill(groups.stored.length, "neutral-hi")}</td>
+            <td>${countPill(groups.unshipped.length, "neutral-hi")}</td>
+            <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
+            <td>${formatDateTime(member.inactiveAt)}</td>
+            <td><button class="mini-btn" onclick="event.stopPropagation(); reactivateMember('${escapeAttr(member.uid)}')">会員に戻す</button></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function deactivateMember(uid) {
+      const member = membersCache.find((item) => item.uid === uid);
+      if (!member) return;
+
+      const ok = confirm(`${member.name || member.email || uid} を非会員化しますか？\n商品・請求・発送履歴は残り、会員本人の書き込みは停止されます。`);
+      if (!ok) return;
+
+      try {
+        const now = Date.now();
+        await update(ref(db), {
+          [`members/${uid}`]: null,
+          [`inactiveMembers/${uid}`]: true,
+          [`memberSettings/${uid}/status`]: "inactive",
+          [`memberSettings/${uid}/writeLocked`]: true,
+          [`memberSettings/${uid}/inactiveAt`]: now,
+          [`memberSettings/${uid}/inactiveReason`]: "非会員化",
+          [`memberSettings/${uid}/updatedAt`]: now
+        });
+        if (selectedMemberUid === uid) selectedMemberUid = null;
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "非会員化に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    async function reactivateMember(uid) {
+      const member = inactiveMembersCache.find((item) => item.uid === uid);
+      if (!member) return;
+
+      const ok = confirm(`${member.name || member.email || uid} を会員に戻しますか？\n会員本人の書き込みも再開されます。`);
+      if (!ok) return;
+
+      try {
+        const now = Date.now();
+        await update(ref(db), {
+          [`members/${uid}`]: true,
+          [`inactiveMembers/${uid}`]: null,
+          [`memberSettings/${uid}/status`]: "active",
+          [`memberSettings/${uid}/writeLocked`]: false,
+          [`memberSettings/${uid}/inactiveAt`]: null,
+          [`memberSettings/${uid}/inactiveReason`]: null,
+          [`memberSettings/${uid}/reactivatedAt`]: now,
+          [`memberSettings/${uid}/updatedAt`]: now
+        });
+        selectedMemberUid = uid;
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "会員への復帰に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
     }
 
     function openMemberProxyEdit(uid) {
@@ -2257,7 +2386,7 @@
     }
 
     function renderMemberDetail() {
-      const member = membersCache.find((item) => item.uid === selectedMemberUid);
+      const member = membersCache.find((item) => item.uid === selectedMemberUid) || inactiveMembersCache.find((item) => item.uid === selectedMemberUid);
 
       if (!member) {
         detailEmpty.classList.remove("hidden");
@@ -3432,6 +3561,7 @@
       });
 
       membersSection.classList.toggle("hidden", safeTabName !== "members");
+      inactiveMembersSection.classList.toggle("hidden", safeTabName !== "inactiveMembers");
       pendingMembersSection.classList.toggle("hidden", safeTabName !== "pendingMembers");
       detailSection.classList.toggle("hidden", safeTabName !== "detail");
       shippingBatchSection.classList.toggle("hidden", safeTabName !== "shippingBatch");
@@ -3550,7 +3680,7 @@
     }
 
     function findMember(uid) {
-      return membersCache.find((member) => member.uid === uid);
+      return membersCache.find((member) => member.uid === uid) || inactiveMembersCache.find((member) => member.uid === uid);
     }
 
     function findProduct(uid, productId) {

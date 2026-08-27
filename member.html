@@ -540,6 +540,7 @@ let basicInfoCache = {};
 let invoicesCache = {};
 let companyInfoCache = {};
 let memberProfileCache = {};
+let isWriteLocked = false;
 let entryCount = 0;
 let storedView = "stored";
 let shippingView = "unshipped";
@@ -674,8 +675,11 @@ onAuthStateChanged(auth, async (user) => {
         return;
       }
 
-      const targetMemberSnapshot = await get(ref(database, `members/${proxyUid}`));
-      if (targetMemberSnapshot.val() !== true) {
+      const [targetMemberSnapshot, targetInactiveSnapshot] = await Promise.all([
+        get(ref(database, `members/${proxyUid}`)),
+        get(ref(database, `inactiveMembers/${proxyUid}`)).catch(() => ({ val: () => null }))
+      ]);
+      if (targetMemberSnapshot.val() !== true && targetInactiveSnapshot.val() !== true) {
         await signOut(auth);
         showLoginUI();
         showLoginError("対象会員が見つかりません。");
@@ -688,8 +692,11 @@ onAuthStateChanged(auth, async (user) => {
     } else {
       await recordLoginAttemptForAdminRegistration(user);
 
-      const memberSnapshot = await get(ref(database, `members/${user.uid}`));
-      isMember = memberSnapshot.exists() && memberSnapshot.val() === true;
+      const [memberSnapshot, inactiveMemberSnapshot] = await Promise.all([
+        get(ref(database, `members/${user.uid}`)),
+        get(ref(database, `inactiveMembers/${user.uid}`)).catch(() => ({ exists: () => false, val: () => null }))
+      ]);
+      isMember = (memberSnapshot.exists() && memberSnapshot.val() === true) || (inactiveMemberSnapshot.exists() && inactiveMemberSnapshot.val() === true);
 
       if (isMember) {
         const emailAllowed = await validateMemberLoginEmail(user);
@@ -917,6 +924,7 @@ async function requestLoginEmailChange() {
     showError("メールアドレス移行は会員本人のログイン時のみ利用できます。");
     return;
   }
+  if (!ensureWritableAction("メールアドレス移行")) return;
 
   const newEmail = String(newLoginEmail?.value || "").trim().toLowerCase();
   const currentEmail = String(currentUser.email || "").trim().toLowerCase();
@@ -1210,6 +1218,7 @@ registerProductsBtn.addEventListener("click", async () => {
     showError("ログイン情報を確認できません。再度ログインしてください。");
     return;
   }
+  if (!ensureWritableAction("商品登録")) return;
 
   const entries = [...document.querySelectorAll(".product-entry")];
   const payloads = entries.map((entry) => {
@@ -1305,6 +1314,7 @@ originForm.addEventListener("submit", async (event) => {
     showError("ログイン情報を確認できません。再度ログインしてください。");
     return;
   }
+  if (!ensureWritableAction("発送元登録")) return;
 
   const existingId = document.getElementById("originId").value;
   const originId = existingId || Date.now().toString();
@@ -1348,6 +1358,7 @@ shippingForm.addEventListener("submit", async (event) => {
   clearError();
 
   if (!currentUser || !selectedProductIds.size) return;
+  if (!ensureWritableAction("発送依頼")) return;
 
   const requestType = shippingRequestType.value;
   const isPrepaidLabel = requestType === PREPAID_LABEL_REQUEST;
@@ -1551,8 +1562,10 @@ async function loadData() {
       ...(loginUserSnapshot.exists() ? loginUserSnapshot.val() : {}),
       ...(memberSettingsSnapshot.exists() ? memberSettingsSnapshot.val() : {})
     };
+    isWriteLocked = isMemberWriteLocked();
     companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
     renderMemberBadge();
+    applyWriteLockState();
 
     const registeredProducts = getRegisteredProducts();
     const storedProducts = getStoredProducts();
@@ -1575,6 +1588,29 @@ async function loadData() {
     console.error(error);
     showError("データの読み込みに失敗しました。");
   }
+}
+
+function isMemberWriteLocked() {
+  return !isAdminProxyMode && (memberProfileCache.writeLocked === true || memberProfileCache.status === "inactive");
+}
+
+function ensureWritableAction(actionName = "この操作") {
+  if (!isWriteLocked) return true;
+  showError(`${actionName}は現在利用できません。このアカウントは非会員化されているため、過去情報の確認のみ可能です。`);
+  return false;
+}
+
+function applyWriteLockState() {
+  const locked = isWriteLocked;
+  [addEntryBtn, registerProductsBtn, clearOriginBtn].forEach((button) => {
+    if (button) button.disabled = locked;
+  });
+
+  [productForm, originForm, shippingForm].forEach((form) => {
+    form?.querySelectorAll("input, select, textarea, button").forEach((element) => {
+      element.disabled = locked;
+    });
+  });
 }
 
 function getRegisteredProducts() {
@@ -2124,6 +2160,7 @@ window.toggleProductSelection = function(productId, checked) {
 };
 
 window.openShippingModal = function(type) {
+  if (!ensureWritableAction("発送依頼")) return;
   if (!selectedProductIds.size) return;
 
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
@@ -2165,6 +2202,7 @@ window.openShippingModal = function(type) {
 };
 
 window.editOrigin = function(originId) {
+  if (!ensureWritableAction("発送元編集")) return;
   const origin = originsCache.find((item) => item.id === originId);
   if (!origin) return;
 
@@ -2201,6 +2239,7 @@ window.showFeeDetail = function(productId) {
 };
 
 window.openProductEdit = function(productId) {
+  if (!ensureWritableAction("登録内容の編集")) return;
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
@@ -2263,6 +2302,7 @@ window.saveProductEdit = async function(event, productId) {
   clearError();
 
   if (!currentUser) return;
+  if (!ensureWritableAction("登録内容の保存")) return;
 
   const product = productsCache.find((item) => item.id === productId) || {};
   const formData = new FormData(event.target);
@@ -2309,6 +2349,7 @@ window.saveProductEdit = async function(event, productId) {
 };
 
 window.openInquiryModal = function(productId) {
+  if (!ensureWritableAction("お問い合わせ")) return;
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
 
@@ -2336,6 +2377,7 @@ window.sendProductInquiry = async function(event, productId) {
   clearError();
 
   if (!currentUser) return;
+  if (!ensureWritableAction("お問い合わせ送信")) return;
 
   const formData = new FormData(event.target);
   const title = String(formData.get("title") || "").trim();
