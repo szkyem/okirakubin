@@ -94,6 +94,7 @@ textarea{min-height:62px;resize:vertical}
 .empty{padding:32px;text-align:center;color:#6b7280}
 .error{display:none;background:#fef3f2;color:#b42318;padding:12px;border-radius:8px;margin-bottom:18px;line-height:1.6}
 .error.show{display:block}
+.error.success{background:#ecfdf5;color:#047857}
 .hidden{display:none}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
 .modal-backdrop.show{display:flex}
@@ -974,6 +975,7 @@ async function saveInspectionSheetSettings() {
     });
     await loadData();
     setMemberTab("settings", { pushHistory: false });
+    showSuccess("検品結果GSS連携を保存しました。");
   } catch (error) {
     console.error(error);
     showError("検品結果GSS連携の保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -3504,12 +3506,20 @@ function clearLoginError() {
 
 function showError(message) {
   errorMessage.textContent = message;
+  errorMessage.classList.remove("success");
+  errorMessage.classList.add("show");
+}
+
+function showSuccess(message) {
+  errorMessage.textContent = message;
+  errorMessage.classList.add("success");
   errorMessage.classList.add("show");
 }
 
 function clearError() {
   errorMessage.textContent = "";
   errorMessage.classList.remove("show");
+  errorMessage.classList.remove("success");
 }
 
 function hasValue(value) {
