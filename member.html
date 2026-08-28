@@ -359,6 +359,28 @@ textarea{min-height:62px;resize:vertical}
         移行先のGoogleアカウントのメールを登録します。登録後にログアウトし、新しいGoogleアカウントでログインすると既存データを引き継ぎます。
       </p>
     </div>
+
+    <div class="form" style="margin-top:16px;">
+      <div class="form-header">
+        <h2>検品結果GSS連携</h2>
+      </div>
+
+      <form id="inspectionSheetForm">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>GoogleスプレッドシートURL</label>
+            <input id="inspectionSheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/...">
+          </div>
+
+          <div class="form-group">
+            <label>シート名</label>
+            <input id="inspectionSheetName" type="text" placeholder="検品結果">
+          </div>
+        </div>
+
+        <button type="submit" style="width:100%;">保存する</button>
+      </form>
+    </div>
   </section>
 </div>
 
@@ -584,6 +606,9 @@ const invoiceList = document.getElementById("invoiceList");
 const emailChangeForm = document.getElementById("emailChangeForm");
 const currentLoginEmail = document.getElementById("currentLoginEmail");
 const newLoginEmail = document.getElementById("newLoginEmail");
+const inspectionSheetForm = document.getElementById("inspectionSheetForm");
+const inspectionSheetUrl = document.getElementById("inspectionSheetUrl");
+const inspectionSheetName = document.getElementById("inspectionSheetName");
 
 function dataUid() {
   return activeMemberUid || currentUser?.uid || "";
@@ -646,6 +671,11 @@ document.addEventListener("click", (event) => {
 emailChangeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await requestLoginEmailChange();
+});
+
+inspectionSheetForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await saveInspectionSheetSettings();
 });
 
 await completeEmailLinkSignIn();
@@ -915,6 +945,39 @@ function openMemberSettings() {
 function renderMemberSettings() {
   if (currentLoginEmail) currentLoginEmail.textContent = currentUser?.email || "-";
   if (newLoginEmail) newLoginEmail.value = "";
+  if (inspectionSheetUrl) inspectionSheetUrl.value = memberProfileCache.inspectionSheetUrl || "";
+  if (inspectionSheetName) inspectionSheetName.value = memberProfileCache.inspectionSheetName || "検品結果";
+}
+
+async function saveInspectionSheetSettings() {
+  clearError();
+
+  if (!currentUser) {
+    showError("ログイン情報を取得できませんでした。");
+    return;
+  }
+  if (!ensureWritableAction("検品結果GSS連携")) return;
+
+  const url = String(inspectionSheetUrl?.value || "").trim();
+  const sheetName = String(inspectionSheetName?.value || "").trim() || "検品結果";
+
+  if (url && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(url)) {
+    showError("GoogleスプレッドシートURLを入力してください。");
+    return;
+  }
+
+  try {
+    await update(ref(database, `memberSettings/${dataUid()}`), {
+      inspectionSheetUrl: url,
+      inspectionSheetName: sheetName,
+      updatedAt: Date.now()
+    });
+    await loadData();
+    setMemberTab("settings", { pushHistory: false });
+  } catch (error) {
+    console.error(error);
+    showError("検品結果GSS連携の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
 }
 
 async function requestLoginEmailChange() {
@@ -1836,7 +1899,7 @@ function productTable(products, options = {}) {
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
-            ${isStored ? "<th>撮影日</th><th>料金</th>" : ""}
+            ${isStored ? "<th>撮影日</th><th>料金</th><th>GSS出力</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
         </thead>
@@ -1867,7 +1930,7 @@ function productRow(product, mode = "registered") {
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
-      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td><td>${feeButtonHtml(product)}</td>` : ""}
+      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td><td>${feeButtonHtml(product)}</td><td>${gssExportButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
   `;
@@ -1901,6 +1964,10 @@ function shippingMetaCellsHtml(product) {
 
 function feeButtonHtml(product) {
   return `<button class="secondary compact-btn" type="button" onclick="showFeeDetail('${escapeAttr(product.id)}')">詳細</button>`;
+}
+
+function gssExportButtonHtml(product) {
+  return `<button class="secondary compact-btn" type="button" onclick="exportProductInspectionToGss('${escapeAttr(product.id)}')">出力</button>`;
 }
 
 function bulkActionBar() {
@@ -2230,6 +2297,8 @@ window.showInfo = function(productId) {
 
   openModal("商品情報", productDetailHtml(product), true);
 };
+
+window.exportProductInspectionToGss = exportProductInspectionToGss;
 
 window.showFeeDetail = function(productId) {
   const product = productsCache.find((item) => item.id === productId);
@@ -3113,6 +3182,98 @@ async function callGasJson(action, payload = {}, options = {}) {
   }
 
   throw new Error(`GASの返却がJSONではありません。${lastText.slice(0, 160)}`);
+}
+
+function confirmationResultExportText(product) {
+  const values = product.confirmationTemplate || {};
+  const entries = Object.entries(values).filter(([key, entry]) => {
+    if (key === "productNote") return false;
+    if (!entry || typeof entry !== "object") return false;
+    return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
+  }).map(([, entry]) => entry);
+
+  if (!entries.length) {
+    return String(product.confirmationResult || "-").trim() || "-";
+  }
+
+  const entryByLabel = new Map(entries.map((entry) => [entry.label, entry]));
+  const usedLabels = new Set();
+  const rows = [];
+
+  memberConfirmationRows().forEach((group) => {
+    group.rows.forEach((row) => {
+      const entry = entryByLabel.get(row.label);
+      usedLabels.add(row.label);
+      rows.push([
+        `＜${entry?.section || group.section}＞`,
+        entry?.label || row.label || "-",
+        entry?.value || "-",
+        entry?.comment || entry?.defaultComment || "-"
+      ].join(" "));
+    });
+  });
+
+  entries
+    .filter((entry) => !usedLabels.has(entry.label))
+    .forEach((entry) => {
+      rows.push([
+        `＜${entry.section || "その他"}＞`,
+        entry.label || "-",
+        entry.value || "-",
+        entry.comment || entry.defaultComment || "-"
+      ].join(" "));
+    });
+
+  return rows.join("\n") || "-";
+}
+
+function productInspectionGssRow(product) {
+  return {
+    productId: product.id || "",
+    managementNumber: memberProfileCache.managementNumber || "",
+    productName: product.name || "",
+    numbering: product.numbering || "",
+    inspectionDate: product.confirmationDate || product.shootingDate || "",
+    confirmationResult: confirmationResultExportText(product),
+    photoUrl: product.photoUrl || "",
+    expectedSize: product.expectedSize || "",
+    storageLocation: product.storageLocation || ""
+  };
+}
+
+async function exportProductInspectionToGss(productId) {
+  clearError();
+
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) {
+    showError("商品情報を取得できませんでした。");
+    return;
+  }
+
+  const spreadsheetUrl = String(memberProfileCache.inspectionSheetUrl || "").trim();
+  const sheetName = String(memberProfileCache.inspectionSheetName || "検品結果").trim() || "検品結果";
+  if (!spreadsheetUrl) {
+    showError("検品結果GSS URLが未設定です。会員設定からGoogleスプレッドシートURLを登録してください。");
+    return;
+  }
+
+  try {
+    const result = await callGasJson("exportInspectionResultsToSheet", {
+      spreadsheetUrl,
+      sheetName,
+      memberName: memberProfileCache.name || currentUser?.displayName || "",
+      memberEmail: memberProfileCache.email || currentUser?.email || "",
+      appendMode: "upsert",
+      rows: [productInspectionGssRow(product)]
+    }, { maxAttempts: 1 });
+
+    if (!result.ok) throw new Error(result.error || "GSS出力に失敗しました。");
+
+    showError(`検品結果をGSSへ出力しました。商品：${product.name || "-"}`);
+  } catch (error) {
+    console.error(error);
+    showError(`検品結果のGSS出力に失敗しました。${error.message || "GASとスプレッドシート共有設定を確認してください。"}`);
+  }
 }
 
 async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings }) {

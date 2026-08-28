@@ -1962,6 +1962,8 @@
             driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
             discordWebhookUrl: memberSettings.discordWebhookUrl || "",
             discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
+            inspectionSheetUrl: memberSettings.inspectionSheetUrl || "",
+            inspectionSheetName: memberSettings.inspectionSheetName || "検品結果",
             planType: memberSettings.planType || user.planType || "",
             inactiveAt: memberSettings.inactiveAt || "",
             inactiveReason: memberSettings.inactiveReason || "",
@@ -2408,6 +2410,7 @@
       detailManagementHeader.innerHTML = `
         <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
         <span class="management-pill">${member.driveBaseUrl ? "Drive 設定済み" : "Drive 未設定"}</span>
+        <span class="management-pill">${member.inspectionSheetUrl ? "GSS 設定済み" : "GSS 未設定"}</span>
         <span class="management-pill">プラン ${escapeHtml(planTypeLabel(member.planType))}</span>
       `;
 
@@ -4127,6 +4130,16 @@
           </label>
 
           <label>
+            検品結果GSS URL
+            <input name="inspectionSheetUrl" value="${escapeAttr(member.inspectionSheetUrl || "")}" placeholder="https://docs.google.com/spreadsheets/d/..." />
+          </label>
+
+          <label>
+            検品結果GSS シート名
+            <input name="inspectionSheetName" value="${escapeAttr(member.inspectionSheetName || "検品結果")}" />
+          </label>
+
+          <label>
             Discord Webhook URL(検品発送連絡用)
             <input name="discordWebhookUrl" value="${escapeAttr(member.discordWebhookUrl || "")}" />
           </label>
@@ -4435,6 +4448,8 @@
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
+          const inspectionSheetUrl = getFormValue(formData, "inspectionSheetUrl");
+          const inspectionSheetName = getFormValue(formData, "inspectionSheetName") || "検品結果";
           const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
@@ -4443,6 +4458,8 @@
             driveBaseUrl,
             discordWebhookUrl,
             discordLabelWebhookUrl,
+            inspectionSheetUrl,
+            inspectionSheetName,
             planType,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
@@ -6339,6 +6356,104 @@ function firstInvoiceDate(item) {
       URL.revokeObjectURL(url);
     }
 
+    function confirmationResultExportText(product) {
+      const values = product.confirmationTemplate || {};
+      const savedEntries = Object.entries(values).filter(([key, entry]) => {
+        if (!entry || typeof entry !== "object") return false;
+        return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
+      });
+
+      if (!savedEntries.length) {
+        return String(product.confirmationResult || "-").trim() || "-";
+      }
+
+      const rows = [];
+      const usedKeys = new Set();
+      confirmationRowsForProduct(product, true).forEach((group) => {
+        group.rows.forEach((row) => {
+          const entry = values[row.key] || {};
+          usedKeys.add(row.key);
+          rows.push([
+            `＜${entry.section || group.section}＞`,
+            entry.label || row.label || "-",
+            entry.value || "-",
+            entry.comment || entry.defaultComment || "-"
+          ].join(" "));
+        });
+      });
+
+      savedEntries
+        .filter(([key]) => !usedKeys.has(key))
+        .forEach(([, entry]) => {
+          rows.push([
+            `＜${entry.section || "その他"}＞`,
+            entry.label || "-",
+            entry.value || "-",
+            entry.comment || entry.defaultComment || "-"
+          ].join(" "));
+        });
+
+      return rows.join("\n") || "-";
+    }
+
+    function inspectionExportRows(member) {
+      return (member.products || [])
+        .filter((product) => hasValue(product.confirmationDate) || hasValue(product.shootingDate) || hasValue(product.confirmationResult) || hasValue(product.photoUrl) || hasValue(product.expectedSize) || hasValue(product.storageLocation))
+        .sort((a, b) => {
+          const dateCompare = String(a.confirmationDate || a.shootingDate || "").localeCompare(String(b.confirmationDate || b.shootingDate || ""));
+          if (dateCompare !== 0) return dateCompare;
+          return String(a.numbering || "").localeCompare(String(b.numbering || ""), "ja", { numeric: true });
+        })
+        .map((product) => ({
+          managementNumber: member.managementNumber || "",
+          productName: product.name || "",
+          numbering: product.numbering || "",
+          inspectionDate: product.confirmationDate || product.shootingDate || "",
+          confirmationResult: confirmationResultExportText(product),
+          photoUrl: product.photoUrl || "",
+          expectedSize: product.expectedSize || "",
+          storageLocation: product.storageLocation || ""
+        }));
+    }
+
+    async function exportInspectionResultsToGss(uid) {
+      const member = findMember(uid);
+      if (!member) {
+        showError(appError, "会員情報を取得できませんでした。");
+        return;
+      }
+
+      if (!member.inspectionSheetUrl) {
+        showError(appError, "検品結果GSS URLが未設定です。会員管理情報でGoogleスプレッドシートURLを登録してください。");
+        return;
+      }
+
+      const rows = inspectionExportRows(member);
+      if (!rows.length) {
+        showError(appError, "GSSへ出力できる検品結果がありません。");
+        return;
+      }
+
+      try {
+        const result = await callGasJson("exportInspectionResultsToSheet", {
+          spreadsheetUrl: member.inspectionSheetUrl,
+          sheetName: member.inspectionSheetName || "検品結果",
+          memberName: member.name || "",
+          memberEmail: member.email || "",
+          rows
+        }, { maxAttempts: 1 });
+
+        if (!result.ok) {
+          throw new Error(result.error || "GSS出力に失敗しました。");
+        }
+
+        showError(appError, `検品結果をGSSへ出力しました。出力件数：${result.rowCount || rows.length}件`);
+      } catch (error) {
+        console.error(error);
+        showError(appError, `検品結果のGSS出力に失敗しました。${error.message || "GASと共有設定を確認してください。"}`);
+      }
+    }
+
     function csvCell(value) {
       return `"${String(value ?? "").replaceAll('"', '""')}"`;
     }
@@ -6372,6 +6487,7 @@ function firstInvoiceDate(item) {
     window.applyAllYupackOcrMatches = applyAllYupackOcrMatches;
     window.copyYupackTrackingNumber = copyYupackTrackingNumber;
     window.exportCurrentDetailCsv = exportCurrentDetailCsv;
+    window.exportInspectionResultsToGss = exportInspectionResultsToGss;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
     window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
