@@ -3271,7 +3271,7 @@ async function exportProductInspectionToGss(productId) {
 
     if (!result.ok) throw new Error(result.error || "GSS出力に失敗しました。");
 
-    showError(`検品結果をGSSへ出力しました。商品：${product.name || "-"}`);
+    showSuccess(`検品結果をGSSへ出力しました。商品：${product.name || "-"}`);
   } catch (error) {
     console.error(error);
     showError(`検品結果のGSS出力に失敗しました。${error.message || "GASとスプレッドシート共有設定を確認してください。"}`);
