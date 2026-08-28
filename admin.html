@@ -1382,7 +1382,7 @@
           通知対象日
           <input id="discordNotifyDateInput" type="date" />
         </label>
-        <button class="primary-btn" onclick="sendDiscordNotificationsForDate()">この日の通知を送信</button>
+        <button class="primary-btn" onclick="sendDiscordNotificationsForDate()">この日の追加連絡を送信</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -4863,7 +4863,7 @@
           }
 
           try {
-            await sendDiscordMessageWithGas(member.discordWebhookUrl, buildDiscordDailyMessage(member, date, items));
+            await sendDiscordMessageWithGas(member.discordWebhookUrl, buildDiscordDailyMessage(member, date, items, "manual"));
           } catch (error) {
             skippedCount += items.length;
             failedMembers.push(`${member.name || member.email || member.uid}：${error && error.message ? error.message : "送信失敗"}`);
@@ -4874,6 +4874,7 @@
             updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
             updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentAt`] = Date.now();
             updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
+            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentMode`] = "manual";
           });
           sentCount += items.length;
           await sleep(1500);
@@ -4895,17 +4896,20 @@
       }
     }
 
-    function buildDiscordDailyMessage(member, date, items) {
+    function buildDiscordDailyMessage(member, date, items, mode = "manual") {
       const storedItems = items.filter((item) => item.eventType === "stored");
       const shippedItems = items.filter((item) => item.eventType === "shipped");
+      const title = mode === "scheduled" ? "【お気楽便 本日の定時連絡】" : "【お気楽便 本日の追加連絡】";
       const lines = [
-        `【お気楽便 本日の更新】`,
+        title,
+        mode === "manual" ? "定時連絡後に完了した内容を追加でお知らせします。" : "",
+        mode === "manual" ? "" : "",
         `■ 保管商品へ移動：${storedItems.length}件`,
         "",
         `■ 発送完了：${shippedItems.length}件`
       ];
 
-      return lines.join("\n").trim();
+      return lines.filter((line, index) => line || index > 0).join("\n").trim();
     }
 
     function sleep(ms) {
