@@ -3736,10 +3736,8 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${isConsultingMember(member) && hasValue(product.note) ? `
-              <div class="info-label">備考欄</div>
-              <div class="info-value">${lineBreaks(product.note)}</div>
-            ` : ""}
+            <div class="info-label">備考欄</div>
+            <div class="info-value">${lineBreaks(product.note || "-")}</div>
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -4055,10 +4053,8 @@
             <div class="info-label">オプションコメント</div>
             <div class="info-value">${escapeHtml(product.optionComment || product.options?.comment || "-")}</div>
 
-            ${isConsultingMember(member) && hasValue(product.note) ? `
-              <div class="info-label">備考欄</div>
-              <div class="info-value">${lineBreaks(product.note)}</div>
-            ` : ""}
+            <div class="info-label">備考欄</div>
+            <div class="info-value">${lineBreaks(product.note || "-")}</div>
 
             <div class="info-label">購入先URL</div>
             <div class="info-value">${linkOrDash(product.purchaseUrl)}</div>
@@ -4286,12 +4282,10 @@
             <textarea name="optionComment">${escapeHtml(product.optionComment || product.options?.comment || "")}</textarea>
           </label>
 
-          ${isConsultingMember(member) ? `
-            <label class="full">
-              備考欄
-              <textarea name="note">${escapeHtml(product.note || "")}</textarea>
-            </label>
-          ` : ""}
+          <label class="full">
+            備考欄
+            <textarea name="note">${escapeHtml(product.note || "")}</textarea>
+          </label>
         </div>
 
         <div class="modal-actions">
@@ -4707,9 +4701,7 @@
             }
           };
 
-          if (isConsultingMember(member)) {
-            updates.note = getFormValue(formData, "note");
-          }
+          updates.note = getFormValue(formData, "note");
 
           await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), updates);
         }

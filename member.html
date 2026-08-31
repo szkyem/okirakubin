@@ -2860,6 +2860,7 @@ function productDetailHtml(product) {
         <div class="detail-label">レンズ本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
+        <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
         <div class="detail-label">購入先URL</div><div>${product.purchaseUrl ? `<a href="${escapeAttr(product.purchaseUrl)}" target="_blank" rel="noopener">${escapeHtml(product.purchaseUrl)}</a>` : "-"}</div>
       </div>
     </div>
