@@ -2514,11 +2514,21 @@ window.downloadInvoiceCsv = function(month) {
       item.total || 0
     ]),
     [],
+    ["請求書全体調整内訳"],
+    ["調整内容", "請求月", "金額", "課税区分", "メモ"],
+    ...invoiceGlobalAdjustmentsForInvoice(invoice).map((item) => [
+      item.title || "",
+      item.targetMonth || "",
+      item.amount || 0,
+      item.taxable === false ? "非課税" : "10%対象",
+      item.note || ""
+    ]),
+    [],
     ["検品料金合計", invoice.totalInspectionFee || 0],
     ["発送料金合計", invoice.totalShippingFee || 0],
     ["商品別調整合計", invoiceAdjustmentFee(invoice)],
     ["請求書全体調整", invoiceGlobalAdjustmentFee(invoice)],
-    ["請求書全体調整内容", invoice.invoiceAdjustmentNote || "-"],
+    ["請求書全体調整内容", invoiceGlobalAdjustmentNoteText(invoice) || "-"],
     ["合計", invoiceGrandTotalValue(invoice)]
   ];
 
@@ -2538,11 +2548,13 @@ window.downloadInvoicePdf = function(month) {
   const createdDate = formatDateOnly(invoice.createdAt);
   const invoiceNumber = `${invoice.managementNumber || currentUser?.uid || "member"}_${issueDate}`;
   const billedAmount = invoiceGrandTotalValue(invoice);
-  const taxableAmount = Math.floor(billedAmount / 1.1);
-  const taxAmount = billedAmount - taxableAmount;
   const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
   const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
   const detailRows = buildPdfInvoiceRows(items, invoice);
+  const taxableGrossAmount = detailRows.filter((row) => row.taxable !== false).reduce((sum, row) => sum + feeValue(row.total), 0);
+  const nonTaxableAmount = detailRows.filter((row) => row.taxable === false).reduce((sum, row) => sum + feeValue(row.total), 0);
+  const taxableAmount = Math.floor(taxableGrossAmount / 1.1);
+  const taxAmount = taxableGrossAmount - taxableAmount;
   const rowsHtml = detailRows.map((row) => `
     <tr>
       <td>${escapeHtml(row.date || "-")}</td>
@@ -2551,7 +2563,7 @@ window.downloadInvoicePdf = function(month) {
       <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
       <td class="num">${row.hasAdjustment ? yen(row.adjustmentFee) : "-"}</td>
       <td class="num">${yen(row.total)}</td>
-      <td class="num">10%</td>
+      <td class="num">${row.taxable === false ? "非課税" : "10%"}</td>
       <td>${escapeHtml(row.note || "-")}</td>
     </tr>
   `).join("");
@@ -2646,7 +2658,7 @@ window.downloadInvoicePdf = function(month) {
               </tr>
               <tr>
                 <td>非課税</td>
-                <td class="num">0</td>
+                <td class="num">${yen(nonTaxableAmount)}</td>
                 <td class="num">0</td>
               </tr>
             </tbody>
@@ -2715,16 +2727,22 @@ function buildPdfInvoiceRows(items, invoice = {}) {
         hasAdjustment,
         adjustmentFee,
         total: inspectionFee + shippingFee + adjustmentFee,
+        taxable: true,
         note: noteParts.join(" / ")
       };
     })
     .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
-    .concat(invoiceGlobalAdjustmentPdfRow(invoice))
+    .concat(invoiceGlobalAdjustmentPdfRows(invoice))
     .filter(Boolean)
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
 }
 
 function invoiceGlobalAdjustmentFee(invoice) {
+  const adjustments = invoiceGlobalAdjustmentsForInvoice(invoice);
+  if (adjustments.length) {
+    return adjustments.reduce((sum, item) => sum + feeValue(item.amount), 0);
+  }
+
   return feeValue(invoice?.invoiceAdjustmentAmount ?? invoice?.globalAdjustmentAmount ?? invoice?.totalInvoiceAdjustmentFee ?? 0);
 }
 
@@ -2732,6 +2750,8 @@ function invoiceGrandTotalValue(invoice) {
   if (
     invoice
     && (
+      invoiceGlobalAdjustmentsForInvoice(invoice).length
+      ||
       Object.prototype.hasOwnProperty.call(invoice, "invoiceAdjustmentAmount")
       || Object.prototype.hasOwnProperty.call(invoice, "globalAdjustmentAmount")
       || Object.prototype.hasOwnProperty.call(invoice, "totalInvoiceAdjustmentFee")
@@ -2742,23 +2762,73 @@ function invoiceGrandTotalValue(invoice) {
   return feeValue(invoice?.grandTotal);
 }
 
-function invoiceGlobalAdjustmentPdfRow(invoice) {
-  const amount = invoiceGlobalAdjustmentFee(invoice);
-  const note = String(invoice?.invoiceAdjustmentNote || invoice?.globalAdjustmentNote || "").trim();
-  if (!amount && !note) return null;
+function invoiceGlobalAdjustmentsForInvoice(invoice) {
+  const source = invoice?.invoiceAdjustments || {};
+  const items = Array.isArray(source) ? source : Object.values(source);
+  const normalized = items
+    .filter(Boolean)
+    .map((item, index) => ({
+      id: item.id || `invoice_adjustment_${index}`,
+      title: item.title || item.name || "請求書全体調整",
+      targetMonth: item.targetMonth || invoice?.month || "",
+      amount: feeValue(item.amount),
+      note: item.note || "",
+      taxable: item.taxable !== false,
+      createdAt: item.createdAt || 0,
+      updatedAt: item.updatedAt || 0
+    }));
 
-  return {
-    date: todayString(),
-    numbering: "全体調整",
-    hasInspection: false,
-    inspectionFee: 0,
-    hasShipping: false,
-    shippingFee: 0,
-    hasAdjustment: true,
-    adjustmentFee: amount,
-    total: amount,
-    note: note || "請求書全体調整"
-  };
+  if (normalized.length) {
+    return normalized.sort((a, b) => {
+      const monthCompare = String(a.targetMonth || "").localeCompare(String(b.targetMonth || ""), "ja", { numeric: true });
+      if (monthCompare !== 0) return monthCompare;
+      return Number(a.createdAt || 0) - Number(b.createdAt || 0);
+    });
+  }
+
+  const amount = feeValue(invoice?.invoiceAdjustmentAmount ?? invoice?.globalAdjustmentAmount ?? invoice?.totalInvoiceAdjustmentFee ?? 0);
+  const note = String(invoice?.invoiceAdjustmentNote || invoice?.globalAdjustmentNote || "").trim();
+  if (!amount && !note) return [];
+
+  return [{
+    id: "legacy_invoice_adjustment",
+    title: "請求書全体調整",
+    targetMonth: invoice?.month || "",
+    amount,
+    note,
+    taxable: true,
+    createdAt: invoice?.updatedAt || invoice?.createdAt || 0,
+    updatedAt: invoice?.updatedAt || 0
+  }];
+}
+
+function invoiceGlobalAdjustmentNoteText(invoice) {
+  const adjustments = invoiceGlobalAdjustmentsForInvoice(invoice);
+  return adjustments.map((item) => {
+    const amount = feeValue(item.amount);
+    const taxableText = item.taxable === false ? "非課税" : "10%対象";
+    const note = item.note ? `：${item.note}` : "";
+    return `${item.title || "請求書全体調整"} ${amount >= 0 ? "+" : ""}${yen(amount)}円（${taxableText}）${note}`;
+  }).join(" / ");
+}
+
+function invoiceGlobalAdjustmentPdfRows(invoice) {
+  return invoiceGlobalAdjustmentsForInvoice(invoice).map((item) => {
+    const amount = feeValue(item.amount);
+    return {
+      date: item.targetMonth || invoice?.month || todayString(),
+      numbering: "全体調整",
+      hasInspection: false,
+      inspectionFee: 0,
+      hasShipping: false,
+      shippingFee: 0,
+      hasAdjustment: true,
+      adjustmentFee: amount,
+      total: amount,
+      taxable: item.taxable !== false,
+      note: `${item.title || "請求書全体調整"}${item.note ? ` / ${item.note}` : ""}`
+    };
+  });
 }
 
 
