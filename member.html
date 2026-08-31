@@ -2880,7 +2880,6 @@ function productDetailHtml(product) {
 function confirmationResultDisplayHtml(product) {
   const values = product.confirmationTemplate || {};
   const entries = Object.entries(values).filter(([key, entry]) => {
-    if (key === "productNote") return false;
     if (!entry || typeof entry !== "object") return false;
     return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
   }).map(([, entry]) => entry);
@@ -3041,7 +3040,7 @@ function memberConfirmationRows() {
     { section: "外観コンディション", rows: [{ label: "キズ、凹み、塗装剥がれは" }, { label: "欠損や破損は" }, { label: "その他は" }] },
     { section: "光学コンディション", rows: [{ label: "ミラー部は" }, { label: "センサー部は" }, { label: "ファインダー部は" }, { label: "レンズ部は" }, { label: "その他は" }] },
     { section: "動作コンディション", rows: [{ label: "動作確認は" }, { label: "写真撮影は" }, { label: "動画撮影は" }, { label: "ズームは" }, { label: "フラッシュは" }, { label: "コントロールホイールは" }, { label: "カーソルボタンは" }, { label: "保存は" }, { label: "その他は" }] },
-    { section: "その他", rows: [{ label: "付属品" }] }
+    { section: "その他", rows: [{ label: "付属品" }, { label: "備考欄" }] }
   ];
 }
 
@@ -3315,7 +3314,6 @@ async function callGasJson(action, payload = {}, options = {}) {
 function confirmationResultExportText(product) {
   const values = product.confirmationTemplate || {};
   const entries = Object.entries(values).filter(([key, entry]) => {
-    if (key === "productNote") return false;
     if (!entry || typeof entry !== "object") return false;
     return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
   }).map(([, entry]) => entry);
