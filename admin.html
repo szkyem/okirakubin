@@ -1328,6 +1328,14 @@
           <strong id="invoiceShippingWorkTotal">0</strong>
         </div>
         <div class="invoice-summary-item">
+          発送料金
+          <strong id="invoiceShippingFareTotal">0</strong>
+        </div>
+        <div class="invoice-summary-item">
+          調整金
+          <strong id="invoiceGlobalAdjustmentTotal">0</strong>
+        </div>
+        <div class="invoice-summary-item">
           合計
           <strong id="invoiceGrandTotal">0</strong>
         </div>
@@ -1344,8 +1352,10 @@
               <th>検品料金</th>
               <th>発送作業代</th>
               <th>発送料金</th>
+              <th>調整金</th>
               <th>合計</th>
               <th>作成日</th>
+              <th>調整内容</th>
               <th>明細</th>
               <th>操作</th>
             </tr>
@@ -1777,6 +1787,8 @@
     const invoiceCount = document.getElementById("invoiceCount");
     const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
     const invoiceShippingWorkTotal = document.getElementById("invoiceShippingWorkTotal");
+    const invoiceShippingFareTotal = document.getElementById("invoiceShippingFareTotal");
+    const invoiceGlobalAdjustmentTotal = document.getElementById("invoiceGlobalAdjustmentTotal");
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
     const basicInfoInput = document.getElementById("basicInfoInput");
     const announcementInput = document.getElementById("announcementInput");
@@ -4400,6 +4412,42 @@
       bindAutoResizeTextareas(editForm);
     }
 
+    function openInvoiceGlobalAdjustmentEdit(uid, month) {
+      const invoice = invoicesCache?.[uid]?.[month];
+      if (!invoice) {
+        showError(appError, "請求書データが見つかりません。再読み込みしてください。");
+        return;
+      }
+
+      activeEdit = { type: "invoiceGlobalAdjustment", uid, month };
+      editModalTitle.textContent = "請求書の調整内容を編集";
+      editForm.innerHTML = `
+        <div class="form-grid">
+          <label>
+            調整金
+            <input name="invoiceAdjustmentAmount" type="number" step="1" value="${escapeAttr(invoiceGlobalAdjustmentFee(invoice))}" placeholder="例：500 / -500" />
+          </label>
+
+          <label class="full">
+            調整内容
+            <textarea name="invoiceAdjustmentNote" placeholder="例：代引き手数料 / 一部返金 / 追加サービスなど">${escapeHtml(invoice.invoiceAdjustmentNote || invoice.globalAdjustmentNote || "")}</textarea>
+          </label>
+        </div>
+
+        <p class="form-note">プラス金額は追加請求、マイナス金額は値引きとして請求書全体の合計に反映されます。</p>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
+          <button class="primary-btn" type="submit">保存する</button>
+        </div>
+      `;
+
+      editModalBackdrop.classList.add("show");
+      bindAutoResizeTextareas(editForm);
+    }
+
+
+
     async function deleteBillingAdjustment(uid, productId, adjustmentId) {
       const product = findProduct(uid, productId);
       if (!product || !adjustmentId) return;
@@ -4470,6 +4518,28 @@
             driveBaseUrl,
             planType,
             updatedAt: now
+          });
+        }
+
+        if (activeEdit.type === "invoiceGlobalAdjustment") {
+          const invoice = invoicesCache?.[activeEdit.uid]?.[activeEdit.month];
+          if (!invoice) {
+            showError(appError, "請求書データが見つかりません。再読み込みしてください。");
+            return;
+          }
+
+          const invoiceAdjustmentAmount = feeValue(getFormValue(formData, "invoiceAdjustmentAmount"));
+          const invoiceAdjustmentNote = getFormValue(formData, "invoiceAdjustmentNote");
+          const itemSubtotal = Object.values(invoice.items || {}).reduce((sum, item) => sum + feeValue(item.total), 0);
+
+          await update(ref(db, `invoices/${activeEdit.uid}/${activeEdit.month}`), {
+            invoiceAdjustmentAmount,
+            invoiceAdjustmentNote,
+            totalInvoiceAdjustmentFee: invoiceAdjustmentAmount,
+            grandTotal: itemSubtotal + invoiceAdjustmentAmount,
+            updatedAt: now,
+            updatedBy: currentUser?.uid || "",
+            updatedByEmail: currentUser?.email || ""
           });
         }
 
@@ -5010,10 +5080,12 @@
       invoiceCount.textContent = invoices.length ? `${createdInvoices.length} / 対象 ${invoices.length}` : "0";
       invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
       invoiceShippingWorkTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice), 0);
-      invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || 0), 0);
+      if (invoiceShippingFareTotal) invoiceShippingFareTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingFareFee(invoice), 0);
+      if (invoiceGlobalAdjustmentTotal) invoiceGlobalAdjustmentTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceGlobalAdjustmentFee(invoice), 0);
+      invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceGrandTotalValue(invoice), 0);
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="11"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="13"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
         return;
       }
 
@@ -5035,8 +5107,10 @@
             <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
             <td>${escapeHtml(invoiceShippingWorkFee(invoice))}</td>
             <td>${escapeHtml(invoiceShippingFareFee(invoice))}</td>
-            <td><strong>${escapeHtml(invoice.grandTotal || 0)}</strong></td>
+            <td>${escapeHtml(invoiceGlobalAdjustmentFee(invoice))}</td>
+            <td><strong>${escapeHtml(invoiceGrandTotalValue(invoice))}</strong></td>
             <td>${invoice.isPreview ? '<span class="status-pill warn">未作成</span>' : escapeHtml(formatDateTime(invoice.createdAt))}</td>
+            <td>${invoice.isPreview ? "-" : `<button class="mini-btn" onclick="openInvoiceGlobalAdjustmentEdit('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">${invoiceGlobalAdjustmentLabel(invoice)}</button>`}</td>
             <td>
               <div class="inline-actions">
                 ${invoice.isPreview
@@ -5070,6 +5144,9 @@
         totalShippingWorkFee: items.reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0),
         totalShippingFee: items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0),
         totalAdjustmentFee: items.reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0),
+        invoiceAdjustmentAmount: 0,
+        invoiceAdjustmentNote: "",
+        totalInvoiceAdjustmentFee: 0,
         grandTotal: items.reduce((sum, item) => sum + feeValue(item.total), 0),
         items: itemMap
       };
@@ -5209,14 +5286,17 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
   const totalShippingWorkFee = items.reduce((sum, item) => sum + feeValue(item.shippingWorkFee), 0);
   const totalShippingFee = items.reduce((sum, item) => sum + feeValue(item.shippingFee), 0);
   const totalAdjustmentFee = items.reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
-  const grandTotal = items.reduce((sum, item) => sum + feeValue(item.total), 0);
+  const existingInvoice = invoicesCache?.[member.uid]?.[month] || {};
+  const invoiceAdjustmentAmount = feeValue(existingInvoice.invoiceAdjustmentAmount ?? existingInvoice.globalAdjustmentAmount ?? 0);
+  const invoiceAdjustmentNote = existingInvoice.invoiceAdjustmentNote || existingInvoice.globalAdjustmentNote || "";
+  const itemSubtotal = items.reduce((sum, item) => sum + feeValue(item.total), 0);
+  const grandTotal = itemSubtotal + invoiceAdjustmentAmount;
 
   const itemMap = {};
   items.forEach((item) => {
     itemMap[item.productId] = cleanForFirebase(item);
   });
 
-  const existingInvoice = invoicesCache?.[member.uid]?.[month] || {};
   const now = Date.now();
   const shouldResetCreatedAt = Boolean(options.forceRecreate && existingInvoice.createdAt);
   const invoiceData = cleanForFirebase({
@@ -5239,6 +5319,9 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
     totalShippingWorkFee,
     totalShippingFee,
     totalAdjustmentFee,
+    invoiceAdjustmentAmount,
+    invoiceAdjustmentNote,
+    totalInvoiceAdjustmentFee: invoiceAdjustmentAmount,
     grandTotal,
     items: itemMap
   });
@@ -5463,6 +5546,26 @@ function invoiceAdjustmentFee(invoice) {
 
   return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.adjustmentFee), 0);
 }
+
+function invoiceGlobalAdjustmentFee(invoice) {
+  return feeValue(invoice?.invoiceAdjustmentAmount ?? invoice?.globalAdjustmentAmount ?? invoice?.totalInvoiceAdjustmentFee ?? 0);
+}
+
+function invoiceGlobalAdjustmentLabel(invoice) {
+  const amount = invoiceGlobalAdjustmentFee(invoice);
+  const note = String(invoice?.invoiceAdjustmentNote || invoice?.globalAdjustmentNote || "").trim();
+  if (!amount && !note) return "追加";
+  return `${amount >= 0 ? "+" : ""}${yen(amount)}円`;
+}
+
+function invoiceGrandTotalValue(invoice) {
+  if (hasOwnValue(invoice, "invoiceAdjustmentAmount") || hasOwnValue(invoice, "globalAdjustmentAmount") || hasOwnValue(invoice, "totalInvoiceAdjustmentFee")) {
+    return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.total), 0) + invoiceGlobalAdjustmentFee(invoice);
+  }
+  return feeValue(invoice?.grandTotal);
+}
+
+
 
 /* 請求対象の診断: 選択中の会員×対象月について、各商品がなぜ請求書に入る/入らないかを一覧表示する。
    「検品したのに請求書に出ない」等の原因（検品日の未入力・日付形式・月ズレ・商品の紐付け先）を特定する用途。 */
@@ -5723,8 +5826,10 @@ function firstInvoiceDate(item) {
         ["発送作業件数", invoiceShippingWorkCount(invoice)],
         ["発送作業代合計", invoiceShippingWorkFee(invoice)],
         ["発送料金合計", invoiceShippingFareFee(invoice)],
-        ["調整合計", invoiceAdjustmentFee(invoice)],
-        ["合計", invoice.grandTotal || 0]
+        ["商品別調整合計", invoiceAdjustmentFee(invoice)],
+        ["請求書全体調整", invoiceGlobalAdjustmentFee(invoice)],
+        ["請求書全体調整内容", invoice.invoiceAdjustmentNote || "-"],
+        ["合計", invoiceGrandTotalValue(invoice)]
       ];
 
       downloadCsv(rows, `${invoice.memberName || uid}_${month}_ご利用明細.csv`);
@@ -5742,7 +5847,7 @@ function firstInvoiceDate(item) {
       const issueDate = todayString();
       const createdDate = formatDateOnly(invoice.createdAt);
       const invoiceNumber = `${invoice.managementNumber || uid}_${issueDate}`;
-      const billedAmount = feeValue(invoice.grandTotal);
+      const billedAmount = invoiceGrandTotalValue(invoice);
       const taxableAmount = Math.floor(billedAmount / 1.1);
       const taxAmount = billedAmount - taxableAmount;
       const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
@@ -5918,8 +6023,33 @@ function firstInvoiceDate(item) {
           };
         })
         .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
+        .concat(invoiceGlobalAdjustmentPdfRow(invoice))
+        .filter(Boolean)
         .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
     }
+
+    function invoiceGlobalAdjustmentPdfRow(invoice) {
+      const amount = invoiceGlobalAdjustmentFee(invoice);
+      const note = String(invoice?.invoiceAdjustmentNote || invoice?.globalAdjustmentNote || "").trim();
+      if (!amount && !note) return null;
+
+      return {
+        date: todayString(),
+        numbering: "全体調整",
+        hasInspection: false,
+        inspectionFee: 0,
+        hasShippingWork: false,
+        shippingWorkFee: 0,
+        hasShipping: false,
+        shippingFee: 0,
+        hasAdjustment: true,
+        adjustmentFee: amount,
+        total: amount,
+        note: note || "請求書全体調整"
+      };
+    }
+
+
 
     async function saveCompanyInfo() {
       hideError(appError);
@@ -6477,6 +6607,7 @@ function firstInvoiceDate(item) {
     window.openAdminFieldsEdit = openAdminFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.openBillingAdjustmentEdit = openBillingAdjustmentEdit;
+    window.openInvoiceGlobalAdjustmentEdit = openInvoiceGlobalAdjustmentEdit;
     window.deleteBillingAdjustment = deleteBillingAdjustment;
     window.updateShippingBatchPrice = updateShippingBatchPrice;
     window.saveShippingBatch = saveShippingBatch;
@@ -7256,7 +7387,6 @@ function firstInvoiceDate(item) {
   </script>
 </body>
 </html>
-
 
 
 

@@ -2516,8 +2516,10 @@ window.downloadInvoiceCsv = function(month) {
     [],
     ["検品料金合計", invoice.totalInspectionFee || 0],
     ["発送料金合計", invoice.totalShippingFee || 0],
-    ["調整合計", invoiceAdjustmentFee(invoice)],
-    ["合計", invoice.grandTotal || 0]
+    ["商品別調整合計", invoiceAdjustmentFee(invoice)],
+    ["請求書全体調整", invoiceGlobalAdjustmentFee(invoice)],
+    ["請求書全体調整内容", invoice.invoiceAdjustmentNote || "-"],
+    ["合計", invoiceGrandTotalValue(invoice)]
   ];
 
   downloadCsv(rows, `${invoice.memberName || "会員"}_${month}_ご利用明細.csv`);
@@ -2535,7 +2537,7 @@ window.downloadInvoicePdf = function(month) {
   const issueDate = todayString();
   const createdDate = formatDateOnly(invoice.createdAt);
   const invoiceNumber = `${invoice.managementNumber || currentUser?.uid || "member"}_${issueDate}`;
-  const billedAmount = feeValue(invoice.grandTotal);
+  const billedAmount = invoiceGrandTotalValue(invoice);
   const taxableAmount = Math.floor(billedAmount / 1.1);
   const taxAmount = billedAmount - taxableAmount;
   const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
@@ -2717,8 +2719,49 @@ function buildPdfInvoiceRows(items, invoice = {}) {
       };
     })
     .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
+    .concat(invoiceGlobalAdjustmentPdfRow(invoice))
+    .filter(Boolean)
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
 }
+
+function invoiceGlobalAdjustmentFee(invoice) {
+  return feeValue(invoice?.invoiceAdjustmentAmount ?? invoice?.globalAdjustmentAmount ?? invoice?.totalInvoiceAdjustmentFee ?? 0);
+}
+
+function invoiceGrandTotalValue(invoice) {
+  if (
+    invoice
+    && (
+      Object.prototype.hasOwnProperty.call(invoice, "invoiceAdjustmentAmount")
+      || Object.prototype.hasOwnProperty.call(invoice, "globalAdjustmentAmount")
+      || Object.prototype.hasOwnProperty.call(invoice, "totalInvoiceAdjustmentFee")
+    )
+  ) {
+    return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.total), 0) + invoiceGlobalAdjustmentFee(invoice);
+  }
+  return feeValue(invoice?.grandTotal);
+}
+
+function invoiceGlobalAdjustmentPdfRow(invoice) {
+  const amount = invoiceGlobalAdjustmentFee(invoice);
+  const note = String(invoice?.invoiceAdjustmentNote || invoice?.globalAdjustmentNote || "").trim();
+  if (!amount && !note) return null;
+
+  return {
+    date: todayString(),
+    numbering: "全体調整",
+    hasInspection: false,
+    inspectionFee: 0,
+    hasShipping: false,
+    shippingFee: 0,
+    hasAdjustment: true,
+    adjustmentFee: amount,
+    total: amount,
+    note: note || "請求書全体調整"
+  };
+}
+
+
 
 function productDetailHtml(product) {
   return `
@@ -3554,4 +3597,3 @@ function escapeAttr(value) {
 </script>
 </body>
 </html>
-
