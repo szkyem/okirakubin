@@ -2590,6 +2590,10 @@ window.downloadInvoicePdf = function(month) {
         .company{text-align:right;white-space:pre-line;line-height:1.55;margin-top:8px}
         .section-title{text-align:center;margin:26px 0 8px;font-size:13px}
         table{width:100%;border-collapse:collapse}
+        thead{display:table-header-group}
+        tfoot{display:table-footer-group}
+        tr,.bottom,.tax-table,.bank-box{break-inside:avoid;page-break-inside:avoid}
+        .bottom{break-before:auto;page-break-before:auto}
         th,td{border:1px solid #222;padding:4px 6px;font-size:10px;vertical-align:top}
         thead th{background:#e5e7eb !important;text-align:center;font-weight:600}
         .num{text-align:right;white-space:nowrap}
@@ -2597,7 +2601,15 @@ window.downloadInvoicePdf = function(month) {
         .tax-table th,.tax-table td{font-size:11px}
         .bank-box{border:1px solid #222;padding:8px;white-space:pre-line;line-height:1.55;min-height:42mm}
         .bank-title{font-weight:700;margin-bottom:4px}
-        @media print{body{padding:0}.invoice{max-width:none}}
+        @media print{
+          @page{size:A4;margin:10mm 10mm 12mm}
+          body{padding:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+          .invoice{max-width:none}
+          .section-title{break-after:avoid;page-break-after:avoid}
+          table{break-inside:auto;page-break-inside:auto}
+          tr{break-inside:avoid;page-break-inside:avoid}
+          .bottom,.tax-table,.bank-box{break-inside:avoid;page-break-inside:avoid}
+        }
       </style>
     </head>
     <body onload="window.print()">
