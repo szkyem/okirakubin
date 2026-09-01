@@ -5704,6 +5704,10 @@ function invoiceGlobalAdjustmentLabel(invoice) {
 }
 
 function invoiceGrandTotalValue(invoice) {
+  if (hasOwnValue(invoice, "grandTotal")) {
+    return feeValue(invoice.grandTotal);
+  }
+
   if (invoiceGlobalAdjustmentsForInvoice(invoice).length || hasOwnValue(invoice, "invoiceAdjustmentAmount") || hasOwnValue(invoice, "globalAdjustmentAmount") || hasOwnValue(invoice, "totalInvoiceAdjustmentFee")) {
     return Object.values(invoice?.items || {}).reduce((sum, item) => sum + feeValue(item.total), 0) + invoiceGlobalAdjustmentFee(invoice);
   }
@@ -6056,8 +6060,11 @@ function firstInvoiceDate(item) {
       const companyText = companyInfoCache.companyText || "お気楽便\n会社情報を設定してください";
       const bankText = companyInfoCache.bankText || "振込先情報を設定してください";
       const detailRows = buildPdfInvoiceRows(items, invoice);
-      const taxableGrossAmount = detailRows.filter((row) => row.taxable !== false).reduce((sum, row) => sum + feeValue(row.total), 0);
       const nonTaxableAmount = detailRows.filter((row) => row.taxable === false).reduce((sum, row) => sum + feeValue(row.total), 0);
+      const detailTotalAmount = detailRows.reduce((sum, row) => sum + feeValue(row.total), 0);
+      const taxableGrossAmount = detailTotalAmount === billedAmount
+        ? detailRows.filter((row) => row.taxable !== false).reduce((sum, row) => sum + feeValue(row.total), 0)
+        : billedAmount - nonTaxableAmount;
       const taxableAmount = Math.floor(taxableGrossAmount / 1.1);
       const taxAmount = taxableGrossAmount - taxableAmount;
       const rowsHtml = detailRows.map((row) => `
