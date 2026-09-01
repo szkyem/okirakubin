@@ -27,6 +27,8 @@ button.danger:hover{background:#fecaca}
 .tabs{display:flex;gap:10px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;flex-wrap:wrap}
 .tab{background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent}
 .tab.active{color:#2563eb;border-bottom-color:#2563eb}
+.manual-tab{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:none;color:#6b7280;border-radius:0;border-bottom:3px solid transparent;padding:10px 16px;font-weight:700}
+.manual-tab:hover{color:#2563eb;background:#f8fafc}
 .section{display:none}
 .section.show{display:block}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
@@ -140,6 +142,7 @@ textarea{min-height:62px;resize:vertical}
   .logout{width:100%}
   .tabs{gap:4px;overflow-x:auto;flex-wrap:nowrap;margin-bottom:18px}
   .tab{min-width:96px;padding:9px 8px;font-size:13px;white-space:nowrap}
+  .manual-tab{min-width:96px;padding:9px 8px;font-size:13px;white-space:nowrap}
   .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .stat{padding:14px}
   .stat-value{font-size:26px}
@@ -210,6 +213,7 @@ textarea{min-height:62px;resize:vertical}
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
     <button class="tab" data-tab="invoices" type="button">請求書DL</button>
+    <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
     <button class="tab" data-tab="basicInfo" type="button">基本情報</button>
   </nav>
 

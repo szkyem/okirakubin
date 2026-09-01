@@ -191,6 +191,23 @@
       border-bottom-color: var(--blue);
     }
 
+    .manual-tab {
+      min-width: 112px;
+      padding: 14px 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 3px solid transparent;
+    }
+
+    .manual-tab:hover {
+      color: var(--blue);
+      background: #f8fafc;
+    }
+
     .section { margin-top: 26px; }
 
     .stats {
@@ -1054,6 +1071,7 @@
       <button class="tab" data-main-tab="confirmationBase">確認結果ベース</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
+      <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
       <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
       <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
     </nav>

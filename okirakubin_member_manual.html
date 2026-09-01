@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>お気楽便 会員向け使い方マニュアル</title>
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-soft: #eaf2ff;
+      --line: #d8e0ec;
+      --text: #0f172a;
+      --muted: #64748b;
+      --panel: #ffffff;
+      --bg: #f6f8fb;
+      --head: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Yu Gothic", "Meiryo", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, #5b78ea, #7657bc);
+      line-height: 1.75;
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 28px));
+      margin: 28px auto;
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 32px;
+      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+    }
+
+    .hero {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 22px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 10px;
+    }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 24px 0;
+    }
+
+    .toc a {
+      display: block;
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-weight: 700;
+      background: #fff;
+    }
+
+    .toc a:hover {
+      border-color: #9bbcff;
+      background: #f8fbff;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      margin: 14px 0;
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 16px 18px;
+      font-size: 18px;
+      font-weight: 800;
+      background: #f8fafc;
+      border-bottom: 1px solid transparent;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::after {
+      content: "開く";
+      float: right;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 3px 9px;
+      margin-top: 2px;
+    }
+
+    details[open] summary {
+      border-bottom-color: var(--line);
+    }
+
+    details[open] summary::after {
+      content: "閉じる";
+    }
+
+    .content {
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 17px;
+      color: #1f3f6f;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+      margin: 8px 0 12px;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f3f7ff;
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin: 14px 0;
+      font-weight: 600;
+    }
+
+    .warning {
+      border-left: 4px solid #f59e0b;
+      background: #fff7e6;
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin: 14px 0;
+      font-weight: 600;
+    }
+
+    .manual-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin: 14px 0;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--head);
+      color: #fff;
+      text-align: left;
+      padding: 10px;
+      border: 1px solid #5f6672;
+    }
+
+    td {
+      padding: 10px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid var(--line);
+      margin-top: 28px;
+      padding-top: 16px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        width: 100%;
+        margin: 0;
+        padding: 14mm;
+        box-shadow: none;
+      }
+
+      details {
+        break-inside: avoid;
+      }
+
+      details:not([open]) .content {
+        display: block;
+      }
+
+      summary::after {
+        content: "";
+      }
+
+      .toc {
+        display: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: calc(100% - 14px);
+        margin: 7px auto;
+        padding: 18px 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      summary {
+        font-size: 16px;
+        padding: 14px;
+      }
+
+      .content {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>お気楽便 会員向け使い方マニュアル</h1>
+      <p class="lead">商品登録から保管商品、発送依頼、請求書ダウンロードまでの基本操作をまとめたマニュアルです。</p>
+      <div class="meta">
+        <span class="pill">会員向け</span>
+        <span class="pill">画像付き</span>
+        <span class="pill">折りたたみ表示</span>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="目次">
+      <a href="#top">1. トップ画面</a>
+      <a href="#register">2. 商品登録</a>
+      <a href="#storage">3. 保管商品</a>
+      <a href="#shipping-origin">4. 発送元登録</a>
+      <a href="#invoice">5. 請求書ダウンロード</a>
+      <a href="#basic-info">6. 基本情報</a>
+      <a href="#flow">7. 基本の流れ</a>
+    </nav>
+
+    <details id="top" open>
+      <summary>1. トップ画面</summary>
+      <section class="content">
+        <p>ログイン後、最初に表示される画面です。現在の商品状況と、最近のお知らせを確認できます。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/01_top.png" alt="お気楽便トップ画面">
+        <h3>確認できる内容</h3>
+        <ul>
+          <li>登録済み商品数</li>
+          <li>保管商品数</li>
+          <li>未発送数</li>
+          <li>発送済み数</li>
+          <li>最近のお知らせ</li>
+        </ul>
+        <p class="note">上部のタブから、商品登録、保管商品、発送管理、発送元登録、請求書DL、基本情報へ移動できます。</p>
+      </section>
+    </details>
+
+    <details id="register">
+      <summary>2. 商品登録</summary>
+      <section class="content">
+        <p>新しく検品や撮影を依頼する商品を登録します。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/02_product_register.png" alt="商品登録画面">
+        <h3>必須項目</h3>
+        <ul>
+          <li>商品名</li>
+          <li>ナンバリング</li>
+          <li>作業依頼</li>
+          <li>ボディ本数</li>
+          <li>レンズ本数</li>
+        </ul>
+        <h3>任意項目</h3>
+        <ul>
+          <li>購入先URL</li>
+          <li>動画撮影</li>
+          <li>Thanksカード同梱</li>
+          <li>お気楽便Thanksカード・チラシ同梱</li>
+          <li>オプションコメント</li>
+        </ul>
+        <p class="warning">登録は「登録する」ボタンを押したときだけ実行されます。必要項目が未入力の場合は登録できません。</p>
+      </section>
+    </details>
+
+    <details id="storage">
+      <summary>3. 保管商品</summary>
+      <section class="content">
+        <p>検品・撮影が完了し、保管中の商品を確認できます。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/03_storage_products.png" alt="保管商品画面">
+        <h3>主な操作</h3>
+        <ul>
+          <li>商品名・ナンバリングで検索</li>
+          <li>商品情報の詳細確認</li>
+          <li>料金の詳細確認</li>
+          <li>検品結果のGSS出力</li>
+          <li>国内発送、海外発送、返品依頼、送料会員事前負担で国内発送の依頼</li>
+        </ul>
+        <h3>GSS出力</h3>
+        <p>「出力」ボタンを押すと、設定済みのGoogleスプレッドシートに検品結果を出力します。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>列</th>
+              <th>出力内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>A</td><td>出力日</td></tr>
+            <tr><td>B</td><td>商品名</td></tr>
+            <tr><td>C</td><td>ナンバリング</td></tr>
+            <tr><td>D</td><td>検品日</td></tr>
+            <tr><td>E</td><td>確認結果</td></tr>
+            <tr><td>F</td><td>写真URL</td></tr>
+            <tr><td>G</td><td>生成結果</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </details>
+
+    <details id="shipping-origin">
+      <summary>4. 発送元登録</summary>
+      <section class="content">
+        <p>発送依頼で使用する発送元情報を登録します。ご自身の自宅や倉庫などを登録できます。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/04_shipping_origin.png" alt="発送元登録画面">
+        <h3>入力項目</h3>
+        <ul>
+          <li>発送元名</li>
+          <li>郵便番号</li>
+          <li>都道府県</li>
+          <li>住所</li>
+          <li>アパート名、会社名など</li>
+          <li>お名前</li>
+          <li>電話番号</li>
+        </ul>
+        <p class="note">発送依頼時に発送元を選択できるようになります。</p>
+      </section>
+    </details>
+
+    <details id="invoice">
+      <summary>5. 請求書ダウンロード</summary>
+      <section class="content">
+        <p>管理者が発行した請求書を月ごとにダウンロードできます。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/06_invoice_download.png" alt="請求書ダウンロード画面">
+        <h3>表示内容</h3>
+        <ul>
+          <li>発行済みの月はCSV・PDFボタンが表示されます</li>
+          <li>未発行の月は「未発行」と表示されます</li>
+          <li>必要に応じてCSVまたはPDFをダウンロードできます</li>
+        </ul>
+        <p class="warning">請求書は管理者が発行した後に表示されます。未発行の月はダウンロードできません。</p>
+      </section>
+    </details>
+
+    <details id="basic-info">
+      <summary>6. 基本情報</summary>
+      <section class="content">
+        <p>営業時間、発送、検品、連絡手段などの基本情報を確認できます。</p>
+        <img class="manual-img" src="okirakubin_manual_assets/05_basic_info.png" alt="基本情報画面">
+        <h3>確認できる内容</h3>
+        <ul>
+          <li>営業時間</li>
+          <li>発送に関する案内</li>
+          <li>検品に関する案内</li>
+          <li>連絡手段</li>
+          <li>過去のお知らせ</li>
+        </ul>
+        <p class="note">トップには直近のお知らせが表示されます。過去のお知らせや基本ルールは基本情報から確認します。</p>
+      </section>
+    </details>
+
+    <details id="flow">
+      <summary>7. 基本の流れ</summary>
+      <section class="content">
+        <h2>利用の基本フロー</h2>
+        <ol>
+          <li>商品登録で依頼内容を登録する</li>
+          <li>管理者側で検品・撮影が行われる</li>
+          <li>保管商品に移動した商品情報を確認する</li>
+          <li>必要に応じてGSSへ検品結果を出力する</li>
+          <li>発送が必要な商品を選択して発送依頼する</li>
+          <li>発送済みになった商品は発送管理で確認する</li>
+          <li>発行済みの請求書を請求書DLから確認する</li>
+        </ol>
+        <table>
+          <thead>
+            <tr>
+              <th>画面</th>
+              <th>主な用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>トップ</td><td>件数とお知らせを確認する</td></tr>
+            <tr><td>商品登録</td><td>新しい商品を登録する</td></tr>
+            <tr><td>保管商品</td><td>検品済み商品の確認、発送依頼、GSS出力を行う</td></tr>
+            <tr><td>発送管理</td><td>未発送・発送済みの商品を確認する</td></tr>
+            <tr><td>発送元登録</td><td>発送依頼で使う発送元を登録する</td></tr>
+            <tr><td>請求書DL</td><td>発行済みの請求書をダウンロードする</td></tr>
+            <tr><td>基本情報</td><td>営業時間や運用ルールを確認する</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </details>
+
+    <p class="footer">作成日: 2026年9月1日 / 対象: お気楽便 会員ページ</p>
+  </main>
+</body>
+</html>
