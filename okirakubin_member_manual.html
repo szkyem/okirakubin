@@ -279,37 +279,13 @@
     <header class="hero">
       <h1>お気楽便 会員向け使い方マニュアル</h1>
       <p class="lead">商品登録から保管商品、発送依頼、請求書ダウンロードまでの基本操作をまとめたマニュアルです。</p>
-      <div class="meta">
-        <span class="pill">会員向け</span>
-        <span class="pill">画像付き</span>
-        <span class="pill">折りたたみ表示</span>
-      </div>
     </header>
-
-    <nav class="toc" aria-label="目次">
-      <a href="#top">1. トップ画面</a>
-      <a href="#register">2. 商品登録</a>
-      <a href="#storage">3. 保管商品</a>
-      <a href="#shipping-origin">4. 発送元登録</a>
-      <a href="#invoice">5. 請求書ダウンロード</a>
-      <a href="#basic-info">6. 基本情報</a>
-      <a href="#flow">7. 基本の流れ</a>
-    </nav>
 
     <details id="top" open>
       <summary>1. トップ画面</summary>
       <section class="content">
         <p>ログイン後、最初に表示される画面です。現在の商品状況と、最近のお知らせを確認できます。</p>
         <img class="manual-img" src="okirakubin_manual_assets/01_top.png" alt="お気楽便トップ画面">
-        <h3>確認できる内容</h3>
-        <ul>
-          <li>登録済み商品数</li>
-          <li>保管商品数</li>
-          <li>未発送数</li>
-          <li>発送済み数</li>
-          <li>最近のお知らせ</li>
-        </ul>
-        <p class="note">上部のタブから、商品登録、保管商品、発送管理、発送元登録、請求書DL、基本情報へ移動できます。</p>
       </section>
     </details>
 
@@ -334,14 +310,14 @@
           <li>お気楽便Thanksカード・チラシ同梱</li>
           <li>オプションコメント</li>
         </ul>
-        <p class="warning">登録は「登録する」ボタンを押したときだけ実行されます。必要項目が未入力の場合は登録できません。</p>
+        <p class="warning">登録は「登録する」ボタンを押したときだけ実行されます。必要項目が未入力の場合は登録できません。<br>※お気楽便Thanksカード・チラシ同梱を不要にする場合は、別途100円かかります。</p>
       </section>
     </details>
 
     <details id="storage">
       <summary>3. 保管商品</summary>
       <section class="content">
-        <p>検品・撮影が完了し、保管中の商品を確認できます。</p>
+        <p>商品登録を済ませた商品の一覧は、保管商品欄で確認できます。登録済み商品はまだ検品が済んでいない商品で、検品が済むと保管商品の項目へ移動します。</p>
         <img class="manual-img" src="okirakubin_manual_assets/03_storage_products.png" alt="保管商品画面">
         <h3>主な操作</h3>
         <ul>
@@ -351,8 +327,11 @@
           <li>検品結果のGSS出力</li>
           <li>国内発送、海外発送、返品依頼、送料会員事前負担で国内発送の依頼</li>
         </ul>
+        <p>検品結果は、情報の「詳細」を押すと中身を確認できます。</p>
+        <p>発送する場合は、一番左の発送欄にチェックを入れると、国内発送、海外発送、返品依頼などの選択肢が表示されます。内容に応じて選択してください。</p>
         <h3>GSS出力</h3>
         <p>「出力」ボタンを押すと、設定済みのGoogleスプレッドシートに検品結果を出力します。</p>
+        <p>GSSの出力先は、画面右上の「設定変更」から設定します。GoogleスプレッドシートのURLとシート名を入力してください。</p>
         <table>
           <thead>
             <tr>
@@ -412,14 +391,6 @@
       <section class="content">
         <p>営業時間、発送、検品、連絡手段などの基本情報を確認できます。</p>
         <img class="manual-img" src="okirakubin_manual_assets/05_basic_info.png" alt="基本情報画面">
-        <h3>確認できる内容</h3>
-        <ul>
-          <li>営業時間</li>
-          <li>発送に関する案内</li>
-          <li>検品に関する案内</li>
-          <li>連絡手段</li>
-          <li>過去のお知らせ</li>
-        </ul>
         <p class="note">トップには直近のお知らせが表示されます。過去のお知らせや基本ルールは基本情報から確認します。</p>
       </section>
     </details>
@@ -437,23 +408,6 @@
           <li>発送済みになった商品は発送管理で確認する</li>
           <li>発行済みの請求書を請求書DLから確認する</li>
         </ol>
-        <table>
-          <thead>
-            <tr>
-              <th>画面</th>
-              <th>主な用途</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>トップ</td><td>件数とお知らせを確認する</td></tr>
-            <tr><td>商品登録</td><td>新しい商品を登録する</td></tr>
-            <tr><td>保管商品</td><td>検品済み商品の確認、発送依頼、GSS出力を行う</td></tr>
-            <tr><td>発送管理</td><td>未発送・発送済みの商品を確認する</td></tr>
-            <tr><td>発送元登録</td><td>発送依頼で使う発送元を登録する</td></tr>
-            <tr><td>請求書DL</td><td>発行済みの請求書をダウンロードする</td></tr>
-            <tr><td>基本情報</td><td>営業時間や運用ルールを確認する</td></tr>
-          </tbody>
-        </table>
       </section>
     </details>
 
