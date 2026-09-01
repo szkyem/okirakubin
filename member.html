@@ -3363,14 +3363,11 @@ function confirmationResultExportText(product) {
 function productInspectionGssRow(product) {
   return {
     productId: product.id || "",
-    managementNumber: memberProfileCache.managementNumber || "",
     productName: product.name || "",
     numbering: product.numbering || "",
     inspectionDate: product.confirmationDate || product.shootingDate || "",
     confirmationResult: confirmationResultExportText(product),
-    photoUrl: product.photoUrl || "",
-    expectedSize: product.expectedSize || "",
-    storageLocation: product.storageLocation || ""
+    photoUrl: product.photoUrl || ""
   };
 }
 
