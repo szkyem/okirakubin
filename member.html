@@ -2501,7 +2501,7 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送日", "発送料金", "調整", "調整内容", "合計"],
+    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
@@ -2511,8 +2511,9 @@ window.downloadInvoiceCsv = function(month) {
       invoiceOptionsForDisplay(item.options, invoice),
       item.inspectionDate || "-",
       item.inspectionFee ?? "-",
+      itemHasShippingCharge(item) ? itemShippingWorkFee(item) : "-",
       item.shippingDate || "-",
-      item.shippingFee ?? "-",
+      itemHasShippingCharge(item) ? itemShippingFareFee(item) : "-",
       item.adjustmentFee ?? "-",
       item.adjustmentText || "-",
       item.total || 0
@@ -2529,7 +2530,9 @@ window.downloadInvoiceCsv = function(month) {
     ]),
     [],
     ["検品料金合計", invoice.totalInspectionFee || 0],
-    ["発送料金合計", invoice.totalShippingFee || 0],
+    ["発送作業件数", invoiceShippingWorkCount(invoice)],
+    ["発送作業代合計", invoiceShippingWorkFee(invoice)],
+    ["発送料金合計", invoiceShippingFareFee(invoice)],
     ["商品別調整合計", invoiceAdjustmentFee(invoice)],
     ["請求書全体調整", invoiceGlobalAdjustmentFee(invoice)],
     ["請求書全体調整内容", invoiceGlobalAdjustmentNoteText(invoice) || "-"],
@@ -2567,6 +2570,7 @@ window.downloadInvoicePdf = function(month) {
       <td>${escapeHtml(row.date || "-")}</td>
       <td>${escapeHtml(row.numbering || "-")}</td>
       <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
+      <td class="num">${row.hasShippingWork ? yen(row.shippingWorkFee) : "-"}</td>
       <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
       <td class="num">${row.hasAdjustment ? yen(row.adjustmentFee) : "-"}</td>
       <td class="num">${yen(row.total)}</td>
@@ -2650,6 +2654,7 @@ window.downloadInvoicePdf = function(month) {
             <th>日付</th>
             <th>管理番号</th>
             <th>検品</th>
+            <th>発送作業代</th>
             <th>送料</th>
             <th>調整</th>
             <th>合計</th>
@@ -2724,10 +2729,12 @@ function buildPdfInvoiceRows(items, invoice = {}) {
   return items
     .map((item) => {
       const hasInspection = item.inspectionFee !== "-";
-      const hasShipping = item.shippingFee !== "-";
+      const hasShipping = itemHasShippingCharge(item);
+      const hasShippingWork = itemShippingWorkFee(item) > 0;
       const hasAdjustment = item.adjustmentFee !== "-";
       const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
-      const shippingFee = hasShipping ? feeValue(item.shippingFee) : 0;
+      const shippingFee = hasShipping ? itemShippingFareFee(item) : 0;
+      const shippingWorkFee = hasShippingWork ? itemShippingWorkFee(item) : 0;
       const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
       const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
       const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
@@ -2741,11 +2748,13 @@ function buildPdfInvoiceRows(items, invoice = {}) {
         numbering: item.numbering || "-",
         hasInspection,
         inspectionFee,
+        hasShippingWork,
+        shippingWorkFee,
         hasShipping,
         shippingFee,
         hasAdjustment,
         adjustmentFee,
-        total: inspectionFee + shippingFee + adjustmentFee,
+        total: inspectionFee + shippingWorkFee + shippingFee + adjustmentFee,
         taxable: true,
         note: noteParts.join(" / ")
       };
@@ -2843,6 +2852,8 @@ function invoiceGlobalAdjustmentPdfRows(invoice) {
       numbering: "全体調整",
       hasInspection: false,
       inspectionFee: 0,
+      hasShippingWork: false,
+      shippingWorkFee: 0,
       hasShipping: false,
       shippingFee: 0,
       hasAdjustment: true,
@@ -3585,6 +3596,63 @@ function feeValue(value) {
   const cleaned = String(value ?? "").replace(/[^\d.-]/g, "");
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const SHIPPING_WORK_UNIT_FEE = 400;
+
+function hasOwnValue(object, key) {
+  return Boolean(object && Object.prototype.hasOwnProperty.call(object, key));
+}
+
+function itemHasShippingCharge(item) {
+  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && item.shippingFee !== "-";
+}
+
+function itemShippingWorkFee(item) {
+  if (hasOwnValue(item, "shippingWorkFee")) {
+    return item.shippingWorkFee === "-" ? 0 : feeValue(item.shippingWorkFee);
+  }
+
+  if (!itemHasShippingCharge(item) || item.shippingNote === "同梱") return 0;
+  return SHIPPING_WORK_UNIT_FEE;
+}
+
+function itemShippingFareFee(item) {
+  if (!itemHasShippingCharge(item)) return 0;
+
+  if (hasOwnValue(item, "shippingWorkFee")) {
+    return feeValue(item.shippingFee);
+  }
+
+  return Math.max(0, feeValue(item.shippingFee) - itemShippingWorkFee(item));
+}
+
+function invoiceHasExplicitShippingWorkFee(invoice) {
+  return hasOwnValue(invoice, "totalShippingWorkFee");
+}
+
+function invoiceShippingWorkCount(invoice) {
+  if (hasOwnValue(invoice, "totalShippingWorkCount")) {
+    return feeValue(invoice.totalShippingWorkCount);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + (itemShippingWorkFee(item) > 0 ? 1 : 0), 0);
+}
+
+function invoiceShippingWorkFee(invoice) {
+  if (invoiceHasExplicitShippingWorkFee(invoice)) {
+    return feeValue(invoice.totalShippingWorkFee);
+  }
+
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + itemShippingWorkFee(item), 0);
+}
+
+function invoiceShippingFareFee(invoice) {
+  if (invoiceHasExplicitShippingWorkFee(invoice)) {
+    return feeValue(invoice.totalShippingFee);
+  }
+
+  return Math.max(0, feeValue(invoice?.totalShippingFee) - invoiceShippingWorkFee(invoice));
 }
 
 function invoiceAdjustmentFee(invoice) {
