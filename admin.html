@@ -5645,7 +5645,7 @@ function hasOwnValue(object, key) {
 }
 
 function itemHasShippingCharge(item) {
-  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && item.shippingFee !== "-";
+  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && (item.shippingFee !== "-" || itemShippingWorkFee(item) > 0);
 }
 
 function itemShippingWorkFee(item) {
@@ -5653,8 +5653,8 @@ function itemShippingWorkFee(item) {
     return item.shippingWorkFee === "-" ? 0 : feeValue(item.shippingWorkFee);
   }
 
-  if (!itemHasShippingCharge(item) || item.shippingNote === "同梱") return 0;
-  return SHIPPING_WORK_UNIT_FEE;
+  if (!hasValue(item?.shippingDate) || item.shippingDate === "-" || item.shippingNote === "同梱") return 0;
+  return shippingKey(item?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : 0;
 }
 
 function itemShippingFareFee(item) {
@@ -5856,6 +5856,7 @@ function buildInvoiceItems(member, month) {
         : 0;
       const shippingWorkFee = shippingInMonth && !isBundledShipping ? shippingWorkFeeFor(product) : 0;
       const shippingFareFee = Math.max(0, shippingChargeFee - shippingWorkFee);
+      const shippingFareDisplay = shippingInMonth && shippingWorkFee > 0 && shippingFareFee === 0 ? "-" : shippingFareFee;
 
       return {
         productId: product.id,
@@ -5867,11 +5868,12 @@ function buildInvoiceItems(member, month) {
         bodyCount: product.bodyCount || "",
         lensCount: product.lensCount || "",
         options: invoiceOptionSummary(product, member),
+        shippingRequest: product.shippingRequest || "",
         inspectionDate: inspectionInMonth ? inspectionDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
         shippingDate: shippingInMonth ? product.shippedDate || "" : "-",
-        shippingFee: shippingInMonth ? shippingFareFee : "-",
+        shippingFee: shippingInMonth ? shippingFareDisplay : "-",
         shippingNote: isBundledShipping ? "同梱" : "",
         adjustmentFee: billingAdjustments.length ? adjustmentFee : "-",
         adjustmentText,
@@ -5888,7 +5890,7 @@ function buildInvoiceItems(member, month) {
 }
 
 function shippingWorkFeeFor(product) {
-  return shippingKey(product?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : SHIPPING_WORK_UNIT_FEE;
+  return shippingKey(product?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : 0;
 }
 
 function chargedShippingProductIds(products, month) {
@@ -6014,7 +6016,7 @@ function firstInvoiceDate(item) {
     const csvItems = items.map((item) => ({
       ...item,
       shippingWorkFeeForDisplay: itemShippingWorkFee(item),
-      shippingFareFeeForDisplay: itemShippingFareFee(item)
+      shippingFareFeeForDisplay: item.shippingFee !== "-" ? itemShippingFareFee(item) : "-"
     }));
     const rows = [
       ["請求月", invoice.month || ""],
@@ -6033,7 +6035,7 @@ function firstInvoiceDate(item) {
           item.inspectionFee ?? "-",
           itemHasShippingCharge(item) ? item.shippingWorkFeeForDisplay : "-",
           item.shippingDate || "-",
-          itemHasShippingCharge(item) ? item.shippingFareFeeForDisplay : "-",
+          itemHasShippingCharge(item) && item.shippingFareFeeForDisplay !== "-" ? item.shippingFareFeeForDisplay : "-",
           item.adjustmentFee ?? "-",
           item.adjustmentText || "-",
           item.total || 0
@@ -6238,10 +6240,11 @@ function firstInvoiceDate(item) {
         .map((item) => {
           const hasInspection = item.inspectionFee !== "-";
           const hasShipping = itemHasShippingCharge(item);
+          const hasShippingFare = hasShipping && item.shippingFee !== "-";
           const hasShippingWork = itemShippingWorkFee(item) > 0;
           const hasAdjustment = item.adjustmentFee !== "-";
           const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
-          const shippingFee = hasShipping ? itemShippingFareFee(item) : 0;
+          const shippingFee = hasShippingFare ? itemShippingFareFee(item) : 0;
           const shippingWorkFee = hasShippingWork ? itemShippingWorkFee(item) : 0;
           const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
           const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
@@ -6258,7 +6261,7 @@ function firstInvoiceDate(item) {
             inspectionFee,
             hasShippingWork,
             shippingWorkFee,
-            hasShipping,
+            hasShipping: hasShippingFare,
             shippingFee,
             hasAdjustment,
             adjustmentFee,
@@ -6267,7 +6270,7 @@ function firstInvoiceDate(item) {
             note: noteParts.join(" / ")
           };
         })
-        .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
+        .filter((row) => row.total !== 0 || row.hasShipping || row.hasShippingWork || row.hasAdjustment)
         .concat(invoiceGlobalAdjustmentPdfRows(invoice))
         .filter(Boolean)
         .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));

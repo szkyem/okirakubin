@@ -2513,7 +2513,7 @@ window.downloadInvoiceCsv = function(month) {
       item.inspectionFee ?? "-",
       itemHasShippingCharge(item) ? itemShippingWorkFee(item) : "-",
       item.shippingDate || "-",
-      itemHasShippingCharge(item) ? itemShippingFareFee(item) : "-",
+      itemHasShippingCharge(item) && item.shippingFee !== "-" ? itemShippingFareFee(item) : "-",
       item.adjustmentFee ?? "-",
       item.adjustmentText || "-",
       item.total || 0
@@ -2730,10 +2730,11 @@ function buildPdfInvoiceRows(items, invoice = {}) {
     .map((item) => {
       const hasInspection = item.inspectionFee !== "-";
       const hasShipping = itemHasShippingCharge(item);
+      const hasShippingFare = hasShipping && item.shippingFee !== "-";
       const hasShippingWork = itemShippingWorkFee(item) > 0;
       const hasAdjustment = item.adjustmentFee !== "-";
       const inspectionFee = hasInspection ? feeValue(item.inspectionFee) : 0;
-      const shippingFee = hasShipping ? itemShippingFareFee(item) : 0;
+      const shippingFee = hasShippingFare ? itemShippingFareFee(item) : 0;
       const shippingWorkFee = hasShippingWork ? itemShippingWorkFee(item) : 0;
       const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
       const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
@@ -2750,7 +2751,7 @@ function buildPdfInvoiceRows(items, invoice = {}) {
         inspectionFee,
         hasShippingWork,
         shippingWorkFee,
-        hasShipping,
+        hasShipping: hasShippingFare,
         shippingFee,
         hasAdjustment,
         adjustmentFee,
@@ -2759,7 +2760,7 @@ function buildPdfInvoiceRows(items, invoice = {}) {
         note: noteParts.join(" / ")
       };
     })
-    .filter((row) => row.total !== 0 || row.hasShipping || row.hasAdjustment)
+    .filter((row) => row.total !== 0 || row.hasShipping || row.hasShippingWork || row.hasAdjustment)
     .concat(invoiceGlobalAdjustmentPdfRows(invoice))
     .filter(Boolean)
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || ""), "ja", { numeric: true }));
@@ -3605,7 +3606,7 @@ function hasOwnValue(object, key) {
 }
 
 function itemHasShippingCharge(item) {
-  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && item.shippingFee !== "-";
+  return hasValue(item?.shippingDate) && item.shippingDate !== "-" && (item.shippingFee !== "-" || itemShippingWorkFee(item) > 0);
 }
 
 function itemShippingWorkFee(item) {
@@ -3613,8 +3614,8 @@ function itemShippingWorkFee(item) {
     return item.shippingWorkFee === "-" ? 0 : feeValue(item.shippingWorkFee);
   }
 
-  if (!itemHasShippingCharge(item) || item.shippingNote === "同梱") return 0;
-  return SHIPPING_WORK_UNIT_FEE;
+  if (!hasValue(item?.shippingDate) || item.shippingDate === "-" || item.shippingNote === "同梱") return 0;
+  return shippingKey(item?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : 0;
 }
 
 function itemShippingFareFee(item) {
