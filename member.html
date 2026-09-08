@@ -131,6 +131,11 @@ textarea{min-height:62px;resize:vertical}
 .invoice-downloads{display:flex;gap:6px}
 .invoice-downloads button{padding:6px 8px;font-size:12px}
 .invoice-empty{font-size:12px;color:#9ca3af}
+.price-section{display:grid;gap:18px}
+.price-table{width:100%;border-collapse:collapse;min-width:760px}
+.price-table th{background:#475569;color:#fff;text-align:left}
+.price-table th,.price-table td{border:1px solid #d1d5db;padding:10px;vertical-align:middle}
+.price-table .group-cell{background:#eef2ff;color:#1d4ed8;font-weight:800;text-align:center;white-space:nowrap}
 @media(max-width:700px){
   body{padding:10px;font-size:14px;overflow-x:hidden}
   .container,.login-container{width:100%;padding:18px;border-radius:8px}
@@ -212,6 +217,7 @@ textarea{min-height:62px;resize:vertical}
     <button class="tab" data-tab="stored" type="button">保管商品</button>
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
+    <button class="tab" data-tab="prices" type="button">価格表</button>
     <button class="tab" data-tab="invoices" type="button">請求書DL</button>
     <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
     <button class="tab" data-tab="basicInfo" type="button">基本情報</button>
@@ -336,6 +342,89 @@ textarea{min-height:62px;resize:vertical}
     <h2 style="margin-bottom:16px;">請求書ダウンロード</h2>
     <div id="invoiceList"></div>
   </section>
+
+  <section class="section" id="prices">
+    <h2 style="margin-bottom:16px;">価格表</h2>
+    <div class="price-section">
+      <div class="table-wrap">
+        <table class="price-table">
+          <tbody>
+            <tr>
+              <td class="group-cell" rowspan="3">作業料</td>
+              <td>検品＋写真</td>
+              <td>1,300円</td>
+              <td>ボディまたはレンズ1点目を含む基本料金</td>
+            </tr>
+            <tr>
+              <td>検品のみ</td>
+              <td>1,000円</td>
+              <td>検品のみの場合</td>
+            </tr>
+            <tr>
+              <td>レンズキット検品追加料金</td>
+              <td>1個あたり300円</td>
+              <td>ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円</td>
+            </tr>
+            <tr>
+              <td class="group-cell" rowspan="2">送料</td>
+              <td>国内送料</td>
+              <td>1,000円〜</td>
+              <td>運賃表による。発送情報の料金を請求へ反映</td>
+            </tr>
+            <tr>
+              <td>海外送料（作業代）</td>
+              <td>500円</td>
+              <td>お客様によるラベル発行。海外発送は500円固定</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>区分</th>
+              <th>価格</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
+            <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
+            <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
+            <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
+            <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
+            <tr><td>お気楽便チラシ同梱なし</td><td>100円</td><td>お気楽便チラシ同梱を不要にする場合</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>サイズ</th>
+              <th>静岡</th>
+              <th>関東・信越・北陸・東海・近畿</th>
+              <th>東北・中国・四国</th>
+              <th>九州</th>
+              <th>沖縄</th>
+              <th>北海道</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>60</td><td>1,000円</td><td>1,050円</td><td>1,150円</td><td>1,250円</td><td>1,450円</td><td>1,550円</td></tr>
+            <tr><td>80</td><td>1,250円</td><td>1,300円</td><td>1,350円</td><td>1,450円</td><td>1,750円</td><td>1,780円</td></tr>
+            <tr><td>100</td><td>1,550円</td><td>1,600円</td><td>1,700円</td><td>1,800円</td><td>2,150円</td><td>2,200円</td></tr>
+            <tr><td>120</td><td>1,900円</td><td>1,950円</td><td>2,000円</td><td>2,100円</td><td>2,650円</td><td>2,650円</td></tr>
+            <tr><td>140以上</td><td>2,750円</td><td>2,800円</td><td>3,300円</td><td>3,400円</td><td>4,400円</td><td>4,950円</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <section class="section" id="settings">
     <div class="form">
       <div class="form-header">
