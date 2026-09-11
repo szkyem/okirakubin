@@ -411,7 +411,59 @@
       </section>
     </details>
 
-    <p class="footer">作成日: 2026年9月1日 / 対象: お気楽便 会員ページ</p>
+    <details id="gss-description">
+      <summary>8. GSS出力と商品文生成</summary>
+      <section class="content">
+        <h2>検品結果をGoogleスプレッドシートへ出力する</h2>
+        <p>保管商品の「出力」ボタンを押すと、検品結果を設定済みのGoogleスプレッドシートへ出力できます。</p>
+        <p>出力先は、画面右上の「設定変更」から設定します。</p>
+
+        <h3>事前に準備するもの</h3>
+        <ul>
+          <li>管理者から案内されたGoogleスプレッドシートのテンプレート</li>
+          <li>出力先にするGoogleスプレッドシートURL</li>
+          <li>シート名</li>
+          <li>商品文生成通知URL</li>
+        </ul>
+
+        <p class="warning">Googleスプレッドシートは、管理者から案内されたGoogleアカウントに「編集者」として共有してください。共有されていない場合、検品結果の出力に失敗します。</p>
+
+        <h3>設定方法</h3>
+        <ol>
+          <li>会員ページ右上の「設定変更」を押します。</li>
+          <li>「GoogleスプレッドシートURL」に、出力先GSSのURLを入力します。</li>
+          <li>「シート名」に、検品結果を出力するシート名を入力します。</li>
+          <li>「商品文生成通知URL」に、管理者から案内されたURLを入力します。</li>
+          <li>「保存する」を押します。</li>
+        </ol>
+
+        <h3>出力される内容</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>列</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>A</td><td>出力日</td></tr>
+            <tr><td>B</td><td>商品名</td></tr>
+            <tr><td>C</td><td>ナンバリング</td></tr>
+            <tr><td>D</td><td>検品日</td></tr>
+            <tr><td>E</td><td>確認結果</td></tr>
+            <tr><td>F</td><td>写真URL</td></tr>
+            <tr><td>G</td><td>商品文の生成結果</td></tr>
+          </tbody>
+        </table>
+
+        <p class="note">G列の生成結果が空欄の場合、商品文生成の対象になります。すでにG列に文章が入っている場合は、重複生成を防ぐため自動生成されません。</p>
+
+        <h3>列幅について</h3>
+        <p>Googleスプレッドシートの列幅は、テンプレートやご自身で調整した幅のまま使用できます。お気楽便から出力しても、列幅が自動的に変更されないようにしています。</p>
+      </section>
+    </details>
+
+    <p class="footer">作成日: 2026年9月11日 / 対象: お気楽便 会員ページ</p>
   </main>
 </body>
 </html>
