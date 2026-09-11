@@ -345,84 +345,7 @@ textarea{min-height:62px;resize:vertical}
 
   <section class="section" id="prices">
     <h2 style="margin-bottom:16px;">価格表</h2>
-    <div class="price-section">
-      <div class="table-wrap">
-        <table class="price-table">
-          <tbody>
-            <tr>
-              <td class="group-cell" rowspan="3">作業料</td>
-              <td>検品＋写真</td>
-              <td>1,300円</td>
-              <td>ボディまたはレンズ1点目を含む基本料金</td>
-            </tr>
-            <tr>
-              <td>検品のみ</td>
-              <td>1,000円</td>
-              <td>検品のみの場合</td>
-            </tr>
-            <tr>
-              <td>レンズキット検品追加料金</td>
-              <td>1個あたり300円</td>
-              <td>ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円</td>
-            </tr>
-            <tr>
-              <td class="group-cell" rowspan="2">送料</td>
-              <td>国内送料</td>
-              <td>1,000円〜</td>
-              <td>運賃表による。発送情報の料金を請求へ反映</td>
-            </tr>
-            <tr>
-              <td>海外送料（作業代）</td>
-              <td>500円</td>
-              <td>お客様によるラベル発行。海外発送は500円固定</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-wrap">
-        <table class="price-table">
-          <thead>
-            <tr>
-              <th>区分</th>
-              <th>価格</th>
-              <th>備考</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
-            <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
-            <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
-            <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
-            <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
-            <tr><td>お気楽便チラシ同梱なし</td><td>100円</td><td>お気楽便チラシ同梱を不要にする場合</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="table-wrap">
-        <table class="price-table">
-          <thead>
-            <tr>
-              <th>サイズ</th>
-              <th>静岡</th>
-              <th>関東・信越・北陸・東海・近畿</th>
-              <th>東北・中国・四国</th>
-              <th>九州</th>
-              <th>沖縄</th>
-              <th>北海道</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>60</td><td>1,000円</td><td>1,050円</td><td>1,150円</td><td>1,250円</td><td>1,450円</td><td>1,550円</td></tr>
-            <tr><td>80</td><td>1,250円</td><td>1,300円</td><td>1,350円</td><td>1,450円</td><td>1,750円</td><td>1,780円</td></tr>
-            <tr><td>100</td><td>1,550円</td><td>1,600円</td><td>1,700円</td><td>1,800円</td><td>2,150円</td><td>2,200円</td></tr>
-            <tr><td>120</td><td>1,900円</td><td>1,950円</td><td>2,000円</td><td>2,100円</td><td>2,650円</td><td>2,650円</td></tr>
-            <tr><td>140以上</td><td>2,750円</td><td>2,800円</td><td>3,300円</td><td>3,400円</td><td>4,400円</td><td>4,950円</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <div id="publicPriceTableView" class="price-section"></div>
   </section>
 
   <section class="section" id="settings">
@@ -469,6 +392,12 @@ textarea{min-height:62px;resize:vertical}
           <div class="form-group">
             <label>シート名</label>
             <input id="inspectionSheetName" type="text" placeholder="検品結果">
+          </div>
+
+          <div class="form-group full">
+            <label>商品文生成通知URL</label>
+            <input id="inspectionGeneratorWebhookUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+            <p class="member-meta">GSS側Apps ScriptをWebアプリ公開したURLです。未設定の場合はGSS出力のみ行います。</p>
           </div>
         </div>
 
@@ -646,6 +575,46 @@ const SHIPPING_RATE_TABLE = {
   "140以上": { shizuoka: 2750, main: 2800, tohokuChugokuShikoku: 3300, kyushu: 3400, okinawa: 4400, hokkaido: 4950 }
 };
 
+const DEFAULT_PUBLIC_PRICE_SECTIONS = [
+  {
+    id: "work",
+    title: "作業料",
+    columns: ["区分", "価格", "備考"],
+    rows: [
+      ["検品＋写真", "1,300円", "ボディまたはレンズ1点目を含む基本料金"],
+      ["検品のみ", "1,000円", "検品のみの場合"],
+      ["レンズキット検品追加料金", "1個あたり300円", "ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円"],
+      ["国内送料", "1,000円〜", "運賃表による。発送情報の料金を請求へ反映"],
+      ["海外送料（作業代）", "500円", "お客様によるラベル発行。海外発送は500円固定"]
+    ]
+  },
+  {
+    id: "options",
+    title: "オプション・その他",
+    columns: ["区分", "価格", "備考"],
+    rows: [
+      ["写真のみ", "500円", "お客様による検品が済んでいて写真撮影のみの場合"],
+      ["返品対応", "700円", "検品中に見つかった不具合で返品となった場合の作業代"],
+      ["再撮影", "500円", "検品後2週間以上経過した商品のご依頼の場合"],
+      ["動画撮影", "500円", "1分程度の動画を撮影"],
+      ["Thanksカード同梱", "0円", "お客様によるご準備をお願いします"],
+      ["お気楽便チラシ同梱なし", "100円", "お気楽便チラシ同梱を不要にする場合"]
+    ]
+  },
+  {
+    id: "shipping",
+    title: "国内送料",
+    columns: ["サイズ", "静岡", "関東・信越・北陸・東海・近畿", "東北・中国・四国", "九州", "沖縄", "北海道"],
+    rows: [
+      ["60", "1,000円", "1,050円", "1,150円", "1,250円", "1,450円", "1,550円"],
+      ["80", "1,250円", "1,300円", "1,350円", "1,450円", "1,750円", "1,780円"],
+      ["100", "1,550円", "1,600円", "1,700円", "1,800円", "2,150円", "2,200円"],
+      ["120", "1,900円", "1,950円", "2,000円", "2,100円", "2,650円", "2,650円"],
+      ["140以上", "2,750円", "2,800円", "3,300円", "3,400円", "4,400円", "4,950円"]
+    ]
+  }
+];
+
 let currentUser = null;
 let activeMemberUid = null;
 let isAdminProxyMode = false;
@@ -655,6 +624,7 @@ let announcementsCache = [];
 let basicInfoCache = {};
 let invoicesCache = {};
 let companyInfoCache = {};
+let priceTableCache = {};
 let memberProfileCache = {};
 let isWriteLocked = false;
 let entryCount = 0;
@@ -703,6 +673,7 @@ const newLoginEmail = document.getElementById("newLoginEmail");
 const inspectionSheetForm = document.getElementById("inspectionSheetForm");
 const inspectionSheetUrl = document.getElementById("inspectionSheetUrl");
 const inspectionSheetName = document.getElementById("inspectionSheetName");
+const inspectionGeneratorWebhookUrl = document.getElementById("inspectionGeneratorWebhookUrl");
 
 function dataUid() {
   return activeMemberUid || currentUser?.uid || "";
@@ -1041,6 +1012,7 @@ function renderMemberSettings() {
   if (newLoginEmail) newLoginEmail.value = "";
   if (inspectionSheetUrl) inspectionSheetUrl.value = memberProfileCache.inspectionSheetUrl || "";
   if (inspectionSheetName) inspectionSheetName.value = memberProfileCache.inspectionSheetName || "検品結果";
+  if (inspectionGeneratorWebhookUrl) inspectionGeneratorWebhookUrl.value = memberProfileCache.inspectionGeneratorWebhookUrl || "";
 }
 
 async function saveInspectionSheetSettings() {
@@ -1054,9 +1026,15 @@ async function saveInspectionSheetSettings() {
 
   const url = String(inspectionSheetUrl?.value || "").trim();
   const sheetName = String(inspectionSheetName?.value || "").trim() || "検品結果";
+  const generatorWebhookUrl = String(inspectionGeneratorWebhookUrl?.value || "").trim();
 
   if (url && !/^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(url)) {
     showError("GoogleスプレッドシートURLを入力してください。");
+    return;
+  }
+
+  if (generatorWebhookUrl && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(generatorWebhookUrl)) {
+    showError("商品文生成通知URLは、Apps ScriptのWebアプリURLを入力してください。");
     return;
   }
 
@@ -1064,6 +1042,7 @@ async function saveInspectionSheetSettings() {
     await update(ref(database, `memberSettings/${dataUid()}`), {
       inspectionSheetUrl: url,
       inspectionSheetName: sheetName,
+      inspectionGeneratorWebhookUrl: generatorWebhookUrl,
       updatedAt: Date.now()
     });
     await loadData();
@@ -1697,6 +1676,7 @@ async function loadData() {
     const memberSettingsSnapshot = await get(ref(database, `memberSettings/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const loginUserSnapshot = await get(ref(database, `loginUsers/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const priceTableSnapshot = await get(ref(database, "priceTable")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     productsCache = productsSnapshot.exists()
       ? Object.values(productsSnapshot.val()).sort((a, b) => {
@@ -1722,6 +1702,7 @@ async function loadData() {
     };
     isWriteLocked = isMemberWriteLocked();
     companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
+    priceTableCache = priceTableSnapshot.exists() ? priceTableSnapshot.val() : {};
     renderMemberBadge();
     applyWriteLockState();
 
@@ -1742,6 +1723,7 @@ async function loadData() {
     renderShippingList();
     renderOriginList();
     renderInvoiceList();
+    renderPriceTable();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
@@ -1892,6 +1874,43 @@ function renderInvoiceList() {
       </div>
     </div>
   `;
+}
+
+function publicPriceSections() {
+  const sections = Array.isArray(priceTableCache.publicSections)
+    ? priceTableCache.publicSections
+    : DEFAULT_PUBLIC_PRICE_SECTIONS;
+
+  return sections.map((section, sectionIndex) => ({
+    id: section.id || `section_${sectionIndex}`,
+    title: section.title || "",
+    columns: Array.isArray(section.columns) && section.columns.length ? section.columns : ["区分", "価格", "備考"],
+    rows: Array.isArray(section.rows) ? section.rows : []
+  }));
+}
+
+function renderPriceTable() {
+  const target = document.getElementById("publicPriceTableView");
+  if (!target) return;
+
+  const sections = publicPriceSections();
+  target.innerHTML = sections.map((section) => `
+    <div>
+      <h3 style="margin-bottom:10px;">${escapeHtml(section.title || "価格表")}</h3>
+      <div class="table-wrap">
+        <table class="price-table">
+          <thead>
+            <tr>${section.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${section.rows.length ? section.rows.map((row) => `
+              <tr>${section.columns.map((column, index) => `<td>${escapeHtml(row[index] || "")}</td>`).join("")}</tr>
+            `).join("") : `<tr><td colspan="${section.columns.length}">価格表は準備中です。</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `).join("");
 }
 
 function resetEntries() {
@@ -3499,12 +3518,15 @@ async function exportProductInspectionToGss(productId) {
       memberName: memberProfileCache.name || currentUser?.displayName || "",
       memberEmail: memberProfileCache.email || currentUser?.email || "",
       appendMode: "upsert",
+      descriptionWebhookUrl: memberProfileCache.inspectionGeneratorWebhookUrl || "",
       rows: [productInspectionGssRow(product)]
     }, { maxAttempts: 1 });
 
     if (!result.ok) throw new Error(result.error || "GSS出力に失敗しました。");
 
-    showSuccess(`検品結果をGSSへ出力しました。商品：${product.name || "-"}`);
+    showSuccess(result.descriptionNotificationOk === false
+      ? `検品結果をGSSへ出力しました。商品文生成通知は失敗しました：${result.descriptionNotificationError || "通知先URLを確認してください。"}`
+      : `検品結果をGSSへ出力しました。商品：${product.name || "-"}`);
   } catch (error) {
     console.error(error);
     showError(`検品結果のGSS出力に失敗しました。${error.message || "GASとスプレッドシート共有設定を確認してください。"}`);

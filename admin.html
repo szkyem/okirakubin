@@ -978,6 +978,49 @@
       vertical-align: middle;
     }
 
+    .price-edit-section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .price-edit-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .price-edit-title {
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .price-edit-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .price-edit-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 2fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .price-edit-row.header {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      box-shadow: none;
+    }
+
     .price-table .group-cell {
       width: 110px;
       text-align: center;
@@ -1450,81 +1493,15 @@
     <section id="pricesSection" class="section hidden">
       <h2>価格表</h2>
       <div class="price-section">
-        <div class="table-wrap">
-          <table class="price-table">
-            <tbody>
-              <tr>
-                <td class="group-cell" rowspan="3">作業料</td>
-                <td>検品＋写真</td>
-                <td>1,300円</td>
-                <td>ボディまたはレンズ1点目を含む基本料金</td>
-              </tr>
-              <tr>
-                <td>検品のみ</td>
-                <td>1,000円</td>
-                <td>検品のみの場合</td>
-              </tr>
-              <tr>
-                <td>レンズキット検品追加料金</td>
-                <td>1個あたり300円</td>
-                <td>ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円</td>
-              </tr>
-              <tr>
-                <td class="group-cell" rowspan="2">送料</td>
-                <td>国内送料</td>
-                <td>1,000円〜</td>
-                <td>運賃表による。発送情報の料金を請求へ反映</td>
-              </tr>
-              <tr>
-                <td>海外送料（作業代）</td>
-                <td>500円</td>
-                <td>お客様によるラベル発行。海外発送は500円固定</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="table-wrap">
-          <table class="price-table">
-            <thead>
-              <tr>
-                <th>区分</th>
-                <th>価格</th>
-                <th>備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
-              <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
-              <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
-              <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
-              <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
-              <tr><td>お気楽便チラシ同梱なし</td><td>100円</td><td>お気楽便チラシ同梱を不要にする場合</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="table-wrap">
-          <table class="price-table">
-            <thead>
-              <tr>
-                <th>サイズ</th>
-                <th>静岡</th>
-                <th>関東・信越・北陸・東海・近畿</th>
-                <th>東北・中国・四国</th>
-                <th>九州</th>
-                <th>沖縄</th>
-                <th>北海道</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>60</td><td>1,000円</td><td>1,050円</td><td>1,150円</td><td>1,250円</td><td>1,450円</td><td>1,550円</td></tr>
-              <tr><td>80</td><td>1,250円</td><td>1,300円</td><td>1,350円</td><td>1,450円</td><td>1,750円</td><td>1,780円</td></tr>
-              <tr><td>100</td><td>1,550円</td><td>1,600円</td><td>1,700円</td><td>1,800円</td><td>2,150円</td><td>2,200円</td></tr>
-              <tr><td>120</td><td>1,900円</td><td>1,950円</td><td>2,000円</td><td>2,100円</td><td>2,650円</td><td>2,650円</td></tr>
-              <tr><td>140以上</td><td>2,750円</td><td>2,800円</td><td>3,300円</td><td>3,400円</td><td>4,400円</td><td>4,950円</td></tr>
-            </tbody>
-          </table>
+        <div>
+          <div class="table-actions" style="justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <h3>一般価格表（会員公開）</h3>
+              <p class="muted">ここで保存した内容が会員画面の価格表に表示されます。</p>
+            </div>
+            <button class="primary-btn" type="button" onclick="savePublicPriceTable()">価格表を保存</button>
+          </div>
+          <div id="publicPriceTableEditor"></div>
         </div>
 
         <h2>コンサル生料金</h2>
@@ -1729,6 +1706,46 @@
       "140以上": { shizuoka: 1822, main: 1858, tohokuChugokuShikoku: 1953, kyushu: 2054, okinawa: 2733, hokkaido: 2773 }
     };
 
+    const DEFAULT_PUBLIC_PRICE_SECTIONS = [
+      {
+        id: "work",
+        title: "作業料",
+        columns: ["区分", "価格", "備考"],
+        rows: [
+          ["検品＋写真", "1,300円", "ボディまたはレンズ1点目を含む基本料金"],
+          ["検品のみ", "1,000円", "検品のみの場合"],
+          ["レンズキット検品追加料金", "1個あたり300円", "ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円"],
+          ["国内送料", "1,000円〜", "運賃表による。発送情報の料金を請求へ反映"],
+          ["海外送料（作業代）", "500円", "お客様によるラベル発行。海外発送は500円固定"]
+        ]
+      },
+      {
+        id: "options",
+        title: "オプション・その他",
+        columns: ["区分", "価格", "備考"],
+        rows: [
+          ["写真のみ", "500円", "お客様による検品が済んでいて写真撮影のみの場合"],
+          ["返品対応", "700円", "検品中に見つかった不具合で返品となった場合の作業代"],
+          ["再撮影", "500円", "検品後2週間以上経過した商品のご依頼の場合"],
+          ["動画撮影", "500円", "1分程度の動画を撮影"],
+          ["Thanksカード同梱", "0円", "お客様によるご準備をお願いします"],
+          ["お気楽便チラシ同梱なし", "100円", "お気楽便チラシ同梱を不要にする場合"]
+        ]
+      },
+      {
+        id: "shipping",
+        title: "国内送料",
+        columns: ["サイズ", "静岡", "関東・信越・北陸・東海・近畿", "東北・中国・四国", "九州", "沖縄", "北海道"],
+        rows: [
+          ["60", "1,000円", "1,050円", "1,150円", "1,250円", "1,450円", "1,550円"],
+          ["80", "1,250円", "1,300円", "1,350円", "1,450円", "1,750円", "1,780円"],
+          ["100", "1,550円", "1,600円", "1,700円", "1,800円", "2,150円", "2,200円"],
+          ["120", "1,900円", "1,950円", "2,000円", "2,100円", "2,650円", "2,650円"],
+          ["140以上", "2,750円", "2,800円", "3,300円", "3,400円", "4,400円", "4,950円"]
+        ]
+      }
+    ];
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
@@ -1839,6 +1856,7 @@
     let companyInfoCache = {};
     let confirmationBaseCache = null;
     let confirmationBaseView = "normal";
+    let priceTableCache = {};
     let discordNotificationQueueCache = {};
     let shippingBatchUnitsCache = [];
     let yupackOcrRecordsCache = [];
@@ -1942,7 +1960,7 @@
       hideError(appError);
 
       try {
-        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap] = await Promise.all([
+        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap, priceTableSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "inactiveMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "loginUsers")),
@@ -1954,7 +1972,8 @@
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/confirmationTemplateBase")).catch(() => ({ val: () => null })),
           get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) })),
-          get(ref(db, "discordNotificationQueue")).catch(() => ({ val: () => ({}) }))
+          get(ref(db, "discordNotificationQueue")).catch(() => ({ val: () => ({}) })),
+          get(ref(db, "priceTable")).catch(() => ({ val: () => ({}) }))
         ]);
 
         const membersRaw = membersSnap.val() || {};
@@ -1970,6 +1989,7 @@
         confirmationBaseCache = confirmationBaseSnap.val() || defaultConfirmationBase();
         pendingMembersCache = pendingMembersSnap.val() || {};
         discordNotificationQueueCache = discordQueueSnap.val() || {};
+        priceTableCache = priceTableSnap.val() || {};
 
         const buildMemberRecord = (uid, membershipStatus) => {
           const user = usersRaw[uid] || {};
@@ -1994,6 +2014,7 @@
             discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
             inspectionSheetUrl: memberSettings.inspectionSheetUrl || "",
             inspectionSheetName: memberSettings.inspectionSheetName || "検品結果",
+            inspectionGeneratorWebhookUrl: memberSettings.inspectionGeneratorWebhookUrl || "",
             planType: memberSettings.planType || user.planType || "",
             inactiveAt: memberSettings.inactiveAt || "",
             inactiveReason: memberSettings.inactiveReason || "",
@@ -2028,6 +2049,7 @@
         renderConfirmationBase();
         renderBasicInfo();
         renderAnnouncements();
+        renderPrices();
         renderDiscordNotifications();
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
@@ -4165,6 +4187,11 @@
             <input name="inspectionSheetName" value="${escapeAttr(member.inspectionSheetName || "検品結果")}" />
           </label>
 
+          <label class="full">
+            商品文生成通知URL
+            <input name="inspectionGeneratorWebhookUrl" value="${escapeAttr(member.inspectionGeneratorWebhookUrl || "")}" placeholder="https://script.google.com/macros/s/.../exec" />
+          </label>
+
           <label>
             Discord Webhook URL(検品発送連絡用)
             <input name="discordWebhookUrl" value="${escapeAttr(member.discordWebhookUrl || "")}" />
@@ -4591,6 +4618,7 @@
           const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
           const inspectionSheetUrl = getFormValue(formData, "inspectionSheetUrl");
           const inspectionSheetName = getFormValue(formData, "inspectionSheetName") || "検品結果";
+          const inspectionGeneratorWebhookUrl = getFormValue(formData, "inspectionGeneratorWebhookUrl");
           const planType = getFormValue(formData, "planType");
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
@@ -4601,6 +4629,7 @@
             discordLabelWebhookUrl,
             inspectionSheetUrl,
             inspectionSheetName,
+            inspectionGeneratorWebhookUrl,
             planType,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
@@ -6563,6 +6592,129 @@ function firstInvoiceDate(item) {
       }
     }
 
+    function publicPriceSections() {
+      const sections = Array.isArray(priceTableCache.publicSections)
+        ? priceTableCache.publicSections
+        : DEFAULT_PUBLIC_PRICE_SECTIONS;
+
+      return sections.map((section, sectionIndex) => ({
+        id: section.id || `section_${sectionIndex}`,
+        title: section.title || "",
+        columns: Array.isArray(section.columns) && section.columns.length ? section.columns : ["区分", "価格", "備考"],
+        rows: Array.isArray(section.rows) ? section.rows : []
+      }));
+    }
+
+    function renderPrices() {
+      const editor = document.getElementById("publicPriceTableEditor");
+      if (!editor) return;
+
+      const sections = publicPriceSections();
+      editor.innerHTML = sections.map((section, sectionIndex) => {
+        const rows = section.rows.length ? section.rows : [section.columns.map(() => "")];
+
+        return `
+          <div class="price-edit-section" data-price-section="${sectionIndex}">
+            <div class="price-edit-head">
+              <label style="margin:0;flex:1;">
+                表タイトル
+                <input data-price-section-title="${sectionIndex}" value="${escapeAttr(section.title)}" placeholder="例：作業料">
+              </label>
+              <button class="secondary-btn" type="button" onclick="addPublicPriceRow(${sectionIndex})">行を追加</button>
+            </div>
+            <div class="table-wrap">
+              <table class="price-table">
+                <thead>
+                  <tr>${section.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}<th>操作</th></tr>
+                </thead>
+                <tbody>
+                  ${rows.map((row, rowIndex) => `
+                    <tr data-price-row="${rowIndex}">
+                      ${section.columns.map((column, cellIndex) => `
+                        <td>
+                          <input
+                            data-price-cell="${sectionIndex}:${rowIndex}:${cellIndex}"
+                            value="${escapeAttr(row[cellIndex] || "")}"
+                            placeholder="${escapeAttr(column)}"
+                          >
+                        </td>
+                      `).join("")}
+                      <td><button class="danger-btn" type="button" onclick="removePublicPriceRow(${sectionIndex}, ${rowIndex})">削除</button></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+            ${section.columns.length > 3 ? '<p class="muted" style="margin-top:8px;">送料表の列名は固定です。行は自由に追加・変更できます。</p>' : ""}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function collectPublicPriceSectionsFromEditor() {
+      return publicPriceSections().map((section, sectionIndex) => {
+        const titleInput = document.querySelector(`[data-price-section-title="${sectionIndex}"]`);
+        const rowElements = [...document.querySelectorAll(`[data-price-section="${sectionIndex}"] [data-price-row]`)];
+        const rows = rowElements
+          .map((rowElement) => {
+            const rowIndex = Number(rowElement.dataset.priceRow || 0);
+            return section.columns.map((column, cellIndex) => {
+              const input = document.querySelector(`[data-price-cell="${sectionIndex}:${rowIndex}:${cellIndex}"]`);
+              return input ? input.value.trim() : "";
+            });
+          })
+          .filter((row) => row.some((value) => value));
+
+        return {
+          id: section.id,
+          title: titleInput ? titleInput.value.trim() || section.title : section.title,
+          columns: section.columns,
+          rows
+        };
+      });
+    }
+
+    function addPublicPriceRow(sectionIndex) {
+      const sections = collectPublicPriceSectionsFromEditor();
+      const section = sections[sectionIndex];
+      if (!section) return;
+      section.rows.push(section.columns.map(() => ""));
+      priceTableCache = { ...priceTableCache, publicSections: sections };
+      renderPrices();
+    }
+
+    function removePublicPriceRow(sectionIndex, rowIndex) {
+      const sections = collectPublicPriceSectionsFromEditor();
+      const section = sections[sectionIndex];
+      if (!section) return;
+      section.rows.splice(rowIndex, 1);
+      if (!section.rows.length) section.rows.push(section.columns.map(() => ""));
+      priceTableCache = { ...priceTableCache, publicSections: sections };
+      renderPrices();
+    }
+
+    async function savePublicPriceTable() {
+      hideError(appError);
+
+      if (!confirm("価格表を変更する前に、会員への事前アナウンスは完了していますか？")) return;
+      if (!confirm("会員画面に表示される価格表をこの内容で保存しますか？")) return;
+
+      const sections = collectPublicPriceSectionsFromEditor();
+      try {
+        await update(ref(db, "priceTable"), {
+          publicSections: sections,
+          updatedAt: Date.now(),
+          updatedBy: currentUser ? currentUser.uid : "",
+          updatedByEmail: currentUser ? currentUser.email || "" : ""
+        });
+        priceTableCache = { ...priceTableCache, publicSections: sections };
+        renderPrices();
+        showError(appError, "価格表を保存しました。");
+      } catch (error) {
+        showError(appError, "価格表の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     function renderBasicInfo() {
       if (basicInfoInput) basicInfoInput.value = basicInfoCache.message || "";
     }
@@ -6818,6 +6970,7 @@ function firstInvoiceDate(item) {
           sheetName: member.inspectionSheetName || "検品結果",
           memberName: member.name || "",
           memberEmail: member.email || "",
+          descriptionWebhookUrl: member.inspectionGeneratorWebhookUrl || "",
           rows
         }, { maxAttempts: 1 });
 
@@ -6876,6 +7029,9 @@ function firstInvoiceDate(item) {
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
+    window.addPublicPriceRow = addPublicPriceRow;
+    window.removePublicPriceRow = removePublicPriceRow;
+    window.savePublicPriceTable = savePublicPriceTable;
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveBasicInfo = saveBasicInfo;
     window.saveConfirmationBase = saveConfirmationBase;
