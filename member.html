@@ -551,7 +551,7 @@ const database = getDatabase(
   "https://okirakubin-manager-default-rtdb.asia-southeast1.firebasedatabase.app"
 );
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw8s__XZQvoXHJ2yQ92ktYjF3u17PFP-SLiP1dh5QGd8MTQjHzZwOxMagzarn8J859S/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyK0ZqT98gvpja-O2BVZPVcrHFrAxFvD4DZko_ded0_yXCgZ6x302wDtMZpoPONbPGv/exec";
 const GAS_WEB_APP_TOKEN = "okirakubin_drive_folder_20260527_K7mQp9xR2vL8sT4nY6bF";
 const PREPAID_LABEL_REQUEST = "送料会員事前負担";
 const PREPAID_LABEL_WORK_FEE = 500;
@@ -3552,7 +3552,9 @@ async function exportProductInspectionToGss(productId) {
       ? "【最新版確認OK】商品文生成へ通知しました。生成結果は検品結果シートのG列に出力されます。"
       : result.descriptionNotificationOk === false
         ? `【最新版確認OK】商品文生成通知は失敗しました：${result.descriptionNotificationError || "通知先URLを確認してください。"}`
-        : "【最新版確認OK】商品文生成通知URLを取得できませんでした。検品結果のみ出力しました。";
+        : descriptionWebhookUrl
+          ? "【最新版確認OK】商品文生成通知URLは取得済みですが、送信側GASが通知結果を返していません。WebアプリURL・再デプロイ状況を確認してください。"
+          : "【最新版確認OK】商品文生成通知URLを取得できませんでした。検品結果のみ出力しました。";
     showSuccess(`【GSS出力テスト版】検品結果をGSSへ出力しました。商品：${product.name || "-"} ${descriptionMessage}`);
   } catch (error) {
     console.error(error);
