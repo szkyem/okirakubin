@@ -1015,6 +1015,22 @@ function renderMemberSettings() {
   if (inspectionGeneratorWebhookUrl) inspectionGeneratorWebhookUrl.value = memberProfileCache.inspectionGeneratorWebhookUrl || "";
 }
 
+function currentInspectionGeneratorWebhookUrl() {
+  return String(memberProfileCache.inspectionGeneratorWebhookUrl || inspectionGeneratorWebhookUrl?.value || "").trim();
+}
+
+async function refreshMemberSettingsForGssExport() {
+  if (!currentUser) return memberProfileCache;
+
+  const settingsSnapshot = await get(ref(database, `memberSettings/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
+  const latestSettings = settingsSnapshot.exists() ? settingsSnapshot.val() || {} : {};
+  memberProfileCache = {
+    ...memberProfileCache,
+    ...latestSettings
+  };
+  return memberProfileCache;
+}
+
 async function saveInspectionSheetSettings() {
   clearError();
 
@@ -1045,6 +1061,12 @@ async function saveInspectionSheetSettings() {
       inspectionGeneratorWebhookUrl: generatorWebhookUrl,
       updatedAt: Date.now()
     });
+    memberProfileCache = {
+      ...memberProfileCache,
+      inspectionSheetUrl: url,
+      inspectionSheetName: sheetName,
+      inspectionGeneratorWebhookUrl: generatorWebhookUrl
+    };
     await loadData();
     setMemberTab("settings", { pushHistory: false });
     showSuccess("検品結果GSS連携を保存しました。");
@@ -3504,8 +3526,10 @@ async function exportProductInspectionToGss(productId) {
     return;
   }
 
-  const spreadsheetUrl = String(memberProfileCache.inspectionSheetUrl || "").trim();
-  const sheetName = String(memberProfileCache.inspectionSheetName || "検品結果").trim() || "検品結果";
+  const latestSettings = await refreshMemberSettingsForGssExport();
+  const spreadsheetUrl = String(latestSettings.inspectionSheetUrl || inspectionSheetUrl?.value || "").trim();
+  const sheetName = String(latestSettings.inspectionSheetName || inspectionSheetName?.value || "検品結果").trim() || "検品結果";
+  const descriptionWebhookUrl = String(latestSettings.inspectionGeneratorWebhookUrl || inspectionGeneratorWebhookUrl?.value || "").trim();
   if (!spreadsheetUrl) {
     showError("検品結果GSS URLが未設定です。会員設定からGoogleスプレッドシートURLを登録してください。");
     return;
@@ -3518,7 +3542,7 @@ async function exportProductInspectionToGss(productId) {
       memberName: memberProfileCache.name || currentUser?.displayName || "",
       memberEmail: memberProfileCache.email || currentUser?.email || "",
       appendMode: "upsert",
-      descriptionWebhookUrl: memberProfileCache.inspectionGeneratorWebhookUrl || "",
+      descriptionWebhookUrl,
       rows: [productInspectionGssRow(product)]
     }, { maxAttempts: 1 });
 
