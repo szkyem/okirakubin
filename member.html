@@ -1576,16 +1576,6 @@ shippingForm.addEventListener("submit", async (event) => {
     const shipmentGroupNames = selectedProducts.map((product) => product.name || "").filter(Boolean).join(" / ");
     const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
-    if (isPrepaidLabel) {
-      await sendPrepaidLabelToDiscord({
-        file: labelFile,
-        memo: labelMemo,
-        selectedProducts,
-        shipmentGroupNames,
-        shipmentGroupNumberings
-      });
-    }
-
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
@@ -1598,17 +1588,57 @@ shippingForm.addEventListener("submit", async (event) => {
         shipmentGroupNumberings,
         prepaidLabelFileName: isPrepaidLabel ? labelFile.name || "" : "",
         prepaidLabelMemo: isPrepaidLabel ? labelMemo : "",
-        prepaidLabelDiscordSentAt: isPrepaidLabel ? now : "",
+        prepaidLabelDiscordSentAt: "",
+        prepaidLabelDiscordError: "",
         shippingRequestedAt: now,
         updatedAt: now
       });
     }));
 
+    let prepaidLabelDiscordWarning = "";
+    if (isPrepaidLabel) {
+      try {
+        await sendPrepaidLabelToDiscord({
+          file: labelFile,
+          memo: labelMemo,
+          selectedProducts,
+          shipmentGroupNames,
+          shipmentGroupNumberings
+        });
+        try {
+          await Promise.all(selectedIds.map((productId) => {
+            return update(ref(database, `products/${dataUid()}/${productId}`), {
+              prepaidLabelDiscordSentAt: Date.now(),
+              prepaidLabelDiscordError: "",
+              updatedAt: Date.now()
+            });
+          }));
+        } catch (sentAtError) {
+          console.warn("ラベル発送依頼のDiscord送信済み記録に失敗しました。", sentAtError);
+        }
+      } catch (discordError) {
+        console.error(discordError);
+        prepaidLabelDiscordWarning = `\n\nただし、Discordへのラベル送信に失敗しました。管理者へ連絡してください。${discordError && discordError.message ? "\n" + discordError.message : ""}`;
+        try {
+          await Promise.all(selectedIds.map((productId) => {
+            return update(ref(database, `products/${dataUid()}/${productId}`), {
+              prepaidLabelDiscordError: discordError && discordError.message ? discordError.message : "Discordへのラベル送信に失敗しました。",
+              updatedAt: Date.now()
+            });
+          }));
+        } catch (discordErrorSaveError) {
+          console.warn("ラベル発送依頼のDiscord送信失敗記録に失敗しました。", discordErrorSaveError);
+        }
+      }
+    }
+
     selectedProductIds.clear();
     shippingForm.reset();
     closeShippingModal();
     await loadData();
-    alert(isPrepaidLabel ? "ラベル発送依頼を作成し、Discordへ送信しました。" : "発送依頼を作成しました。");
+    alert(isPrepaidLabel
+      ? `ラベル発送依頼を作成しました。${prepaidLabelDiscordWarning || "\n\nDiscordへラベルを送信しました。"}`
+      : "発送依頼を作成しました。");
   } catch (error) {
     console.error(error);
     showError(`発送依頼の作成に失敗しました。${error && error.message ? error.message : ""}`);
