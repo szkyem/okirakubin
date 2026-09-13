@@ -4305,18 +4305,18 @@
           </label>
 
           <label>
-            ボディの本数
-            <input name="bodyCount" type="number" min="0" step="1" value="${escapeAttr(product.bodyCount ?? "")}" />
+            ボディの本数 *
+            <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}" />
           </label>
 
           <label>
-            レンズの本数
-            <input name="lensCount" type="number" min="0" step="1" value="${escapeAttr(product.lensCount ?? "")}" />
+            レンズの本数 *
+            <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}" />
           </label>
 
           <label>
-            検品確認が必要な周辺機器本数
-            <input name="accessoryCount" type="number" min="0" step="1" value="${escapeAttr(product.accessoryCount ?? "")}" />
+            検品確認が必要な周辺機器本数 *
+            <input name="accessoryCount" type="number" min="0" step="1" required value="${escapeAttr(product.accessoryCount ?? "")}" />
           </label>
 
           <label>
@@ -4734,6 +4734,13 @@
           const optionOkirakuInsert = formData.get("optionOkirakuInsert") === "on";
           const optionLabels = [];
           if (optionOkirakuInsert) optionLabels.push("お気楽便Thanksカード・チラシ同梱");
+          const bodyCount = getFormValue(formData, "bodyCount");
+          const lensCount = getFormValue(formData, "lensCount");
+          const accessoryCount = getFormValue(formData, "accessoryCount");
+          if (!getFormValue(formData, "name") || !getFormValue(formData, "numbering") || !getFormValue(formData, "workRequest") || !bodyCount || !lensCount || accessoryCount === "") {
+            showError(appError, "商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
+            return;
+          }
 
           const updates = {
             updatedAt: now,
@@ -4743,9 +4750,9 @@
             name: getFormValue(formData, "name"),
             numbering: getFormValue(formData, "numbering"),
             workRequest: getFormValue(formData, "workRequest"),
-            bodyCount: getFormValue(formData, "bodyCount"),
-            lensCount: getFormValue(formData, "lensCount"),
-            accessoryCount: getFormValue(formData, "accessoryCount") || "0",
+            bodyCount,
+            lensCount,
+            accessoryCount,
             purchaseUrl: getFormValue(formData, "purchaseUrl"),
             optionVideo,
             optionThanksCard,

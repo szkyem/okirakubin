@@ -1416,8 +1416,8 @@ registerProductsBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount)) {
-    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数は必須です。");
+  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount || item.accessoryCount === "")) {
+    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
     return;
   }
 
@@ -1436,7 +1436,7 @@ registerProductsBtn.addEventListener("click", async () => {
         workRequest: item.workRequest,
         bodyCount: item.bodyCount,
         lensCount: item.lensCount,
-        accessoryCount: item.accessoryCount || "0",
+        accessoryCount: item.accessoryCount,
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
         optionOkirakuThanksCard: item.optionOkirakuInsert,
@@ -2002,8 +2002,8 @@ function addProductEntry() {
       </div>
 
       <div class="form-group">
-        <label>検品確認が必要な周辺機器本数</label>
-        <input type="number" min="0" step="1" data-field="accessoryCount" placeholder="例：0">
+        <label>検品確認が必要な周辺機器本数 *</label>
+        <input type="number" min="0" step="1" data-field="accessoryCount" required placeholder="例：0">
         <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
       </div>
 
@@ -2535,8 +2535,8 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group">
-          <label>検品確認が必要な周辺機器本数</label>
-          <input name="accessoryCount" type="number" min="0" step="1" value="${escapeAttr(product.accessoryCount ?? "")}">
+          <label>検品確認が必要な周辺機器本数 <span class="required">必須</span></label>
+          <input name="accessoryCount" type="number" min="0" step="1" required value="${escapeAttr(product.accessoryCount ?? "")}">
           <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
         </div>
 
@@ -2579,7 +2579,7 @@ window.saveProductEdit = async function(event, productId) {
     workRequest: String(formData.get("workRequest") || "").trim(),
     bodyCount: String(formData.get("bodyCount") || "").trim(),
     lensCount: String(formData.get("lensCount") || "").trim(),
-    accessoryCount: String(formData.get("accessoryCount") || "0").trim(),
+    accessoryCount: String(formData.get("accessoryCount") ?? "").trim(),
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
     optionOkirakuInsert: formData.get("optionOkirakuInsert") === "on",
@@ -2589,8 +2589,8 @@ window.saveProductEdit = async function(event, productId) {
     updatedAt: Date.now()
   };
 
-  if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount) {
-    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数は必須です。");
+  if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount || data.accessoryCount === "") {
+    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
     return;
   }
 
