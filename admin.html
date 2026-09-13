@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -3764,10 +3764,10 @@
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
 
-            <div class="info-label">ボディ本数</div>
+            <div class="info-label">メイン商品の数</div>
             <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
 
-            <div class="info-label">レンズ本数</div>
+            <div class="info-label">サブ商品の数</div>
             <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
 
             <div class="info-label">オプション</div>
@@ -4081,10 +4081,10 @@
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
 
-            <div class="info-label">ボディ本数</div>
+            <div class="info-label">メイン商品の数</div>
             <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
 
-            <div class="info-label">レンズ本数</div>
+            <div class="info-label">サブ商品の数</div>
             <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
 
             <div class="info-label">オプション</div>
@@ -4299,12 +4299,12 @@
           </label>
 
           <label>
-            ボディ本数
+            メイン商品の数
             <input name="bodyCount" type="number" min="0" step="1" value="${escapeAttr(product.bodyCount ?? "")}" />
           </label>
 
           <label>
-            レンズ本数
+            サブ商品の数
             <input name="lensCount" type="number" min="0" step="1" value="${escapeAttr(product.lensCount ?? "")}" />
           </label>
 
@@ -6052,7 +6052,7 @@ function firstInvoiceDate(item) {
       ["会員", invoice.memberName || ""],
       ["管理番号", invoice.managementNumber || ""],
       [],
-      ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
+      ["商品名", "ナンバリング", "作業内容", "メイン商品の数", "サブ商品の数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
         ...csvItems.map((item) => [
           item.name || "",
           item.numbering || "",
@@ -7797,3 +7797,4 @@ function firstInvoiceDate(item) {
   </script>
 </body>
 </html>
+

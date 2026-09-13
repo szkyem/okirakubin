@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1416,7 +1416,7 @@ registerProductsBtn.addEventListener("click", async () => {
   }
 
   if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount)) {
-    showError("商品名、ナンバリング、作業依頼、ボディ本数、レンズ本数は必須です。");
+    showError("商品名、ナンバリング、作業依頼、メイン商品の数、サブ商品の数は必須です。");
     return;
   }
 
@@ -1990,13 +1990,14 @@ function addProductEntry() {
       </div>
 
       <div class="form-group">
-        <label>ボディ本数 *</label>
+        <label>メイン商品の数 *</label>
         <input type="number" min="0" step="1" data-field="bodyCount" required placeholder="例：1">
       </div>
 
       <div class="form-group">
-        <label>レンズ本数 *</label>
+        <label>サブ商品の数 *</label>
         <input type="number" min="0" step="1" data-field="lensCount" required placeholder="例：2">
+        <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
       </div>
 
       <div class="form-group">
@@ -2517,13 +2518,14 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group">
-          <label>ボディ本数 <span class="required">必須</span></label>
+          <label>メイン商品の数 <span class="required">必須</span></label>
           <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}">
         </div>
 
         <div class="form-group">
-          <label>レンズ本数 <span class="required">必須</span></label>
+          <label>サブ商品の数 <span class="required">必須</span></label>
           <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}">
+          <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
         </div>
 
         <div class="form-group">
@@ -2575,7 +2577,7 @@ window.saveProductEdit = async function(event, productId) {
   };
 
   if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount) {
-    showError("商品名、ナンバリング、作業依頼、ボディ本数、レンズ本数は必須です。");
+    showError("商品名、ナンバリング、作業依頼、メイン商品の数、サブ商品の数は必須です。");
     return;
   }
 
@@ -2679,7 +2681,7 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "ボディ本数", "レンズ本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
+    ["商品名", "ナンバリング", "作業内容", "メイン商品の数", "サブ商品の数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
@@ -3057,8 +3059,8 @@ function productDetailHtml(product) {
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
-        <div class="detail-label">ボディ本数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
-        <div class="detail-label">レンズ本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
+        <div class="detail-label">メイン商品の数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
+        <div class="detail-label">サブ商品の数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
@@ -3978,3 +3980,4 @@ function escapeAttr(value) {
 </script>
 </body>
 </html>
+
