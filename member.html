@@ -1401,6 +1401,7 @@ registerProductsBtn.addEventListener("click", async () => {
       workRequest: entry.querySelector('[data-field="workRequest"]').value,
       bodyCount: entry.querySelector('[data-field="bodyCount"]').value.trim(),
       lensCount: entry.querySelector('[data-field="lensCount"]').value.trim(),
+      accessoryCount: entry.querySelector('[data-field="accessoryCount"]').value.trim(),
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
       optionOkirakuInsert: entry.querySelector('[data-field="optionOkirakuInsert"]').checked,
@@ -1416,7 +1417,7 @@ registerProductsBtn.addEventListener("click", async () => {
   }
 
   if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount)) {
-    showError("商品名、ナンバリング、作業依頼、メイン商品の数、サブ商品の数は必須です。");
+    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数は必須です。");
     return;
   }
 
@@ -1435,6 +1436,7 @@ registerProductsBtn.addEventListener("click", async () => {
         workRequest: item.workRequest,
         bodyCount: item.bodyCount,
         lensCount: item.lensCount,
+        accessoryCount: item.accessoryCount || "0",
         optionVideo: item.optionVideo,
         optionThanksCard: item.optionThanksCard,
         optionOkirakuThanksCard: item.optionOkirakuInsert,
@@ -1990,13 +1992,18 @@ function addProductEntry() {
       </div>
 
       <div class="form-group">
-        <label>メイン商品の数 *</label>
+        <label>ボディの本数 *</label>
         <input type="number" min="0" step="1" data-field="bodyCount" required placeholder="例：1">
       </div>
 
       <div class="form-group">
-        <label>サブ商品の数 *</label>
+        <label>レンズの本数 *</label>
         <input type="number" min="0" step="1" data-field="lensCount" required placeholder="例：2">
+      </div>
+
+      <div class="form-group">
+        <label>検品確認が必要な周辺機器本数</label>
+        <input type="number" min="0" step="1" data-field="accessoryCount" placeholder="例：0">
         <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
       </div>
 
@@ -2518,13 +2525,18 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group">
-          <label>メイン商品の数 <span class="required">必須</span></label>
+          <label>ボディの本数 <span class="required">必須</span></label>
           <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}">
         </div>
 
         <div class="form-group">
-          <label>サブ商品の数 <span class="required">必須</span></label>
+          <label>レンズの本数 <span class="required">必須</span></label>
           <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}">
+        </div>
+
+        <div class="form-group">
+          <label>検品確認が必要な周辺機器本数</label>
+          <input name="accessoryCount" type="number" min="0" step="1" value="${escapeAttr(product.accessoryCount ?? "")}">
           <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
         </div>
 
@@ -2567,6 +2579,7 @@ window.saveProductEdit = async function(event, productId) {
     workRequest: String(formData.get("workRequest") || "").trim(),
     bodyCount: String(formData.get("bodyCount") || "").trim(),
     lensCount: String(formData.get("lensCount") || "").trim(),
+    accessoryCount: String(formData.get("accessoryCount") || "0").trim(),
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
     optionOkirakuInsert: formData.get("optionOkirakuInsert") === "on",
@@ -2577,7 +2590,7 @@ window.saveProductEdit = async function(event, productId) {
   };
 
   if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount) {
-    showError("商品名、ナンバリング、作業依頼、メイン商品の数、サブ商品の数は必須です。");
+    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数は必須です。");
     return;
   }
 
@@ -2681,13 +2694,14 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "メイン商品の数", "サブ商品の数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
+    ["商品名", "ナンバリング", "作業内容", "ボディの本数", "レンズの本数", "検品確認が必要な周辺機器本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
       item.workRequest || "",
       item.bodyCount || "",
       item.lensCount || "",
+      item.accessoryCount || "",
       invoiceOptionsForDisplay(item.options, invoice),
       item.inspectionDate || "-",
       item.inspectionFee ?? "-",
@@ -3059,8 +3073,9 @@ function productDetailHtml(product) {
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
-        <div class="detail-label">メイン商品の数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
-        <div class="detail-label">サブ商品の数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
+        <div class="detail-label">ボディの本数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
+        <div class="detail-label">レンズの本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
+        <div class="detail-label">検品確認が必要な周辺機器本数</div><div>${escapeHtml(product.accessoryCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
@@ -3344,7 +3359,7 @@ function inspectionFeeFor(product) {
   if (product.workRequest === "写真のみ") return PRICE_TABLE.photoOnly;
   if (product.workRequest === "検品のみ") return PRICE_TABLE.inspectionOnly;
 
-  let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * PRICE_TABLE.additionalKitItem;
+  let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) + numberValue(product.accessoryCount) - 1) * PRICE_TABLE.additionalKitItem;
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
     fee += PRICE_TABLE.video;

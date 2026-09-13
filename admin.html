@@ -3764,11 +3764,14 @@
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
 
-            <div class="info-label">メイン商品の数</div>
+            <div class="info-label">ボディの本数</div>
             <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
 
-            <div class="info-label">サブ商品の数</div>
+            <div class="info-label">レンズの本数</div>
             <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
+
+            <div class="info-label">検品確認が必要な周辺機器本数</div>
+            <div class="info-value">${escapeHtml(product.accessoryCount ?? "-")}</div>
 
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
@@ -4081,11 +4084,14 @@
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
 
-            <div class="info-label">メイン商品の数</div>
+            <div class="info-label">ボディの本数</div>
             <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
 
-            <div class="info-label">サブ商品の数</div>
+            <div class="info-label">レンズの本数</div>
             <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
+
+            <div class="info-label">検品確認が必要な周辺機器本数</div>
+            <div class="info-value">${escapeHtml(product.accessoryCount ?? "-")}</div>
 
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
@@ -4299,13 +4305,18 @@
           </label>
 
           <label>
-            メイン商品の数
+            ボディの本数
             <input name="bodyCount" type="number" min="0" step="1" value="${escapeAttr(product.bodyCount ?? "")}" />
           </label>
 
           <label>
-            サブ商品の数
+            レンズの本数
             <input name="lensCount" type="number" min="0" step="1" value="${escapeAttr(product.lensCount ?? "")}" />
+          </label>
+
+          <label>
+            検品確認が必要な周辺機器本数
+            <input name="accessoryCount" type="number" min="0" step="1" value="${escapeAttr(product.accessoryCount ?? "")}" />
           </label>
 
           <label>
@@ -4734,6 +4745,7 @@
             workRequest: getFormValue(formData, "workRequest"),
             bodyCount: getFormValue(formData, "bodyCount"),
             lensCount: getFormValue(formData, "lensCount"),
+            accessoryCount: getFormValue(formData, "accessoryCount") || "0",
             purchaseUrl: getFormValue(formData, "purchaseUrl"),
             optionVideo,
             optionThanksCard,
@@ -5896,6 +5908,7 @@ function buildInvoiceItems(member, month) {
         workRequest: product.workRequest || "",
         bodyCount: product.bodyCount || "",
         lensCount: product.lensCount || "",
+        accessoryCount: product.accessoryCount || "",
         options: invoiceOptionSummary(product, member),
         shippingRequest: product.shippingRequest || "",
         inspectionDate: inspectionInMonth ? inspectionDate || "" : "-",
@@ -5964,7 +5977,7 @@ function firstInvoiceDate(item) {
       } else if (product.workRequest === "検品のみ") {
         fee = prices.inspectionOnly;
       } else {
-        fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) - 1) * prices.additionalKitItem;
+        fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) + numberValue(product.accessoryCount) - 1) * prices.additionalKitItem;
       }
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
@@ -6052,13 +6065,14 @@ function firstInvoiceDate(item) {
       ["会員", invoice.memberName || ""],
       ["管理番号", invoice.managementNumber || ""],
       [],
-      ["商品名", "ナンバリング", "作業内容", "メイン商品の数", "サブ商品の数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
+      ["商品名", "ナンバリング", "作業内容", "ボディの本数", "レンズの本数", "検品確認が必要な周辺機器本数", "オプション", "検品日", "検品料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
         ...csvItems.map((item) => [
           item.name || "",
           item.numbering || "",
           item.workRequest || "",
           item.bodyCount || "",
           item.lensCount || "",
+          item.accessoryCount || "",
           invoiceOptionsForDisplay(item.options, invoice),
           item.inspectionDate || "-",
           item.inspectionFee ?? "-",
