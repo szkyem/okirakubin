@@ -505,11 +505,11 @@ textarea{min-height:62px;resize:vertical}
             <input id="prepaidLabelFile" type="file" accept="image/*,.pdf">
           </div>
           <div class="form-group full">
-            <label>ラベル発送メモ</label>
-            <textarea id="prepaidLabelMemo" placeholder="任意。管理者へ伝えたい内容があれば入力してください。"></textarea>
+            <label>ラベル発送メモ <span class="required">必須</span></label>
+            <textarea id="prepaidLabelMemo" required placeholder="発送場所を必ず指定してください。例：郵便局から発送 / セブンイレブンから発送 / ファミマから発送"></textarea>
           </div>
         </div>
-        <p class="member-meta" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。</p>
+        <p class="member-meta" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。</p>
       </div>
 
       <div class="modal-section-title shipping-origin-section">発送元住所</div>
@@ -1566,6 +1566,10 @@ shippingForm.addEventListener("submit", async (event) => {
     showError("QRコード・ラベル画像を選択してください。");
     return;
   }
+  if (isPrepaidLabel && !labelMemo) {
+    showError("ラベル発送メモを入力してください。郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず指定してください。");
+    return;
+  }
 
   try {
     const now = Date.now();
@@ -2480,6 +2484,8 @@ window.openShippingModal = function(type) {
   if (prepaidSection) prepaidSection.style.display = isPrepaidLabel ? "" : "none";
   const labelFile = document.getElementById("prepaidLabelFile");
   if (labelFile) labelFile.required = isPrepaidLabel;
+  const prepaidMemo = document.getElementById("prepaidLabelMemo");
+  if (prepaidMemo) prepaidMemo.required = isPrepaidLabel;
 
   if (type === "海外発送" || isPrepaidLabel) {
     document.getElementById("deliveryDate").value = "";
@@ -3655,23 +3661,27 @@ async function exportProductInspectionToGss(productIds) {
     if (!result.ok) throw new Error(result.error || "GSS出力に失敗しました。");
 
     const exportedAt = Date.now();
+    let exportStatusWarning = "";
     try {
       const updates = {};
       targetProducts.forEach((product) => {
         updates[`products/${dataUid()}/${product.id}/inspectionGssExportedAt`] = exportedAt;
         updates[`products/${dataUid()}/${product.id}/inspectionGssExportedSheetName`] = sheetName;
         updates[`products/${dataUid()}/${product.id}/inspectionGssExportedRowCount`] = result.rowCount || targetProducts.length;
+      });
+      await update(ref(database), updates);
+      targetProducts.forEach((product) => {
         Object.assign(product, {
           inspectionGssExportedAt: exportedAt,
           inspectionGssExportedSheetName: sheetName,
           inspectionGssExportedRowCount: result.rowCount || targetProducts.length
         });
       });
-      await update(ref(database), updates);
       selectedGssExportIds.clear();
       renderStoredList();
     } catch (statusError) {
       console.warn("GSS出力済み状態の保存に失敗しました。", statusError);
+      exportStatusWarning = "GSSへの出力は完了しましたが、画面上の出力済み状態を保存できませんでした。再読み込み後に表示を確認してください。";
     }
 
     const exportedCount = Number(result.rowCount || targetProducts.length);
@@ -3682,7 +3692,7 @@ async function exportProductInspectionToGss(productIds) {
         : descriptionWebhookUrl
           ? "商品文生成通知URLは取得済みですが、送信側GASが通知結果を返していません。WebアプリURL・再デプロイ状況を確認してください。"
           : "商品文生成通知URLを取得できませんでした。検品結果のみ出力しました。";
-    showSuccess(`検品結果をGSSへ出力しました。${exportedCount}件 ${descriptionMessage}`);
+    showSuccess(`検品結果をGSSへ出力しました。${exportedCount}件 ${descriptionMessage}${exportStatusWarning ? " " + exportStatusWarning : ""}`);
   } catch (error) {
     console.error(error);
     showError(`検品結果のGSS出力に失敗しました。${error.message || "GASとスプレッドシート共有設定を確認してください。"}`);
@@ -3702,7 +3712,8 @@ async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmen
     "【商品発送依頼】",
     "",
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
-    `商品名：${shipmentGroupNames || "-"}`
+    `商品名：${shipmentGroupNames || "-"}`,
+    `発送メモ：${memo || "-"}`
   ].join("\n");
 
   const result = await callGasJson("discordNotifyFile", {

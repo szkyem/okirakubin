@@ -3468,21 +3468,29 @@
           });
         }
 
-        await update(ref(db), updates);
-        await Promise.all(notificationTargets.map(({ uid, member, product }) => {
-          return queueDiscordNotification({
+        notificationTargets.forEach(({ uid, member, product }) => {
+          Object.assign(updates, buildDiscordNotificationUpdates({
             uid,
             eventType: "shipped",
             title: "発送完了",
             member,
-            product
-          });
-        }));
+            product,
+            createdAt: now
+          }));
+        });
+
+        await update(ref(db), updates);
 
         await loadAllData();
-        await refreshExistingInvoicesForBatch(notificationTargets);
-        await loadAllData();
-        showError(appError, `発送待ち情報を保存しました。処理件数：${selected.length}件`);
+        let invoiceRefreshWarning = "";
+        try {
+          await refreshExistingInvoicesForBatch(notificationTargets);
+          await loadAllData();
+        } catch (invoiceError) {
+          console.error(invoiceError);
+          invoiceRefreshWarning = `\nただし、既存請求書の自動更新に失敗しました。請求書作成ボタンで再作成してください。${invoiceError && invoiceError.message ? "\n" + invoiceError.message : ""}`;
+        }
+        showError(appError, `発送待ち情報を保存しました。処理件数：${selected.length}件${invoiceRefreshWarning}`);
       } catch (error) {
         console.error(error);
         showError(appError, `発送待ち情報の保存に失敗しました。${error && error.message ? error.message : "Realtime Databaseのルールを確認してください。"}`);
@@ -4780,20 +4788,20 @@
           const shouldNotifyStored = product && !hasValue(product.shootingDate) && hasValue(confirmationDate);
           const shouldCancelStoredNotification = product && hasValue(product.shootingDate) && !hasValue(confirmationDate);
 
-          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
-            updatedAt: now,
-            confirmationDate,
-            shootingDate: confirmationDate,
-            confirmationResult,
-            confirmationTemplate: buildConfirmationTemplateData(formData),
-            expectedSize: getFormValue(formData, "expectedSize"),
-            storageLocation: getFormValue(formData, "storageLocation"),
-            driveBaseUrl: member?.driveBaseUrl || "",
-            folderName: makeFolderName(product?.numbering, product?.name)
-          });
+          const adminFieldUpdates = {
+            [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationDate`]: confirmationDate,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: confirmationDate,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationResult`]: confirmationResult,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationTemplate`]: buildConfirmationTemplateData(formData),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "expectedSize"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/driveBaseUrl`]: member?.driveBaseUrl || "",
+            [`products/${activeEdit.uid}/${activeEdit.productId}/folderName`]: makeFolderName(product?.numbering, product?.name)
+          };
 
           if (shouldNotifyStored) {
-            await queueDiscordNotification({
+            Object.assign(adminFieldUpdates, buildDiscordNotificationUpdates({
               uid: activeEdit.uid,
               eventType: "stored",
               title: "保管商品へ移動",
@@ -4805,16 +4813,18 @@
                 confirmationResult,
                 expectedSize: getFormValue(formData, "expectedSize")
               }
-            });
+            }));
           }
 
           if (shouldCancelStoredNotification) {
-            await cancelQueuedDiscordNotification({
+            Object.assign(adminFieldUpdates, buildCancelDiscordNotificationUpdates({
               uid: activeEdit.uid,
               productId: activeEdit.productId,
               eventType: "stored"
-            });
+            }));
           }
+
+          await update(ref(db), adminFieldUpdates);
         }
 
         if (activeEdit.type === "status") {
@@ -4827,18 +4837,18 @@
           const shouldNotifyShipped = product && !isShippedStatus(product.shippingStatus) && isShippedStatus(status);
           const shippedDate = isShippedStatus(status) ? todayString() : "";
 
-          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
-            updatedAt: now,
-            shippingStatus: status,
-            shippedDate,
-            shippingSize,
-            shippingPrice,
-            trackingNumber,
-            shippingTrackingNumber: trackingNumber
-          });
+          const statusUpdates = {
+            [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippingStatus`]: status,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippedDate`]: shippedDate,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippingSize`]: shippingSize,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippingPrice`]: shippingPrice,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/trackingNumber`]: trackingNumber,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippingTrackingNumber`]: trackingNumber
+          };
 
           if (shouldNotifyShipped) {
-            await queueDiscordNotification({
+            Object.assign(statusUpdates, buildDiscordNotificationUpdates({
               uid: activeEdit.uid,
               eventType: "shipped",
               title: "発送完了",
@@ -4850,8 +4860,10 @@
                 shippingSize,
                 shippingPrice
               }
-            });
+            }));
           }
+
+          await update(ref(db), statusUpdates);
         }
 
         if (activeEdit.type === "announcement") {
@@ -4866,15 +4878,26 @@
         const finishedEdit = { ...activeEdit };
         closeEditModal();
         await loadAllData();
+        let postSaveWarning = "";
 
         if (finishedEdit.type === "memberManagement") {
-          await refreshExistingInvoicesForMember(finishedEdit.uid);
-          await loadAllData();
+          try {
+            await refreshExistingInvoicesForMember(finishedEdit.uid);
+            await loadAllData();
+          } catch (invoiceError) {
+            console.error(invoiceError);
+            postSaveWarning = `会員情報は保存しましたが、既存請求書の自動更新に失敗しました。請求書作成ボタンで再作成してください。${invoiceError && invoiceError.message ? "\n" + invoiceError.message : ""}`;
+          }
         }
 
         if (invoiceRefreshTarget) {
-          await refreshExistingInvoicesForProduct(invoiceRefreshTarget);
-          await loadAllData();
+          try {
+            await refreshExistingInvoicesForProduct(invoiceRefreshTarget);
+            await loadAllData();
+          } catch (invoiceError) {
+            console.error(invoiceError);
+            postSaveWarning = `商品情報は保存しましたが、既存請求書の自動更新に失敗しました。請求書作成ボタンで再作成してください。${invoiceError && invoiceError.message ? "\n" + invoiceError.message : ""}`;
+          }
         }
 
         if (finishedEdit.type === "adminFields") {
@@ -4891,6 +4914,10 @@
 
         if (finishedEdit.type === "announcement") {
           setMainTab("announcements");
+        }
+
+        if (postSaveWarning) {
+          showError(appError, postSaveWarning);
         }
       } catch (error) {
         showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -4939,13 +4966,17 @@
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
 
-        await update(ref(db, `products/${uid}/${productId}`), {
-          folderName,
-          driveBaseUrl: member.driveBaseUrl,
-          folderJobStatus: "error",
-          folderError: message,
-          updatedAt: Date.now()
-        });
+        try {
+          await update(ref(db, `products/${uid}/${productId}`), {
+            folderName,
+            driveBaseUrl: member.driveBaseUrl,
+            folderJobStatus: "error",
+            folderError: message,
+            updatedAt: Date.now()
+          });
+        } catch (statusError) {
+          console.warn("保管場所作成エラー状態の保存に失敗しました。", statusError);
+        }
 
         showError(appError, `保管場所の作成に失敗しました。${message}`);
         await loadAllData();
@@ -5029,9 +5060,8 @@
 
       return result;
     }
-    async function queueDiscordNotification({ uid, eventType, title, member, product }) {
-      if (!uid || !product?.id) return;
-      const date = todayString();
+    function buildDiscordNotificationUpdates({ uid, eventType, title, member, product, createdAt = Date.now(), date = todayString() }) {
+      if (!uid || !product?.id) return {};
       const queueId = `${product.id}_${eventType}`;
       const message = [
         `【${title}】`,
@@ -5049,8 +5079,8 @@
         eventType === "shipped" ? `送料：${product?.shippingPrice || "-"}` : ""
       ].filter(Boolean).join("\n");
 
-      try {
-        await set(ref(db, `discordNotificationQueue/${uid}/${date}/${queueId}`), {
+      return {
+        [`discordNotificationQueue/${uid}/${date}/${queueId}`]: {
           id: queueId,
           uid,
           productId: product.id,
@@ -5061,16 +5091,24 @@
           numbering: product.numbering || "",
           shippingRequest: product.shippingRequest || "",
           shippingStatus: product.shippingStatus || "",
-          createdAt: Date.now(),
+          createdAt,
           sent: false
-        });
+        }
+      };
+    }
+
+    async function queueDiscordNotification({ uid, eventType, title, member, product }) {
+      if (!uid || !product?.id) return;
+      try {
+        const updates = buildDiscordNotificationUpdates({ uid, eventType, title, member, product });
+        if (Object.keys(updates).length) await update(ref(db), updates);
       } catch (error) {
         console.warn("Discord通知候補の保存に失敗しました。", error);
       }
     }
 
-    async function cancelQueuedDiscordNotification({ uid, productId, eventType }) {
-      if (!uid || !productId || !eventType) return;
+    function buildCancelDiscordNotificationUpdates({ uid, productId, eventType }) {
+      if (!uid || !productId || !eventType) return {};
       const updates = {};
       const userQueue = discordNotificationQueueCache?.[uid] || {};
       Object.entries(userQueue).forEach(([date, dayMap]) => {
@@ -5083,6 +5121,12 @@
 
       const todayQueueId = `${productId}_${eventType}`;
       updates[`discordNotificationQueue/${uid}/${todayString()}/${todayQueueId}`] = null;
+      return updates;
+    }
+
+    async function cancelQueuedDiscordNotification({ uid, productId, eventType }) {
+      const updates = buildCancelDiscordNotificationUpdates({ uid, productId, eventType });
+      if (!Object.keys(updates).length) return;
 
       try {
         await update(ref(db), updates);
@@ -5127,7 +5171,6 @@
     async function sendDiscordNotificationsForDate() {
       hideError(appError);
       const date = discordNotifyDateInput.value || todayString();
-      const updates = {};
       let sentCount = 0;
       let skippedCount = 0;
       const failedMembers = [];
@@ -5154,18 +5197,22 @@
             continue;
           }
 
+          const sentUpdates = {};
           items.forEach((item) => {
-            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
-            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentAt`] = Date.now();
-            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
-            updates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentMode`] = "manual";
+            sentUpdates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sent`] = true;
+            sentUpdates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentAt`] = Date.now();
+            sentUpdates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentBy`] = currentUser?.uid || "";
+            sentUpdates[`discordNotificationQueue/${member.uid}/${date}/${item.id}/sentMode`] = "manual";
           });
+          try {
+            await update(ref(db), sentUpdates);
+          } catch (sentMarkError) {
+            skippedCount += items.length;
+            failedMembers.push(`${member.name || member.email || member.uid}：Discord送信は完了しましたが、送信済み記録に失敗しました。再送信前に通知状況を確認してください。`);
+            continue;
+          }
           sentCount += items.length;
           await sleep(1500);
-        }
-
-        if (Object.keys(updates).length) {
-          await update(ref(db), updates);
         }
 
         await loadAllData();
