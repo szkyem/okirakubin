@@ -1347,6 +1347,7 @@
               <th>商品名</th>
               <th>ナンバリング</th>
               <th>発送情報</th>
+              <th>サンクスカード</th>
               <th>発送先氏名</th>
               <th>郵便番号</th>
               <th>状態</th>
@@ -2809,7 +2810,7 @@
       shippingBatchUnitsCache = filterShippingBatchUnits(buildShippingBatchUnits());
 
       if (!shippingBatchUnitsCache.length) {
-        shippingBatchBody.innerHTML = `<tr><td colspan="13"><div class="empty">発送依頼中の商品はありません。</div></td></tr>`;
+        shippingBatchBody.innerHTML = `<tr><td colspan="14"><div class="empty">発送依頼中の商品はありません。</div></td></tr>`;
         return;
       }
 
@@ -2837,6 +2838,7 @@
             <td>${escapeHtml(unit.displayNames)}${bundleText}</td>
             <td>${escapeHtml(unit.displayNumberings)}</td>
             <td><button class="mini-btn" type="button" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+            <td>${thanksCardShippingHtml(unit.products)}</td>
             <td>${escapeHtml(shippingDestinationName(product))}</td>
             <td>${escapeHtml(shippingDestinationPostalCode(product))}</td>
             <td>
@@ -3536,6 +3538,34 @@
       return product.bundleRole === "child"
         ? `<span class="dash-mark" aria-label="同梱"></span>`
         : `<button class="mini-btn" onclick="openShippingInfo('${escapeAttr(uid)}','${escapeAttr(product.id)}')">詳細</button>`;
+    }
+
+    function thanksCardShippingHtml(products) {
+      const productList = Array.isArray(products) ? products : [];
+      const hasCustomerCard = productList.some((product) => {
+        const options = product?.options || {};
+        return isOptionEnabled(product?.optionThanksCard) || isOptionEnabled(options.thanksCard);
+      });
+      const hasOkirakuCard = productList.some((product) => {
+        const options = product?.options || {};
+        const labels = Array.isArray(product?.optionLabels) ? product.optionLabels : [];
+        return isOptionEnabled(product?.optionOkirakuInsert)
+          || isOptionEnabled(options.okirakuInsert)
+          || isOptionEnabled(product?.optionOkirakuThanksCard)
+          || isOptionEnabled(options.okirakuThanksCard)
+          || isOptionEnabled(product?.optionFlyer)
+          || isOptionEnabled(options.flyer)
+          || labels.includes("お気楽便Thanksカード・チラシ同梱");
+      });
+
+      if (!hasCustomerCard && !hasOkirakuCard) {
+        return `<span class="status-pill gray">なし</span>`;
+      }
+
+      return [
+        hasCustomerCard ? `<span class="status-pill blue">お客様カード</span>` : "",
+        hasOkirakuCard ? `<span class="status-pill yellow">お気楽便カード</span>` : ""
+      ].filter(Boolean).join("<br>");
     }
 
     function shippingStatusCellHtml(product, view) {
@@ -4240,16 +4270,33 @@
     function openAdminFieldsEdit(uid, productId) {
       const product = findProduct(uid, productId);
       if (!product) return;
+      const optionComment = String(product.optionComment || product.options?.comment || "").trim();
+      const optionCommentReviewed = Boolean(product.optionCommentReviewed)
+        && String(product.optionCommentReviewedText || "").trim() === optionComment;
 
       activeEdit = { type: "adminFields", uid, productId };
 
       editModalTitle.textContent = "管理者記載情報を編集";
       editForm.innerHTML = `
         <div class="form-grid">
-          <label>
-            確認日
-            <input name="confirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}" />
-          </label>
+          <div>
+            <label>確認日</label>
+            <div class="inline-actions">
+              <input name="confirmationDate" type="date" required value="${escapeAttr(product.confirmationDate || "")}" />
+              <button class="mini-btn" type="button" onclick="setConfirmationDateToday()">今日</button>
+            </div>
+          </div>
+
+          <div class="full info-box ${optionComment ? "highlight" : ""}">
+            <div class="info-box-title">会員からのオプションコメント</div>
+            <div style="white-space:pre-wrap;line-height:1.7;">${escapeHtml(optionComment || "記載なし")}</div>
+            ${optionComment ? `
+              <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+                <input name="optionCommentReviewed" type="checkbox" required style="width:auto;" ${optionCommentReviewed ? "checked" : ""} />
+                <span>オプションコメントを確認しました</span>
+              </label>
+            ` : ""}
+          </div>
 
           <div class="full">
             <div class="info-box-title" style="margin-bottom:8px;">
@@ -4785,6 +4832,16 @@
           const confirmationResult = buildConfirmationResult(formData);
           const product = findProduct(activeEdit.uid, activeEdit.productId);
           const member = findMember(activeEdit.uid);
+          const optionComment = String(product?.optionComment || product?.options?.comment || "").trim();
+          const optionCommentReviewed = formData.get("optionCommentReviewed") === "on";
+          if (!confirmationDate) {
+            showError(appError, "確認日を入力してください。今日確認した場合は「今日」ボタンを押してください。");
+            return;
+          }
+          if (optionComment && !optionCommentReviewed) {
+            showError(appError, "会員からのオプションコメントを確認し、確認済みのチェックを入れてください。");
+            return;
+          }
           const shouldNotifyStored = product && !hasValue(product.shootingDate) && hasValue(confirmationDate);
           const shouldCancelStoredNotification = product && hasValue(product.shootingDate) && !hasValue(confirmationDate);
 
@@ -4794,6 +4851,10 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: confirmationDate,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationResult`]: confirmationResult,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationTemplate`]: buildConfirmationTemplateData(formData),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewed`]: optionComment ? optionCommentReviewed : false,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedText`]: optionComment ? optionComment : "",
+            [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedAt`]: optionComment ? now : null,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedBy`]: optionComment ? currentUser?.uid || "" : "",
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "expectedSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/driveBaseUrl`]: member?.driveBaseUrl || "",
@@ -7115,6 +7176,7 @@ function firstInvoiceDate(item) {
     window.addConfirmationRow = addConfirmationRow;
     window.removeConfirmationRow = removeConfirmationRow;
     window.setConfirmationNotRequired = setConfirmationNotRequired;
+    window.setConfirmationDateToday = setConfirmationDateToday;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
 
@@ -7645,6 +7707,11 @@ function firstInvoiceDate(item) {
       const values = notRequiredConfirmationValues(groups, product);
       tbody.innerHTML = confirmationTableBodyHtml(groups, values);
       bindAutoResizeTextareas(tbody);
+    }
+
+    function setConfirmationDateToday() {
+      const input = editForm.querySelector('[name="confirmationDate"]');
+      if (input) input.value = todayString();
     }
 
     function notRequiredConfirmationGroups(product) {

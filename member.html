@@ -519,7 +519,7 @@ textarea{min-height:62px;resize:vertical}
         <select id="originSelect" required></select>
       </div>
 
-      <button type="submit" style="width:100%;">発送依頼を作成する</button>
+      <button id="shippingSubmitBtn" type="submit" style="width:100%;">発送依頼を作成する</button>
     </form>
   </div>
 </div>
@@ -647,6 +647,7 @@ let isApplyingMemberHistoryState = false;
 let selectedProductIds = new Set();
 let selectedGssExportIds = new Set();
 let isGssExporting = false;
+let isShippingRequestSubmitting = false;
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -1532,6 +1533,7 @@ shippingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
 
+  if (isShippingRequestSubmitting) return;
   if (!currentUser || !selectedProductIds.size) return;
   if (!ensureWritableAction("発送依頼")) return;
 
@@ -1571,6 +1573,13 @@ shippingForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  const shippingSubmitBtn = document.getElementById("shippingSubmitBtn");
+  isShippingRequestSubmitting = true;
+  if (shippingSubmitBtn) {
+    shippingSubmitBtn.disabled = true;
+    shippingSubmitBtn.textContent = "発送依頼を送信中...";
+  }
+
   try {
     const now = Date.now();
     const selectedIds = [...selectedProductIds];
@@ -1607,7 +1616,8 @@ shippingForm.addEventListener("submit", async (event) => {
           memo: labelMemo,
           selectedProducts,
           shipmentGroupNames,
-          shipmentGroupNumberings
+          shipmentGroupNumberings,
+          requestId: `discord_label_${dataUid()}_${shipmentGroupId}`
         });
         try {
           await Promise.all(selectedIds.map((productId) => {
@@ -1646,6 +1656,12 @@ shippingForm.addEventListener("submit", async (event) => {
   } catch (error) {
     console.error(error);
     showError(`発送依頼の作成に失敗しました。${error && error.message ? error.message : ""}`);
+  } finally {
+    isShippingRequestSubmitting = false;
+    if (shippingSubmitBtn) {
+      shippingSubmitBtn.disabled = false;
+      shippingSubmitBtn.textContent = "発送依頼を作成する";
+    }
   }
 });
 
@@ -3702,7 +3718,7 @@ async function exportProductInspectionToGss(productIds) {
   }
 }
 
-async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings }) {
+async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
@@ -3722,7 +3738,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmen
     fileName: file.name || "label.png",
     mimeType: file.type || "image/png",
     fileBase64: imageBase64,
-    requestId: gasRequestId("discord_label")
+    requestId: requestId || gasRequestId("discord_label")
   }, { maxAttempts: 2, retryDelayMs: 3000 });
 
   if (!result.ok) {
