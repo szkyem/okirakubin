@@ -439,6 +439,17 @@ textarea{min-height:62px;resize:vertical}
     <form class="modal-form" id="shippingForm">
       <input type="hidden" id="shippingRequestType">
 
+      <div id="returnMethodSection" style="display:none;">
+        <div class="modal-section-title">返品方法</div>
+        <div class="form-group full">
+          <label>返品方法 <span class="required">必須</span></label>
+          <select id="returnMethodSelect">
+            <option value="address">住所を指定して返品する</option>
+            <option value="label">QRコード・バーコードを連絡して返品する</option>
+          </select>
+        </div>
+      </div>
+
       <div class="shipping-destination-section">
         <div class="modal-section-title">発送先住所</div>
 
@@ -498,10 +509,10 @@ textarea{min-height:62px;resize:vertical}
       </div>
 
       <div id="prepaidLabelSection" style="display:none;">
-        <div class="modal-section-title">QRコード・ラベル画像</div>
+        <div class="modal-section-title">QRコード・バーコード・ラベル画像</div>
         <div class="form-grid">
           <div class="form-group full">
-            <label>QRコード・ラベル画像 <span class="required">必須</span></label>
+            <label>QRコード・バーコード・ラベル画像 <span class="required">必須</span></label>
             <input id="prepaidLabelFile" type="file" accept="image/*,.pdf">
           </div>
           <div class="form-group full">
@@ -673,6 +684,7 @@ const shippingModalCloseBtn = document.getElementById("shippingModalCloseBtn");
 const shippingForm = document.getElementById("shippingForm");
 const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
+const returnMethodSelect = document.getElementById("returnMethodSelect");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
@@ -1529,6 +1541,8 @@ clearOriginBtn.addEventListener("click", () => {
   document.getElementById("originId").value = "";
 });
 
+returnMethodSelect.addEventListener("change", updateShippingFormVisibility);
+
 shippingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
@@ -1539,13 +1553,21 @@ shippingForm.addEventListener("submit", async (event) => {
 
   const requestType = shippingRequestType.value;
   const isPrepaidLabel = requestType === PREPAID_LABEL_REQUEST;
+  const isReturnRequest = requestType === "返品依頼";
+  const returnMethod = isReturnRequest ? returnMethodSelect.value : "";
+  const isReturnLabel = isReturnRequest && returnMethod === "label";
+  const isLabelRequest = isPrepaidLabel || isReturnLabel;
+  if (isReturnRequest && !returnMethod) {
+    showError("返品方法を選択してください。");
+    return;
+  }
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
-  if (!isPrepaidLabel && !selectedOrigin) {
+  if (!isLabelRequest && !selectedOrigin) {
     showError("発送元を選択してください。");
     return;
   }
 
-  const destination = isPrepaidLabel ? {} : {
+  const destination = isLabelRequest ? {} : {
     name: document.getElementById("destName").value.trim(),
     postalCode: document.getElementById("destPostalCode").value.trim(),
     prefecture: document.getElementById("destPrefecture").value.trim(),
@@ -1557,18 +1579,18 @@ shippingForm.addEventListener("submit", async (event) => {
     note: document.getElementById("shippingNote").value.trim()
   };
 
-  if (!isPrepaidLabel && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
+  if (!isLabelRequest && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
     showError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
     return;
   }
 
   const labelFile = document.getElementById("prepaidLabelFile")?.files?.[0] || null;
   const labelMemo = document.getElementById("prepaidLabelMemo")?.value.trim() || "";
-  if (isPrepaidLabel && !labelFile) {
-    showError("QRコード・ラベル画像を選択してください。");
+  if (isLabelRequest && !labelFile) {
+    showError("QRコード・バーコード・ラベル画像を選択してください。");
     return;
   }
-  if (isPrepaidLabel && !labelMemo) {
+  if (isLabelRequest && !labelMemo) {
     showError("ラベル発送メモを入力してください。郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず指定してください。");
     return;
   }
@@ -1592,15 +1614,16 @@ shippingForm.addEventListener("submit", async (event) => {
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
+        returnMethod: isReturnRequest ? returnMethod : "",
         shippingStatus: "unshipped",
         shippingDestination: destination,
-        shippingOrigin: isPrepaidLabel ? {} : selectedOrigin,
+        shippingOrigin: isLabelRequest ? {} : selectedOrigin,
         shipmentGroupId,
         shipmentGroupCount,
         shipmentGroupNames,
         shipmentGroupNumberings,
-        prepaidLabelFileName: isPrepaidLabel ? labelFile.name || "" : "",
-        prepaidLabelMemo: isPrepaidLabel ? labelMemo : "",
+        prepaidLabelFileName: isLabelRequest ? labelFile.name || "" : "",
+        prepaidLabelMemo: isLabelRequest ? labelMemo : "",
         prepaidLabelDiscordSentAt: "",
         prepaidLabelDiscordError: "",
         shippingRequestedAt: now,
@@ -1609,15 +1632,16 @@ shippingForm.addEventListener("submit", async (event) => {
     }));
 
     let prepaidLabelDiscordWarning = "";
-    if (isPrepaidLabel) {
+    if (isLabelRequest) {
       try {
         await sendPrepaidLabelToDiscord({
           file: labelFile,
           memo: labelMemo,
+          requestType,
           selectedProducts,
           shipmentGroupNames,
           shipmentGroupNumberings,
-          requestId: `discord_label_${dataUid()}_${shipmentGroupId}`
+          requestId: `${isReturnLabel ? "discord_return_label" : "discord_label"}_${dataUid()}_${shipmentGroupId}`
         });
         try {
           await Promise.all(selectedIds.map((productId) => {
@@ -1650,8 +1674,8 @@ shippingForm.addEventListener("submit", async (event) => {
     shippingForm.reset();
     closeShippingModal();
     await loadData();
-    alert(isPrepaidLabel
-      ? `ラベル発送依頼を作成しました。${prepaidLabelDiscordWarning || "\n\nDiscordへラベルを送信しました。"}`
+    alert(isLabelRequest
+      ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || "\n\nDiscordへラベルを送信しました。"}`
       : "発送依頼を作成しました。");
   } catch (error) {
     console.error(error);
@@ -2472,7 +2496,8 @@ window.openShippingModal = function(type) {
   if (!selectedProductIds.size) return;
 
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
-  if (!isPrepaidLabel && !originsCache.length) {
+  const isReturnRequest = type === "返品依頼";
+  if (!isPrepaidLabel && !isReturnRequest && !originsCache.length) {
     showError("発送元を先に登録してください。");
     document.querySelector('[data-tab="origins"]').click();
     return;
@@ -2482,34 +2507,53 @@ window.openShippingModal = function(type) {
   shippingForm.reset();
   shippingRequestType.value = type;
 
+  if (returnMethodSelect) returnMethodSelect.value = "address";
+  updateShippingFormVisibility();
+  shippingModalBackdrop.classList.add("show");
+};
+
+function updateShippingFormVisibility() {
+  const type = shippingRequestType.value;
+  const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
+  const isReturnRequest = type === "返品依頼";
+  const isReturnLabel = isReturnRequest && returnMethodSelect?.value === "label";
+  const isLabelRequest = isPrepaidLabel || isReturnLabel;
+
+  const returnMethodSection = document.getElementById("returnMethodSection");
+  if (returnMethodSection) returnMethodSection.style.display = isReturnRequest ? "" : "none";
+  if (returnMethodSelect) returnMethodSelect.required = isReturnRequest;
+
   ["destName", "destPostalCode", "destPrefecture", "destAddress"].forEach((id) => {
     const input = document.getElementById(id);
-    if (input) input.required = !isPrepaidLabel;
+    if (input) input.required = !isLabelRequest;
   });
 
   const originSelectElement = document.getElementById("originSelect");
-  if (originSelectElement) originSelectElement.required = !isPrepaidLabel;
+  if (originSelectElement) originSelectElement.required = !isLabelRequest;
 
   document.querySelectorAll(".delivery-option-field").forEach((field) => {
-    field.style.display = type === "海外発送" || isPrepaidLabel ? "none" : "";
+    field.style.display = type === "海外発送" || isLabelRequest ? "none" : "";
   });
   document.querySelectorAll(".shipping-destination-section, .shipping-origin-section, .shipping-origin-select-section").forEach((field) => {
-    field.style.display = isPrepaidLabel ? "none" : "";
+    field.style.display = isLabelRequest ? "none" : "";
   });
   const prepaidSection = document.getElementById("prepaidLabelSection");
-  if (prepaidSection) prepaidSection.style.display = isPrepaidLabel ? "" : "none";
+  if (prepaidSection) prepaidSection.style.display = isLabelRequest ? "" : "none";
   const labelFile = document.getElementById("prepaidLabelFile");
-  if (labelFile) labelFile.required = isPrepaidLabel;
+  if (labelFile) labelFile.required = isLabelRequest;
   const prepaidMemo = document.getElementById("prepaidLabelMemo");
-  if (prepaidMemo) prepaidMemo.required = isPrepaidLabel;
+  if (prepaidMemo) prepaidMemo.required = isLabelRequest;
 
-  if (type === "海外発送" || isPrepaidLabel) {
+  if (type === "海外発送" || isLabelRequest) {
     document.getElementById("deliveryDate").value = "";
     document.getElementById("deliveryTime").value = "";
   }
-  document.getElementById("shippingModalTitle").textContent = isPrepaidLabel ? "ラベル発送依頼" : `${type}の発送先情報`;
-  shippingModalBackdrop.classList.add("show");
-};
+  document.getElementById("shippingModalTitle").textContent = isPrepaidLabel
+    ? "ラベル発送依頼"
+    : isReturnRequest
+      ? "返品依頼"
+      : `${type}の発送先情報`;
+}
 
 window.editOrigin = function(originId) {
   if (!ensureWritableAction("発送元編集")) return;
@@ -3718,14 +3762,14 @@ async function exportProductInspectionToGss(productIds) {
   }
 }
 
-async function sendPrepaidLabelToDiscord({ file, memo, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
+async function sendPrepaidLabelToDiscord({ file, memo, requestType, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
 
   const imageBase64 = await fileToBase64(file);
   const message = [
-    "【商品発送依頼】",
+    requestType === "返品依頼" ? "【商品返品依頼】" : "【商品発送依頼】",
     "",
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
     `商品名：${shipmentGroupNames || "-"}`,
@@ -3762,16 +3806,22 @@ function fileToBase64(file) {
 function shippingDetailHtml(product) {
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
+  const isReturnLabel = product.shippingRequest === "返品依頼" && product.returnMethod === "label";
+  const returnMethodText = product.shippingRequest === "返品依頼"
+    ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
+    : "";
 
   return `
     <div class="detail-section">
       <div class="detail-heading">発送内容</div>
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
+        ${returnMethodText ? `<div class="detail-label">返品方法</div><div>${escapeHtml(returnMethodText)}</div>` : ""}
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
         <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
+        ${isReturnLabel ? `<div class="detail-label">ラベル発送メモ</div><div>${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
       </div>
     </div>
 

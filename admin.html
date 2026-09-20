@@ -3609,6 +3609,9 @@
     }
 
     function shippingDestinationName(product) {
+      if (shippingKey(product?.shippingRequest) === "return" && product?.returnMethod === "label") {
+        return "QR・バーコード返品";
+      }
       const destination = product?.shippingDestination;
       if (!destination || typeof destination !== "object") return "-";
       return destination.name || destination.recipientName || destination.senderName || "-";
@@ -3867,6 +3870,12 @@
 
       if (!product || !member) return;
 
+      const isReturnRequest = shippingKey(product.shippingRequest) === "return";
+      const isReturnLabel = isReturnRequest && product.returnMethod === "label";
+      const returnMethodText = isReturnRequest
+        ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
+        : "";
+
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
         <div class="info-box">
@@ -3891,6 +3900,10 @@
             <div class="info-label">状態</div>
             <div class="info-value">${shippingStatusLabel(product.shippingStatus)}</div>
 
+            ${returnMethodText ? `<div class="info-label">返品方法</div><div class="info-value">${escapeHtml(returnMethodText)}</div>` : ""}
+
+            ${isReturnLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
+
             <div class="info-label">発送サイズ</div>
             <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
 
@@ -3904,9 +3917,9 @@
 
         <div class="info-box highlight">
           <div class="info-box-title">
-            <span>発送先</span>
+            <span>${isReturnLabel ? "返品ラベル" : "発送先"}</span>
           </div>
-          <div class="info-value">${formatShippingInfo(product.shippingDestination)}</div>
+          <div class="info-value">${isReturnLabel ? `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">
