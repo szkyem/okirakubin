@@ -462,6 +462,11 @@ textarea{min-height:62px;resize:vertical}
         </div>
       </div>
 
+      <div id="internationalPickupSection" class="form-group full" style="display:none;">
+        <label for="internationalPickupDate">集荷予定日 <span class="required">必須</span></label>
+        <input id="internationalPickupDate" type="date">
+      </div>
+
       <div class="shipping-destination-section">
         <div class="modal-section-title">発送先住所</div>
 
@@ -703,6 +708,7 @@ const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
 const returnMethodSelect = document.getElementById("returnMethodSelect");
 const internationalMethodSelect = document.getElementById("internationalMethodSelect");
+const internationalPickupDate = document.getElementById("internationalPickupDate");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
@@ -1589,6 +1595,12 @@ shippingForm.addEventListener("submit", async (event) => {
     showError("海外発送方法を選択してください。");
     return;
   }
+  const pickupScheduledDate = isInternationalRequest ? internationalPickupDate.value : "";
+  if (isInternationalRequest && !pickupScheduledDate) {
+    showError("集荷予定日を入力してください。");
+    internationalPickupDate.focus();
+    return;
+  }
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
   if (!isAddresslessRequest && !selectedOrigin) {
     showError("発送元を選択してください。");
@@ -1644,6 +1656,7 @@ shippingForm.addEventListener("submit", async (event) => {
         shippingRequest: requestType,
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
+        pickupScheduledDate,
         shippingStatus: "unshipped",
         shippingDestination: destination,
         shippingOrigin: isAddresslessRequest ? {} : selectedOrigin,
@@ -1668,6 +1681,7 @@ shippingForm.addEventListener("submit", async (event) => {
           await sendLabelAdjustmentToDiscord({
             shipmentGroupNames,
             shipmentGroupNumberings,
+            pickupScheduledDate,
             requestId: `discord_overseas_label_plan_${dataUid()}_${shipmentGroupId}`
           });
         } else {
@@ -1675,6 +1689,7 @@ shippingForm.addEventListener("submit", async (event) => {
             file: labelFile,
             memo: labelMemo,
             requestType,
+            pickupScheduledDate,
             selectedProducts,
             shipmentGroupNames,
             shipmentGroupNumberings,
@@ -2570,6 +2585,9 @@ function updateShippingFormVisibility() {
   const internationalMethodSection = document.getElementById("internationalMethodSection");
   if (internationalMethodSection) internationalMethodSection.style.display = isInternationalRequest ? "" : "none";
   if (internationalMethodSelect) internationalMethodSelect.required = isInternationalRequest;
+  const internationalPickupSection = document.getElementById("internationalPickupSection");
+  if (internationalPickupSection) internationalPickupSection.style.display = isInternationalRequest ? "" : "none";
+  if (internationalPickupDate) internationalPickupDate.required = isInternationalRequest;
 
   ["destName", "destPostalCode", "destPrefecture", "destAddress"].forEach((id) => {
     const input = document.getElementById(id);
@@ -3826,7 +3844,7 @@ async function exportProductInspectionToGss(productIds) {
   }
 }
 
-async function sendPrepaidLabelToDiscord({ file, memo, requestType, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
+async function sendPrepaidLabelToDiscord({ file, memo, requestType, pickupScheduledDate, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
@@ -3837,6 +3855,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, requestType, selectedProd
     "",
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
     `商品名：${shipmentGroupNames || "-"}`,
+    ...(requestType === "海外発送" ? [`集荷予定日：${pickupScheduledDate || "-"}`] : []),
     `発送メモ：${memo || "-"}`
   ].join("\n");
 
@@ -3858,7 +3877,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, requestType, selectedProd
   }
 }
 
-async function sendLabelAdjustmentToDiscord({ shipmentGroupNames, shipmentGroupNumberings, requestId }) {
+async function sendLabelAdjustmentToDiscord({ shipmentGroupNames, shipmentGroupNumberings, pickupScheduledDate, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
@@ -3868,6 +3887,7 @@ async function sendLabelAdjustmentToDiscord({ shipmentGroupNames, shipmentGroupN
     "",
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
     `商品名：${shipmentGroupNames || "-"}`,
+    `集荷予定日：${pickupScheduledDate || "-"}`,
     "ラベル発行予定のため、Discordでの調整をお願いします。"
   ].join("\n");
 
@@ -3917,6 +3937,7 @@ function shippingDetailHtml(product) {
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
         ${returnMethodText ? `<div class="detail-label">返品方法</div><div>${escapeHtml(returnMethodText)}</div>` : ""}
         ${internationalMethodText ? `<div class="detail-label">海外発送方法</div><div>${escapeHtml(internationalMethodText)}</div>` : ""}
+        ${isInternationalRequest ? `<div class="detail-label">集荷予定日</div><div>${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>

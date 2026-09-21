@@ -2837,7 +2837,10 @@
             <td>${shippingBadge(product.shippingRequest)}</td>
             <td>${escapeHtml(unit.displayNames)}${bundleText}</td>
             <td>${escapeHtml(unit.displayNumberings)}</td>
-            <td><button class="mini-btn" type="button" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
+            <td>
+              <button class="mini-btn" type="button" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button>
+              ${shippingKey(product.shippingRequest) === "international" ? `<div class="member-meta">集荷予定日：${escapeHtml(product.pickupScheduledDate || "未設定")}</div>` : ""}
+            </td>
             <td>${thanksCardShippingHtml(unit.products)}</td>
             <td>${escapeHtml(shippingDestinationName(product))}</td>
             <td>${escapeHtml(shippingDestinationPostalCode(product))}</td>
@@ -3920,6 +3923,8 @@
             ${returnMethodText ? `<div class="info-label">返品方法</div><div class="info-value">${escapeHtml(returnMethodText)}</div>` : ""}
 
             ${internationalMethodText ? `<div class="info-label">海外発送方法</div><div class="info-value">${escapeHtml(internationalMethodText)}</div>` : ""}
+
+            ${isInternationalRequest ? `<div class="info-label">集荷予定日</div><div class="info-value">${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
 
             ${isReturnLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
 
