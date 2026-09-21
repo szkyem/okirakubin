@@ -3612,6 +3612,12 @@
       if (shippingKey(product?.shippingRequest) === "return" && product?.returnMethod === "label") {
         return "QR・バーコード返品";
       }
+      if (shippingKey(product?.shippingRequest) === "international" && product?.internationalMethod === "label") {
+        return "海外ラベル連絡";
+      }
+      if (shippingKey(product?.shippingRequest) === "international" && product?.internationalMethod === "planned") {
+        return "ラベル発行予定・調整";
+      }
       const destination = product?.shippingDestination;
       if (!destination || typeof destination !== "object") return "-";
       return destination.name || destination.recipientName || destination.senderName || "-";
@@ -3875,6 +3881,17 @@
       const returnMethodText = isReturnRequest
         ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
         : "";
+      const isInternationalRequest = shippingKey(product.shippingRequest) === "international";
+      const isInternationalLabel = isInternationalRequest && product.internationalMethod === "label";
+      const isInternationalLabelPlanned = isInternationalRequest && product.internationalMethod === "planned";
+      const internationalMethodText = isInternationalRequest
+        ? isInternationalLabel
+          ? "発行済みラベルを添付して海外発送"
+          : isInternationalLabelPlanned
+            ? "ラベル発行予定（Discordで調整）"
+            : "住所を指定して海外発送"
+        : "";
+      const isLabelWorkflow = isReturnLabel || isInternationalLabel || isInternationalLabelPlanned;
 
       infoModalTitle.textContent = "発送情報";
       infoModalBody.innerHTML = `
@@ -3902,7 +3919,13 @@
 
             ${returnMethodText ? `<div class="info-label">返品方法</div><div class="info-value">${escapeHtml(returnMethodText)}</div>` : ""}
 
+            ${internationalMethodText ? `<div class="info-label">海外発送方法</div><div class="info-value">${escapeHtml(internationalMethodText)}</div>` : ""}
+
             ${isReturnLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
+
+            ${isInternationalLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
+
+            ${isInternationalLabelPlanned ? `<div class="info-label">Discord調整</div><div class="info-value">依頼済み</div>` : ""}
 
             <div class="info-label">発送サイズ</div>
             <div class="info-value">${escapeHtml(product.shippingSize || "-")}</div>
@@ -3917,9 +3940,9 @@
 
         <div class="info-box highlight">
           <div class="info-box-title">
-            <span>${isReturnLabel ? "返品ラベル" : "発送先"}</span>
+            <span>${isReturnLabel ? "返品ラベル" : isInternationalLabel ? "海外発送ラベル" : isInternationalLabelPlanned ? "ラベル調整" : "発送先"}</span>
           </div>
-          <div class="info-value">${isReturnLabel ? `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}` : formatShippingInfo(product.shippingDestination)}</div>
+          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">

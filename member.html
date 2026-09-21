@@ -450,6 +450,18 @@ textarea{min-height:62px;resize:vertical}
         </div>
       </div>
 
+      <div id="internationalMethodSection" style="display:none;">
+        <div class="modal-section-title">海外発送方法</div>
+        <div class="form-group full">
+          <label>海外発送方法 <span class="required">必須</span></label>
+          <select id="internationalMethodSelect">
+            <option value="address">住所を指定して海外発送する</option>
+            <option value="label">発行済みラベルを添付して海外発送する</option>
+            <option value="planned">ラベル発行予定（Discordで調整）</option>
+          </select>
+        </div>
+      </div>
+
       <div class="shipping-destination-section">
         <div class="modal-section-title">発送先住所</div>
 
@@ -516,11 +528,16 @@ textarea{min-height:62px;resize:vertical}
             <input id="prepaidLabelFile" type="file" accept="image/*,.pdf">
           </div>
           <div class="form-group full">
-            <label>ラベル発送メモ <span class="required">必須</span></label>
+            <label>ラベル発送メモ <span class="required" id="labelMemoRequired">必須</span></label>
             <textarea id="prepaidLabelMemo" required placeholder="発送場所を必ず指定してください。例：郵便局から発送 / セブンイレブンから発送 / ファミマから発送"></textarea>
           </div>
         </div>
-        <p class="member-meta" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。</p>
+        <p class="member-meta" id="prepaidLabelHelp" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。</p>
+      </div>
+
+      <div id="labelAdjustmentSection" style="display:none;">
+        <div class="modal-section-title">ラベル発行予定・Discord調整</div>
+        <p class="member-meta" style="margin-bottom:12px;">添付ファイルなしで海外発送依頼を作成します。依頼内容はDiscordへ送信され、ラベル発行について管理者と調整します。</p>
       </div>
 
       <div class="modal-section-title shipping-origin-section">発送元住所</div>
@@ -685,6 +702,7 @@ const shippingForm = document.getElementById("shippingForm");
 const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
 const returnMethodSelect = document.getElementById("returnMethodSelect");
+const internationalMethodSelect = document.getElementById("internationalMethodSelect");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
@@ -1542,6 +1560,7 @@ clearOriginBtn.addEventListener("click", () => {
 });
 
 returnMethodSelect.addEventListener("change", updateShippingFormVisibility);
+internationalMethodSelect.addEventListener("change", updateShippingFormVisibility);
 
 shippingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1554,20 +1573,29 @@ shippingForm.addEventListener("submit", async (event) => {
   const requestType = shippingRequestType.value;
   const isPrepaidLabel = requestType === PREPAID_LABEL_REQUEST;
   const isReturnRequest = requestType === "返品依頼";
+  const isInternationalRequest = requestType === "海外発送";
   const returnMethod = isReturnRequest ? returnMethodSelect.value : "";
+  const internationalMethod = isInternationalRequest ? internationalMethodSelect.value : "";
   const isReturnLabel = isReturnRequest && returnMethod === "label";
-  const isLabelRequest = isPrepaidLabel || isReturnLabel;
+  const isInternationalLabel = isInternationalRequest && internationalMethod === "label";
+  const isInternationalLabelPlanned = isInternationalRequest && internationalMethod === "planned";
+  const isFileLabelRequest = isPrepaidLabel || isReturnLabel || isInternationalLabel;
+  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned;
   if (isReturnRequest && !returnMethod) {
     showError("返品方法を選択してください。");
     return;
   }
+  if (isInternationalRequest && !internationalMethod) {
+    showError("海外発送方法を選択してください。");
+    return;
+  }
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
-  if (!isLabelRequest && !selectedOrigin) {
+  if (!isAddresslessRequest && !selectedOrigin) {
     showError("発送元を選択してください。");
     return;
   }
 
-  const destination = isLabelRequest ? {} : {
+  const destination = isAddresslessRequest ? {} : {
     name: document.getElementById("destName").value.trim(),
     postalCode: document.getElementById("destPostalCode").value.trim(),
     prefecture: document.getElementById("destPrefecture").value.trim(),
@@ -1579,18 +1607,18 @@ shippingForm.addEventListener("submit", async (event) => {
     note: document.getElementById("shippingNote").value.trim()
   };
 
-  if (!isLabelRequest && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
+  if (!isAddresslessRequest && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
     showError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
     return;
   }
 
   const labelFile = document.getElementById("prepaidLabelFile")?.files?.[0] || null;
   const labelMemo = document.getElementById("prepaidLabelMemo")?.value.trim() || "";
-  if (isLabelRequest && !labelFile) {
+  if (isFileLabelRequest && !labelFile) {
     showError("QRコード・バーコード・ラベル画像を選択してください。");
     return;
   }
-  if (isLabelRequest && !labelMemo) {
+  if ((isPrepaidLabel || isReturnLabel) && !labelMemo) {
     showError("ラベル発送メモを入力してください。郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず指定してください。");
     return;
   }
@@ -1615,15 +1643,17 @@ shippingForm.addEventListener("submit", async (event) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
         returnMethod: isReturnRequest ? returnMethod : "",
+        internationalMethod: isInternationalRequest ? internationalMethod : "",
         shippingStatus: "unshipped",
         shippingDestination: destination,
-        shippingOrigin: isLabelRequest ? {} : selectedOrigin,
+        shippingOrigin: isAddresslessRequest ? {} : selectedOrigin,
         shipmentGroupId,
         shipmentGroupCount,
         shipmentGroupNames,
         shipmentGroupNumberings,
-        prepaidLabelFileName: isLabelRequest ? labelFile.name || "" : "",
-        prepaidLabelMemo: isLabelRequest ? labelMemo : "",
+        prepaidLabelFileName: isFileLabelRequest ? labelFile.name || "" : "",
+        prepaidLabelMemo: isFileLabelRequest ? labelMemo : "",
+        labelAdjustmentRequested: isInternationalLabelPlanned,
         prepaidLabelDiscordSentAt: "",
         prepaidLabelDiscordError: "",
         shippingRequestedAt: now,
@@ -1632,17 +1662,25 @@ shippingForm.addEventListener("submit", async (event) => {
     }));
 
     let prepaidLabelDiscordWarning = "";
-    if (isLabelRequest) {
+    if (isFileLabelRequest || isInternationalLabelPlanned) {
       try {
-        await sendPrepaidLabelToDiscord({
-          file: labelFile,
-          memo: labelMemo,
-          requestType,
-          selectedProducts,
-          shipmentGroupNames,
-          shipmentGroupNumberings,
-          requestId: `${isReturnLabel ? "discord_return_label" : "discord_label"}_${dataUid()}_${shipmentGroupId}`
-        });
+        if (isInternationalLabelPlanned) {
+          await sendLabelAdjustmentToDiscord({
+            shipmentGroupNames,
+            shipmentGroupNumberings,
+            requestId: `discord_overseas_label_plan_${dataUid()}_${shipmentGroupId}`
+          });
+        } else {
+          await sendPrepaidLabelToDiscord({
+            file: labelFile,
+            memo: labelMemo,
+            requestType,
+            selectedProducts,
+            shipmentGroupNames,
+            shipmentGroupNumberings,
+            requestId: `${isReturnLabel ? "discord_return_label" : isInternationalLabel ? "discord_overseas_label" : "discord_label"}_${dataUid()}_${shipmentGroupId}`
+          });
+        }
         try {
           await Promise.all(selectedIds.map((productId) => {
             return update(ref(database, `products/${dataUid()}/${productId}`), {
@@ -1656,11 +1694,12 @@ shippingForm.addEventListener("submit", async (event) => {
         }
       } catch (discordError) {
         console.error(discordError);
-        prepaidLabelDiscordWarning = `\n\nただし、Discordへのラベル送信に失敗しました。管理者へ連絡してください。${discordError && discordError.message ? "\n" + discordError.message : ""}`;
+        const discordActionName = isInternationalLabelPlanned ? "ラベル調整依頼" : "ラベル";
+        prepaidLabelDiscordWarning = `\n\nただし、Discordへの${discordActionName}送信に失敗しました。管理者へ連絡してください。${discordError && discordError.message ? "\n" + discordError.message : ""}`;
         try {
           await Promise.all(selectedIds.map((productId) => {
             return update(ref(database, `products/${dataUid()}/${productId}`), {
-              prepaidLabelDiscordError: discordError && discordError.message ? discordError.message : "Discordへのラベル送信に失敗しました。",
+              prepaidLabelDiscordError: discordError && discordError.message ? discordError.message : `Discordへの${discordActionName}送信に失敗しました。`,
               updatedAt: Date.now()
             });
           }));
@@ -1674,8 +1713,8 @@ shippingForm.addEventListener("submit", async (event) => {
     shippingForm.reset();
     closeShippingModal();
     await loadData();
-    alert(isLabelRequest
-      ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || "\n\nDiscordへラベルを送信しました。"}`
+    alert(isFileLabelRequest || isInternationalLabelPlanned
+      ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : isInternationalLabelPlanned ? "海外発送のラベル調整依頼" : isInternationalLabel ? "海外発送ラベル依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || `\n\nDiscordへ${isInternationalLabelPlanned ? "調整依頼" : "ラベル"}を送信しました。`}`
       : "発送依頼を作成しました。");
   } catch (error) {
     console.error(error);
@@ -2497,7 +2536,8 @@ window.openShippingModal = function(type) {
 
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
   const isReturnRequest = type === "返品依頼";
-  if (!isPrepaidLabel && !isReturnRequest && !originsCache.length) {
+  const isInternationalRequest = type === "海外発送";
+  if (!isPrepaidLabel && !isReturnRequest && !isInternationalRequest && !originsCache.length) {
     showError("発送元を先に登録してください。");
     document.querySelector('[data-tab="origins"]').click();
     return;
@@ -2508,6 +2548,7 @@ window.openShippingModal = function(type) {
   shippingRequestType.value = type;
 
   if (returnMethodSelect) returnMethodSelect.value = "address";
+  if (internationalMethodSelect) internationalMethodSelect.value = "address";
   updateShippingFormVisibility();
   shippingModalBackdrop.classList.add("show");
 };
@@ -2516,35 +2557,58 @@ function updateShippingFormVisibility() {
   const type = shippingRequestType.value;
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
   const isReturnRequest = type === "返品依頼";
+  const isInternationalRequest = type === "海外発送";
   const isReturnLabel = isReturnRequest && returnMethodSelect?.value === "label";
-  const isLabelRequest = isPrepaidLabel || isReturnLabel;
+  const isInternationalLabel = isInternationalRequest && internationalMethodSelect?.value === "label";
+  const isInternationalLabelPlanned = isInternationalRequest && internationalMethodSelect?.value === "planned";
+  const isFileLabelRequest = isPrepaidLabel || isReturnLabel || isInternationalLabel;
+  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned;
 
   const returnMethodSection = document.getElementById("returnMethodSection");
   if (returnMethodSection) returnMethodSection.style.display = isReturnRequest ? "" : "none";
   if (returnMethodSelect) returnMethodSelect.required = isReturnRequest;
+  const internationalMethodSection = document.getElementById("internationalMethodSection");
+  if (internationalMethodSection) internationalMethodSection.style.display = isInternationalRequest ? "" : "none";
+  if (internationalMethodSelect) internationalMethodSelect.required = isInternationalRequest;
 
   ["destName", "destPostalCode", "destPrefecture", "destAddress"].forEach((id) => {
     const input = document.getElementById(id);
-    if (input) input.required = !isLabelRequest;
+    if (input) input.required = !isAddresslessRequest;
   });
 
   const originSelectElement = document.getElementById("originSelect");
-  if (originSelectElement) originSelectElement.required = !isLabelRequest;
+  if (originSelectElement) originSelectElement.required = !isAddresslessRequest;
 
   document.querySelectorAll(".delivery-option-field").forEach((field) => {
-    field.style.display = type === "海外発送" || isLabelRequest ? "none" : "";
+    field.style.display = isInternationalRequest || isAddresslessRequest ? "none" : "";
   });
   document.querySelectorAll(".shipping-destination-section, .shipping-origin-section, .shipping-origin-select-section").forEach((field) => {
-    field.style.display = isLabelRequest ? "none" : "";
+    field.style.display = isAddresslessRequest ? "none" : "";
   });
   const prepaidSection = document.getElementById("prepaidLabelSection");
-  if (prepaidSection) prepaidSection.style.display = isLabelRequest ? "" : "none";
+  if (prepaidSection) prepaidSection.style.display = isFileLabelRequest ? "" : "none";
+  const labelAdjustmentSection = document.getElementById("labelAdjustmentSection");
+  if (labelAdjustmentSection) labelAdjustmentSection.style.display = isInternationalLabelPlanned ? "" : "none";
   const labelFile = document.getElementById("prepaidLabelFile");
-  if (labelFile) labelFile.required = isLabelRequest;
+  if (labelFile) labelFile.required = isFileLabelRequest;
   const prepaidMemo = document.getElementById("prepaidLabelMemo");
-  if (prepaidMemo) prepaidMemo.required = isLabelRequest;
+  const requiresLabelMemo = isPrepaidLabel || isReturnLabel;
+  if (prepaidMemo) {
+    prepaidMemo.required = requiresLabelMemo;
+    prepaidMemo.placeholder = isInternationalLabel
+      ? "必要な連絡事項がある場合に入力してください。"
+      : "発送場所を必ず指定してください。例：郵便局から発送 / セブンイレブンから発送 / ファミマから発送";
+  }
+  const labelMemoRequired = document.getElementById("labelMemoRequired");
+  if (labelMemoRequired) labelMemoRequired.style.display = requiresLabelMemo ? "" : "none";
+  const prepaidLabelHelp = document.getElementById("prepaidLabelHelp");
+  if (prepaidLabelHelp) {
+    prepaidLabelHelp.textContent = isInternationalLabel
+      ? "PDFまたは画像ファイルをDiscordへ送信し、システム内には保存しません。発送メモは必要な場合のみ入力してください。"
+      : "画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。";
+  }
 
-  if (type === "海外発送" || isLabelRequest) {
+  if (isInternationalRequest || isAddresslessRequest) {
     document.getElementById("deliveryDate").value = "";
     document.getElementById("deliveryTime").value = "";
   }
@@ -3794,6 +3858,30 @@ async function sendPrepaidLabelToDiscord({ file, memo, requestType, selectedProd
   }
 }
 
+async function sendLabelAdjustmentToDiscord({ shipmentGroupNames, shipmentGroupNumberings, requestId }) {
+  if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
+  const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
+  if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
+
+  const message = [
+    "【海外発送ラベル調整依頼】",
+    "",
+    `ナンバリング：${shipmentGroupNumberings || "-"}`,
+    `商品名：${shipmentGroupNames || "-"}`,
+    "ラベル発行予定のため、Discordでの調整をお願いします。"
+  ].join("\n");
+
+  const result = await callGasJson("discordNotify", {
+    webhookUrl: labelWebhookUrl,
+    message,
+    requestId: requestId || gasRequestId("discord_overseas_label_plan")
+  }, { maxAttempts: 2, retryDelayMs: 3000 });
+
+  if (!result.ok) {
+    throw new Error(result.error || `Discordへのラベル調整依頼送信に失敗しました。status=${result.responseStatus || "-"}`);
+  }
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3810,6 +3898,17 @@ function shippingDetailHtml(product) {
   const returnMethodText = product.shippingRequest === "返品依頼"
     ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
     : "";
+  const isInternationalRequest = product.shippingRequest === "海外発送";
+  const isInternationalLabel = isInternationalRequest && product.internationalMethod === "label";
+  const isInternationalLabelPlanned = isInternationalRequest && product.internationalMethod === "planned";
+  const internationalMethodText = isInternationalRequest
+    ? isInternationalLabel
+      ? "発行済みラベルを添付して海外発送"
+      : isInternationalLabelPlanned
+        ? "ラベル発行予定（Discordで調整）"
+        : "住所を指定して海外発送"
+    : "";
+  const labelWorkflow = isReturnLabel || isInternationalLabel || isInternationalLabelPlanned;
 
   return `
     <div class="detail-section">
@@ -3817,38 +3916,51 @@ function shippingDetailHtml(product) {
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
         ${returnMethodText ? `<div class="detail-label">返品方法</div><div>${escapeHtml(returnMethodText)}</div>` : ""}
+        ${internationalMethodText ? `<div class="detail-label">海外発送方法</div><div>${escapeHtml(internationalMethodText)}</div>` : ""}
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
         <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
         ${isReturnLabel ? `<div class="detail-label">ラベル発送メモ</div><div>${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
+        ${isInternationalLabel ? `<div class="detail-label">ラベル発送メモ</div><div>${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
+        ${isInternationalLabelPlanned ? `<div class="detail-label">Discord調整</div><div>依頼済み</div>` : ""}
       </div>
     </div>
 
-    <div class="detail-section">
-      <div class="detail-heading">発送先</div>
-      <div class="detail-grid">
-        <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
-        <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
-        <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
-        <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
-        <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
-        <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
+    ${labelWorkflow ? `
+      <div class="detail-section">
+        <div class="detail-heading">${isInternationalLabelPlanned ? "Discord調整" : "ラベル情報"}</div>
+        <div class="detail-grid">
+          <div class="detail-label">ファイル名</div><div>${escapeHtml(product.prepaidLabelFileName || "-")}</div>
+          <div class="detail-label">Discord送信</div><div>${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}</div>
+        </div>
       </div>
-    </div>
+    ` : `
+      <div class="detail-section">
+        <div class="detail-heading">発送先</div>
+        <div class="detail-grid">
+          <div class="detail-label">宛名</div><div>${escapeHtml(destination.name || "-")}</div>
+          <div class="detail-label">郵便番号</div><div>${escapeHtml(destination.postalCode || "-")}</div>
+          <div class="detail-label">都道府県</div><div>${escapeHtml(destination.prefecture || "-")}</div>
+          <div class="detail-label">住所</div><div>${escapeHtml(destination.address || "-")}</div>
+          <div class="detail-label">建物名</div><div>${escapeHtml(destination.building || "-")}</div>
+          <div class="detail-label">電話番号</div><div>${escapeHtml(destination.phone || "-")}</div>
+        </div>
+      </div>
 
-    <div class="detail-section">
-      <div class="detail-heading">発送元</div>
-      <div class="detail-grid">
-        <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
-        <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
-        <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
-        <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
-        <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
-        <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
-        <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
+      <div class="detail-section">
+        <div class="detail-heading">発送元</div>
+        <div class="detail-grid">
+          <div class="detail-label">発送元名</div><div>${escapeHtml(origin.name || "-")}</div>
+          <div class="detail-label">郵便番号</div><div>${escapeHtml(origin.postalCode || "-")}</div>
+          <div class="detail-label">都道府県</div><div>${escapeHtml(origin.prefecture || "-")}</div>
+          <div class="detail-label">住所</div><div>${escapeHtml(origin.address || "-")}</div>
+          <div class="detail-label">建物名</div><div>${escapeHtml(origin.building || "-")}</div>
+          <div class="detail-label">お名前</div><div>${escapeHtml(origin.senderName || "-")}</div>
+          <div class="detail-label">電話番号</div><div>${escapeHtml(origin.phone || "-")}</div>
+        </div>
       </div>
-    </div>
+    `}
   `;
 }
 
