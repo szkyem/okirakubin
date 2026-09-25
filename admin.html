@@ -1496,6 +1496,17 @@
       <div class="price-section">
         <div>
           <div class="table-actions" style="justify-content:space-between;margin-bottom:12px;">
+            <h3>調整料金（管理者のみ）</h3>
+            <div class="table-actions">
+              <button class="secondary-btn" type="button" onclick="addAdminAdjustmentPriceRow()">行を追加</button>
+              <button class="primary-btn" type="button" onclick="saveAdminAdjustmentPrices()">保存</button>
+            </div>
+          </div>
+          <div id="adminAdjustmentPriceEditor"></div>
+        </div>
+
+        <div>
+          <div class="table-actions" style="justify-content:space-between;margin-bottom:12px;">
             <div>
               <h3>一般価格表（会員公開）</h3>
               <p class="muted">ここで保存した内容が会員画面の価格表に表示されます。</p>
@@ -1551,18 +1562,6 @@
               <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
               <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
               <tr><td>お気楽便チラシ同梱</td><td>0円</td><td>コンサル生向け</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h2>調整料金（管理者のみ）</h2>
-        <div class="table-wrap">
-          <table class="price-table">
-            <thead>
-              <tr><th>区分</th><th>価格</th><th>備考</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>調整料金</td><td>都度確認</td><td>作業内容に応じて金額を決定</td></tr>
             </tbody>
           </table>
         </div>
@@ -4335,9 +4334,10 @@
           <div>
             <label>確認日</label>
             <div class="inline-actions">
-              <input name="confirmationDate" type="date" required value="${escapeAttr(product.confirmationDate || "")}" />
+              <input name="confirmationDate" type="date" value="${escapeAttr(product.confirmationDate || "")}" />
               <button class="mini-btn" type="button" onclick="setConfirmationDateToday()">今日</button>
             </div>
+            <p class="form-note">確認日を入れずに保存した場合は一時保存となり、保管商品には移動しません。</p>
           </div>
 
           <div class="full info-box ${optionComment ? "highlight" : ""}">
@@ -4345,7 +4345,7 @@
             <div style="white-space:pre-wrap;line-height:1.7;">${escapeHtml(optionComment || "記載なし")}</div>
             ${optionComment ? `
               <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
-                <input name="optionCommentReviewed" type="checkbox" required style="width:auto;" ${optionCommentReviewed ? "checked" : ""} />
+                <input name="optionCommentReviewed" type="checkbox" style="width:auto;" ${optionCommentReviewed ? "checked" : ""} />
                 <span>オプションコメントを確認しました</span>
               </label>
             ` : ""}
@@ -4887,11 +4887,7 @@
           const member = findMember(activeEdit.uid);
           const optionComment = String(product?.optionComment || product?.options?.comment || "").trim();
           const optionCommentReviewed = formData.get("optionCommentReviewed") === "on";
-          if (!confirmationDate) {
-            showError(appError, "確認日を入力してください。今日確認した場合は「今日」ボタンを押してください。");
-            return;
-          }
-          if (optionComment && !optionCommentReviewed) {
+          if (confirmationDate && optionComment && !optionCommentReviewed) {
             showError(appError, "会員からのオプションコメントを確認し、確認済みのチェックを入れてください。");
             return;
           }
@@ -6787,7 +6783,77 @@ function firstInvoiceDate(item) {
       }));
     }
 
+    function adminAdjustmentPriceRows() {
+      const rows = priceTableCache.adminAdjustmentRows;
+      return Array.isArray(rows) ? rows : [["調整料金", "都度確認", "作業内容に応じて金額を決定"]];
+    }
+
+    function renderAdminAdjustmentPrices() {
+      const editor = document.getElementById("adminAdjustmentPriceEditor");
+      if (!editor) return;
+      editor.innerHTML = `
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead><tr><th>区分</th><th>価格</th><th>備考</th><th>操作</th></tr></thead>
+            <tbody>
+              ${adminAdjustmentPriceRows().map((row, rowIndex) => `
+                <tr data-admin-adjustment-row="${rowIndex}">
+                  ${["区分", "価格", "備考"].map((column, cellIndex) => `
+                    <td><input data-admin-adjustment-cell="${rowIndex}:${cellIndex}" value="${escapeAttr(row[cellIndex] || "")}" placeholder="${column}"></td>
+                  `).join("")}
+                  <td><button class="danger-btn" type="button" onclick="removeAdminAdjustmentPriceRow(${rowIndex})">削除</button></td>
+                </tr>
+              `).join("") || '<tr><td colspan="4">項目がありません。</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function collectAdminAdjustmentPriceRows() {
+      return [...document.querySelectorAll("[data-admin-adjustment-row]")].map((rowElement) => {
+        const rowIndex = Number(rowElement.dataset.adminAdjustmentRow);
+        return [0, 1, 2].map((cellIndex) =>
+          document.querySelector(`[data-admin-adjustment-cell="${rowIndex}:${cellIndex}"]`)?.value.trim() || ""
+        );
+      });
+    }
+
+    function addAdminAdjustmentPriceRow() {
+      priceTableCache = { ...priceTableCache, adminAdjustmentRows: [...collectAdminAdjustmentPriceRows(), ["", "", ""]] };
+      renderAdminAdjustmentPrices();
+    }
+
+    function removeAdminAdjustmentPriceRow(rowIndex) {
+      const rows = collectAdminAdjustmentPriceRows();
+      rows.splice(rowIndex, 1);
+      priceTableCache = { ...priceTableCache, adminAdjustmentRows: rows };
+      renderAdminAdjustmentPrices();
+    }
+
+    async function saveAdminAdjustmentPrices() {
+      hideError(appError);
+      const rows = collectAdminAdjustmentPriceRows().filter((row) => row.some(Boolean));
+      if (rows.some((row) => row.some(Boolean) && !row[0])) {
+        showError(appError, "調整料金の区分を入力してください。");
+        return;
+      }
+      try {
+        await update(ref(db, "priceTable"), { adminAdjustmentRows: rows });
+        priceTableCache = { ...priceTableCache, adminAdjustmentRows: rows };
+        renderAdminAdjustmentPrices();
+        showError(appError, "調整料金を保存しました。");
+      } catch (error) {
+        showError(appError, "調整料金の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
     function renderPrices() {
+      renderAdminAdjustmentPrices();
+      renderPublicPriceEditor();
+    }
+
+    function renderPublicPriceEditor() {
       const editor = document.getElementById("publicPriceTableEditor");
       if (!editor) return;
 
@@ -6862,7 +6928,7 @@ function firstInvoiceDate(item) {
       if (!section) return;
       section.rows.push(section.columns.map(() => ""));
       priceTableCache = { ...priceTableCache, publicSections: sections };
-      renderPrices();
+      renderPublicPriceEditor();
     }
 
     function removePublicPriceRow(sectionIndex, rowIndex) {
@@ -6872,7 +6938,7 @@ function firstInvoiceDate(item) {
       section.rows.splice(rowIndex, 1);
       if (!section.rows.length) section.rows.push(section.columns.map(() => ""));
       priceTableCache = { ...priceTableCache, publicSections: sections };
-      renderPrices();
+      renderPublicPriceEditor();
     }
 
     async function savePublicPriceTable() {
@@ -6890,7 +6956,7 @@ function firstInvoiceDate(item) {
           updatedByEmail: currentUser ? currentUser.email || "" : ""
         });
         priceTableCache = { ...priceTableCache, publicSections: sections };
-        renderPrices();
+        renderPublicPriceEditor();
         showError(appError, "価格表を保存しました。");
       } catch (error) {
         showError(appError, "価格表の保存に失敗しました。Realtime Databaseのルールを確認してください。");
@@ -7216,6 +7282,9 @@ function firstInvoiceDate(item) {
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
+    window.addAdminAdjustmentPriceRow = addAdminAdjustmentPriceRow;
+    window.removeAdminAdjustmentPriceRow = removeAdminAdjustmentPriceRow;
+    window.saveAdminAdjustmentPrices = saveAdminAdjustmentPrices;
     window.addPublicPriceRow = addPublicPriceRow;
     window.removePublicPriceRow = removePublicPriceRow;
     window.savePublicPriceTable = savePublicPriceTable;
