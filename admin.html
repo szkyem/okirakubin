@@ -2605,6 +2605,7 @@
                   <th>状態</th>
                   <th>料金</th>
                   <th>発送依頼日時</th>
+                  <th>修正</th>
                 </tr>
               </thead>
               <tbody>
@@ -2619,6 +2620,7 @@
                     <td>${shippingStatusCellHtml(product, "unshipped")}</td>
                     <td><button class="mini-btn" onclick="openFeeDetailModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${escapeHtml(productTimestampText(product.shippingRequestedAt || product.shippingRequestAt || product.shipmentRequestedAt || product.updatedAt || timestampFromId(product.shipmentGroupId)))}</td>
+                    <td>${returnToStoredButtonHtml(member.uid, product)}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -3552,6 +3554,112 @@
       return product.bundleRole === "child"
         ? `<span class="dash-mark" aria-label="同梱"></span>`
         : `<button class="mini-btn" onclick="openShippingInfo('${escapeAttr(uid)}','${escapeAttr(product.id)}')">詳細</button>`;
+    }
+
+    function returnToStoredButtonHtml(uid, product) {
+      if (product.bundleRole === "child") {
+        return `<span class="dash-mark" aria-label="同梱商品のため代表商品から修正"></span>`;
+      }
+      return `<button class="danger-btn" type="button" onclick="returnUnshippedProductToStored('${escapeAttr(uid)}','${escapeAttr(product.id)}')">保管商品に戻す</button>`;
+    }
+
+    async function returnUnshippedProductToStored(uid, productId) {
+      hideError(appError);
+      const member = findMember(uid);
+      const product = findProduct(uid, productId);
+      if (!member || !product) {
+        showError(appError, "対象の商品情報を取得できませんでした。再読み込みしてからお試しください。");
+        return;
+      }
+      if (isShippedStatus(product.shippingStatus)) {
+        showError(appError, "発送済みの商品はこの操作では保管商品に戻せません。");
+        return;
+      }
+      if (!hasValue(product.shippingRequest)) {
+        showError(appError, "この商品には発送依頼がありません。");
+        return;
+      }
+
+      const groupId = String(product.shipmentGroupId || "").trim();
+      const targets = groupId
+        ? member.products.filter((item) => String(item.shipmentGroupId || "").trim() === groupId && !isShippedStatus(item.shippingStatus))
+        : [product];
+      const targetProducts = targets.length ? targets : [product];
+      const productsWithoutInspectionDate = targetProducts.filter((item) => !hasValue(item.shootingDate) && !hasValue(item.confirmationDate));
+      if (productsWithoutInspectionDate.length) {
+        showError(appError, "確認日がない商品が含まれているため、保管商品に戻せません。先に管理者記載情報の確認日を設定してください。");
+        return;
+      }
+      const targetLabel = targetProducts.map((item) => `${item.numbering || "-"} ${item.name || "-"}`).join("\n");
+      const groupNotice = targetProducts.length > 1 ? `\n\n同じ発送依頼の${targetProducts.length}商品をまとめて戻します。` : "";
+
+      if (!confirm(`次の商品を保管商品に戻しますか？${groupNotice}\n\n${targetLabel}\n\n発送先、発送元、ラベル、追跡番号、送料などの発送情報は削除されます。`)) return;
+
+      const now = Date.now();
+      const updates = {};
+      const shippingFieldsToClear = [
+        "shippingRequest",
+        "returnMethod",
+        "internationalMethod",
+        "pickupScheduledDate",
+        "shippingStatus",
+        "shippingDestination",
+        "shippingOrigin",
+        "shipmentGroupId",
+        "shipmentGroupCount",
+        "shipmentGroupNames",
+        "shipmentGroupNumberings",
+        "prepaidLabelFileName",
+        "prepaidLabelMemo",
+        "labelAdjustmentRequested",
+        "prepaidLabelDiscordSentAt",
+        "prepaidLabelDiscordError",
+        "shippingRequestedAt",
+        "shippingRequestAt",
+        "shipmentRequestedAt",
+        "shippingSize",
+        "shippingPrice",
+        "trackingNumber",
+        "trackingNo",
+        "shippingTrackingNumber",
+        "shippingTrackingNo",
+        "shippedDate",
+        "shipmentBatchProcessedAt",
+        "shipmentBatchProcessedBy"
+      ];
+
+      targetProducts.forEach((item) => {
+        const path = `products/${uid}/${item.id}`;
+        updates[`${path}/updatedAt`] = now;
+        updates[`${path}/shootingDate`] = item.shootingDate || item.confirmationDate;
+        updates[`${path}/shippingRequestCancelledAt`] = now;
+        updates[`${path}/shippingRequestCancelledBy`] = currentUser?.uid || "";
+        shippingFieldsToClear.forEach((field) => {
+          updates[`${path}/${field}`] = null;
+        });
+        Object.assign(updates, buildCancelDiscordNotificationUpdates({
+          uid,
+          productId: item.id,
+          eventType: "shipped"
+        }));
+      });
+
+      try {
+        await update(ref(db), updates);
+        await loadAllData();
+        let invoiceWarning = "";
+        try {
+          await refreshExistingInvoicesForMember(uid);
+          await loadAllData();
+        } catch (invoiceError) {
+          console.error(invoiceError);
+          invoiceWarning = `\nただし、既存請求書の自動更新に失敗しました。請求書作成ボタンで再作成してください。${invoiceError && invoiceError.message ? "\n" + invoiceError.message : ""}`;
+        }
+        showError(appError, `保管商品に戻しました。処理件数：${targetProducts.length}件${invoiceWarning}`);
+      } catch (error) {
+        console.error(error);
+        showError(appError, `保管商品への変更に失敗しました。${error && error.message ? error.message : "Realtime Databaseのルールを確認してください。"}`);
+      }
     }
 
     function thanksCardShippingHtml(products) {
@@ -7251,6 +7359,7 @@ function firstInvoiceDate(item) {
     window.openMemberProxyEdit = openMemberProxyEdit;
     window.openInfoModal = openInfoModal;
     window.openShippingInfo = openShippingInfo;
+    window.returnUnshippedProductToStored = returnUnshippedProductToStored;
     window.openFeeDetailModal = openFeeDetailModal;
     window.openPreferenceModal = openPreferenceModal;
     window.openMemberManagementEdit = openMemberManagementEdit;
