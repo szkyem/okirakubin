@@ -1588,6 +1588,12 @@
             </tbody>
           </table>
         </div>
+
+        <div>
+          <h3>実送料（管理者のみ）</h3>
+          <p class="muted" style="margin-bottom:10px;">コンサル生料金の国内送料から発送作業代400円を差し引いた金額です。</p>
+          <div id="actualShippingRateTable"></div>
+        </div>
       </div>
     </section>
 
@@ -6959,6 +6965,41 @@ function firstInvoiceDate(item) {
     function renderPrices() {
       renderAdminAdjustmentPrices();
       renderPublicPriceEditor();
+      renderActualShippingRateTable();
+    }
+
+    function renderActualShippingRateTable() {
+      const target = document.getElementById("actualShippingRateTable");
+      if (!target) return;
+
+      const sizes = ["60", "80", "100", "120", "140以上"];
+      const regions = [
+        ["shizuoka", "静岡"],
+        ["main", "関東・信越・北陸・東海・近畿"],
+        ["tohokuChugokuShikoku", "東北・中国・四国"],
+        ["kyushu", "九州"],
+        ["okinawa", "沖縄"],
+        ["hokkaido", "北海道"]
+      ];
+
+      target.innerHTML = `
+        <div class="table-wrap">
+          <table class="price-table">
+            <thead>
+              <tr><th>サイズ</th>${regions.map(([, label]) => `<th>${label}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${sizes.map((size) => {
+                const rates = CONSULTING_SHIPPING_RATE_TABLE[size] || {};
+                return `<tr>
+                  <td>${size}</td>
+                  ${regions.map(([key]) => `<td>${yen(Math.max(0, Number(rates[key] || 0) - SHIPPING_WORK_UNIT_FEE))}円</td>`).join("")}
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
 
     function renderPublicPriceEditor() {
