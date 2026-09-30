@@ -2186,6 +2186,7 @@ function productTable(products, options = {}) {
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
+            ${isRegistered ? "<th>操作</th>" : ""}
             ${isStored ? "<th>撮影日</th><th>料金</th><th>GSS出力</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
@@ -2217,6 +2218,14 @@ function productRow(product, mode = "registered") {
       <td>
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
+      ${isRegistered ? `
+        <td>
+          <div class="inline-actions">
+            <button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>
+            <button class="danger compact-btn" type="button" onclick="deleteRegisteredProduct('${escapeAttr(product.id)}')">削除</button>
+          </div>
+        </td>
+      ` : ""}
       ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td><td>${feeButtonHtml(product)}</td><td>${gssExportButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
@@ -2681,6 +2690,10 @@ window.openProductEdit = function(productId) {
   if (!ensureWritableAction("登録内容の編集")) return;
   const product = productsCache.find((item) => item.id === productId);
   if (!product) return;
+  if (!canEditProduct(product)) {
+    showError("登録済み（未検品・発送依頼前）の商品のみ編集できます。");
+    return;
+  }
 
   openModal("登録内容を編集", `
     <form class="modal-form" onsubmit="saveProductEdit(event, '${escapeAttr(product.id)}')">
@@ -2785,12 +2798,66 @@ window.saveProductEdit = async function(event, productId) {
   data.optionLabels = optionLabelsFromValues(data.optionVideo, data.optionThanksCard, data.optionOkirakuInsert);
 
   try {
+    const latestSnapshot = await get(ref(database, `products/${dataUid()}/${productId}`));
+    const latestProduct = latestSnapshot.exists() ? { id: productId, ...latestSnapshot.val() } : null;
+    if (!latestProduct) {
+      showError("対象の商品が見つかりません。画面を再読み込みしてください。");
+      return;
+    }
+    if (!canEditProduct(latestProduct)) {
+      showError("検品または発送依頼が開始されたため、この商品は編集できません。");
+      await loadData();
+      return;
+    }
     await update(ref(database, `products/${dataUid()}/${productId}`), data);
     closeModal();
     await loadData();
   } catch (error) {
     console.error(error);
     showError("登録内容の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+};
+
+window.deleteRegisteredProduct = async function(productId) {
+  clearError();
+  if (!currentUser) return;
+  if (!ensureWritableAction("登録済み商品の削除")) return;
+
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) {
+    showError("対象の商品が見つかりません。画面を再読み込みしてください。");
+    return;
+  }
+  if (!canEditProduct(product)) {
+    showError("登録済み（未検品・発送依頼前）の商品のみ削除できます。");
+    return;
+  }
+
+  const productLabel = [product.name, product.numbering].filter(Boolean).join(" / ") || "この商品";
+  if (!confirm(`${productLabel}\n\nこの登録済み商品を削除しますか？\nこの操作は元に戻せません。`)) return;
+
+  try {
+    const productRef = ref(database, `products/${dataUid()}/${productId}`);
+    const latestSnapshot = await get(productRef);
+    const latestProduct = latestSnapshot.exists() ? { id: productId, ...latestSnapshot.val() } : null;
+    if (!latestProduct) {
+      showError("対象の商品はすでに削除されています。");
+      await loadData();
+      return;
+    }
+    if (!canEditProduct(latestProduct)) {
+      showError("検品または発送依頼が開始されたため、この商品は削除できません。");
+      await loadData();
+      return;
+    }
+
+    await remove(productRef);
+    closeModal();
+    showSuccess("登録済み商品を削除しました。");
+    await loadData();
+  } catch (error) {
+    console.error(error);
+    showError("登録済み商品の削除に失敗しました。Realtime Databaseのルールを確認してください。");
   }
 };
 
@@ -3245,7 +3312,12 @@ function productDetailHtml(product) {
     <div class="detail-section">
       <div class="detail-heading">
         <span>会員記載情報</span>
-        ${canEditProduct(product) ? `<button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>` : ""}
+        ${canEditProduct(product) ? `
+          <div class="inline-actions">
+            <button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>
+            <button class="danger compact-btn" type="button" onclick="deleteRegisteredProduct('${escapeAttr(product.id)}')">削除</button>
+          </div>
+        ` : ""}
       </div>
       <div class="detail-grid">
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>

@@ -861,10 +861,44 @@
     }
 
     .invoice-summary {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
       margin: 18px 0;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+    }
+
+    .invoice-summary-header,
+    .invoice-summary-section-title,
+    .invoice-summary-formula {
+      display: flex;
+      align-items: center;
+    }
+
+    .invoice-summary-header {
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .invoice-summary-heading { margin: 0; font-size: 18px; }
+
+    .invoice-summary-month {
+      min-width: 150px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #f8fafc;
+      text-align: center;
+    }
+
+    .invoice-summary-month strong { display: block; margin-top: 2px; font-size: 17px; color: var(--blue); }
+    .invoice-summary-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .invoice-summary-section:last-child { padding-bottom: 0; border-bottom: 0; }
+    .invoice-summary-section-title { justify-content: space-between; gap: 12px; margin-bottom: 10px; font-weight: 700; }
+    .invoice-summary-counts { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; font-weight: 400; color: var(--muted); }
+    .invoice-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     }
 
     .invoice-summary-item {
@@ -880,6 +914,15 @@
       font-size: 22px;
       color: var(--blue);
     }
+
+    .invoice-summary-item.emphasis { border-color: #93c5fd; background: #eff6ff; }
+    .invoice-summary-formula { justify-content: center; flex-wrap: wrap; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; }
+    .invoice-summary-formula-item,
+    .invoice-summary-formula-total { min-width: 145px; padding: 8px 12px; text-align: center; }
+    .invoice-summary-formula-item strong,
+    .invoice-summary-formula-total strong { display: block; margin-top: 4px; font-size: 19px; color: var(--blue); }
+    .invoice-summary-formula-total { border-left: 2px solid var(--blue); }
+    .invoice-summary-operator { font-size: 20px; font-weight: 700; color: var(--muted); }
 
     .announcement-form {
       display: grid;
@@ -1075,7 +1118,11 @@
       }
 
       .user-area { justify-content: flex-start; }
-      .stats, .stats.four, .invoice-summary { grid-template-columns: 1fr; }
+      .stats, .stats.four, .invoice-summary-grid { grid-template-columns: 1fr; }
+      .invoice-summary-header { align-items: stretch; flex-direction: column; }
+      .invoice-summary-month { min-width: 0; }
+      .invoice-summary-formula { align-items: stretch; flex-direction: column; }
+      .invoice-summary-formula-total { border-top: 2px solid var(--blue); border-left: 0; }
       .tabs { overflow-x: auto; }
       .detail-actions { align-items: stretch; }
       .detail-invoice-input { width: 100%; }
@@ -1373,33 +1420,47 @@
       </div>
 
       <div class="invoice-summary">
-        <div class="invoice-summary-item">
-          会員
-          <strong id="invoiceMemberCount">0</strong>
+        <div class="invoice-summary-header">
+          <h3 class="invoice-summary-heading">請求状況</h3>
+          <div class="invoice-summary-month">対象月<strong id="invoiceSummaryMonth">-</strong></div>
         </div>
-        <div class="invoice-summary-item">
-          請求書
-          <strong id="invoiceCount">0</strong>
+
+        <div class="invoice-summary-section">
+          <div class="invoice-summary-section-title">
+            <span>請求金額</span>
+            <span class="invoice-summary-counts">
+              <span>会員 <strong id="invoiceMemberCount">0</strong>名</span>
+              <span>請求書 <strong id="invoiceCount">0</strong></span>
+            </span>
+          </div>
+          <div class="invoice-summary-grid">
+            <div class="invoice-summary-item">検品料金<strong id="invoiceInspectionTotal">0円</strong></div>
+            <div class="invoice-summary-item">発送代金<strong id="invoiceBilledShippingTotal">0円</strong></div>
+            <div class="invoice-summary-item emphasis">請求合計<strong id="invoiceGrandTotal">0円</strong></div>
+          </div>
         </div>
-        <div class="invoice-summary-item">
-          検品料金
-          <strong id="invoiceInspectionTotal">0</strong>
+
+        <div class="invoice-summary-section">
+          <div class="invoice-summary-section-title"><span>発送代金の内訳</span><span class="muted">管理者のみ表示</span></div>
+          <div class="invoice-summary-grid">
+            <div class="invoice-summary-item">請求送料<strong id="invoiceShippingFareTotal">0円</strong></div>
+            <div class="invoice-summary-item">実送料<strong id="invoiceActualShippingTotal">0円</strong></div>
+            <div class="invoice-summary-item">発送作業売上<strong id="invoiceShippingWorkTotal">0円</strong></div>
+          </div>
+          <p class="form-note">発送作業売上 ＝ 請求送料 − 実送料</p>
         </div>
-        <div class="invoice-summary-item">
-          発送作業代
-          <strong id="invoiceShippingWorkTotal">0</strong>
-        </div>
-        <div class="invoice-summary-item">
-          発送料金
-          <strong id="invoiceShippingFareTotal">0</strong>
-        </div>
-        <div class="invoice-summary-item">
-          調整金
-          <strong id="invoiceGlobalAdjustmentTotal">0</strong>
-        </div>
-        <div class="invoice-summary-item">
-          合計
-          <strong id="invoiceGrandTotal">0</strong>
+
+        <div class="invoice-summary-section">
+          <div class="invoice-summary-section-title">送料控除後の売上</div>
+          <div class="invoice-summary-formula">
+            <div class="invoice-summary-formula-item">検品料金<strong id="invoiceNetInspectionTotal">0円</strong></div>
+            <span class="invoice-summary-operator">＋</span>
+            <div class="invoice-summary-formula-item">発送作業売上<strong id="invoiceNetShippingRevenueTotal">0円</strong></div>
+            <span class="invoice-summary-operator">＋</span>
+            <div class="invoice-summary-formula-item">調整金<strong id="invoiceGlobalAdjustmentTotal">0円</strong></div>
+            <span class="invoice-summary-operator">＝</span>
+            <div class="invoice-summary-formula-total">送料控除後売上<strong id="invoiceNetSalesTotal">0円</strong></div>
+          </div>
         </div>
       </div>
 
@@ -1838,11 +1899,17 @@
     const invoiceListBody = document.getElementById("invoiceListBody");
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
     const invoiceCount = document.getElementById("invoiceCount");
+    const invoiceSummaryMonth = document.getElementById("invoiceSummaryMonth");
     const invoiceInspectionTotal = document.getElementById("invoiceInspectionTotal");
+    const invoiceBilledShippingTotal = document.getElementById("invoiceBilledShippingTotal");
     const invoiceShippingWorkTotal = document.getElementById("invoiceShippingWorkTotal");
     const invoiceShippingFareTotal = document.getElementById("invoiceShippingFareTotal");
+    const invoiceActualShippingTotal = document.getElementById("invoiceActualShippingTotal");
     const invoiceGlobalAdjustmentTotal = document.getElementById("invoiceGlobalAdjustmentTotal");
     const invoiceGrandTotal = document.getElementById("invoiceGrandTotal");
+    const invoiceNetInspectionTotal = document.getElementById("invoiceNetInspectionTotal");
+    const invoiceNetShippingRevenueTotal = document.getElementById("invoiceNetShippingRevenueTotal");
+    const invoiceNetSalesTotal = document.getElementById("invoiceNetSalesTotal");
     const basicInfoInput = document.getElementById("basicInfoInput");
     const announcementInput = document.getElementById("announcementInput");
     const announcementList = document.getElementById("announcementList");
@@ -5544,13 +5611,30 @@
         invoices.push(buildInvoicePreview(member, month, items));
       });
 
+      const inspectionTotal = invoices.reduce((sum, invoice) => sum + feeValue(invoice.totalInspectionFee), 0);
+      const billedShippingTotal = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice) + invoiceShippingFareFee(invoice), 0);
+      const actualShippingTotal = invoices.reduce((sum, invoice) => sum + invoiceActualShippingFee(invoice), 0);
+      const shippingRevenueTotal = billedShippingTotal - actualShippingTotal;
+      const adjustmentTotal = invoices.reduce((sum, invoice) => sum + invoiceAdjustmentFee(invoice) + invoiceGlobalAdjustmentFee(invoice), 0);
+      const grandTotal = invoices.reduce((sum, invoice) => sum + invoiceGrandTotalValue(invoice), 0);
+      const netSalesTotal = inspectionTotal + shippingRevenueTotal + adjustmentTotal;
+
+      if (invoiceSummaryMonth) {
+        const [year, monthNumber] = String(month || "").split("-");
+        invoiceSummaryMonth.textContent = year && monthNumber ? `${year}年${Number(monthNumber)}月` : month || "-";
+      }
       invoiceMemberCount.textContent = membersCache.length;
       invoiceCount.textContent = invoices.length ? `${createdInvoices.length} / 対象 ${invoices.length}` : "0";
-      invoiceInspectionTotal.textContent = invoices.reduce((sum, invoice) => sum + Number(invoice.totalInspectionFee || 0), 0);
-      invoiceShippingWorkTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice), 0);
-      if (invoiceShippingFareTotal) invoiceShippingFareTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceShippingFareFee(invoice), 0);
-      if (invoiceGlobalAdjustmentTotal) invoiceGlobalAdjustmentTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceGlobalAdjustmentFee(invoice), 0);
-      invoiceGrandTotal.textContent = invoices.reduce((sum, invoice) => sum + invoiceGrandTotalValue(invoice), 0);
+      invoiceInspectionTotal.textContent = `${yen(inspectionTotal)}円`;
+      if (invoiceBilledShippingTotal) invoiceBilledShippingTotal.textContent = `${yen(billedShippingTotal)}円`;
+      if (invoiceShippingFareTotal) invoiceShippingFareTotal.textContent = `${yen(billedShippingTotal)}円`;
+      if (invoiceActualShippingTotal) invoiceActualShippingTotal.textContent = `${yen(actualShippingTotal)}円`;
+      if (invoiceShippingWorkTotal) invoiceShippingWorkTotal.textContent = `${yen(shippingRevenueTotal)}円`;
+      if (invoiceGlobalAdjustmentTotal) invoiceGlobalAdjustmentTotal.textContent = `${yen(adjustmentTotal)}円`;
+      invoiceGrandTotal.textContent = `${yen(grandTotal)}円`;
+      if (invoiceNetInspectionTotal) invoiceNetInspectionTotal.textContent = `${yen(inspectionTotal)}円`;
+      if (invoiceNetShippingRevenueTotal) invoiceNetShippingRevenueTotal.textContent = `${yen(shippingRevenueTotal)}円`;
+      if (invoiceNetSalesTotal) invoiceNetSalesTotal.textContent = `${yen(netSalesTotal)}円`;
 
       if (!invoices.length) {
         invoiceListBody.innerHTML = `<tr><td colspan="13"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
@@ -6014,6 +6098,33 @@ function invoiceShippingFareFee(invoice) {
   return Math.max(0, feeValue(invoice?.totalShippingFee) - invoiceShippingWorkFee(invoice));
 }
 
+function invoiceActualShippingFee(invoice) {
+  return Object.values(invoice?.items || {}).reduce((sum, item) => sum + itemActualShippingFee(item, invoice), 0);
+}
+
+function itemActualShippingFee(item, invoice) {
+  if (!itemHasShippingCharge(item)) return 0;
+
+  const requestKey = shippingKey(item?.shippingRequest);
+  const billedFare = itemShippingFareFee(item);
+  if (requestKey === "prepaidLabel" || item?.shippingStatus === "cash_on_delivery" || billedFare <= 0) return 0;
+
+  const product = invoice?.uid && item?.productId ? findProduct(invoice.uid, item.productId) : null;
+  const rawSize = String(item?.shippingSize || product?.shippingSize || "").trim();
+  if (!rawSize || rawSize === "海外発送") return requestKey === "international" ? 0 : billedFare;
+
+  const sizeNumber = Number((rawSize.match(/\d+/) || [""])[0]);
+  const sizeKey = sizeNumber >= 140 ? "140以上" : String(sizeNumber || rawSize);
+  const prefecture = item?.shippingPrefecture || product?.shippingDestination?.prefecture || "";
+  const region = shippingRegionFor(prefecture);
+  const consultingRate = CONSULTING_SHIPPING_RATE_TABLE[sizeKey]?.[region];
+
+  // 古い請求書などでサイズ・地域を特定できない場合は利益を過大表示しない。
+  return hasValue(consultingRate)
+    ? Math.max(0, feeValue(consultingRate) - SHIPPING_WORK_UNIT_FEE)
+    : billedFare;
+}
+
 function invoiceAdjustmentFee(invoice) {
   if (hasOwnValue(invoice, "totalAdjustmentFee")) {
     return feeValue(invoice.totalAdjustmentFee);
@@ -6189,6 +6300,9 @@ function buildInvoiceItems(member, month) {
         accessoryCount: product.accessoryCount || "",
         options: invoiceOptionSummary(product, member),
         shippingRequest: product.shippingRequest || "",
+        shippingStatus: product.shippingStatus || "",
+        shippingSize: product.shippingSize || "",
+        shippingPrefecture: product.shippingDestination?.prefecture || "",
         inspectionDate: inspectionInMonth ? inspectionDate || "" : "-",
         inspectionFee: inspectionInMonth ? inspectionFee : "-",
         shippingWorkFee: shippingInMonth ? shippingWorkFee : "-",
