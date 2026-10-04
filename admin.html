@@ -2057,13 +2057,12 @@
       hideError(appError);
 
       try {
-        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, invoiceLocksSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap, priceTableSnap] = await Promise.all([
+        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap, priceTableSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "inactiveMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
-          get(ref(db, "invoiceLocks")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "announcements")),
           get(ref(db, "settings/basicInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
@@ -2080,7 +2079,12 @@
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
-        invoiceLocksCache = invoiceLocksSnap.val() || {};
+        invoiceLocksCache = {};
+        Object.values(invoicesCache).forEach((monthMap) => {
+          Object.entries(monthMap || {}).forEach(([month, invoice]) => {
+            if (invoice?.monthLocked === true) invoiceLocksCache[month] = { locked: true };
+          });
+        });
         announcementsCache = announcementsSnap.val() || {};
         basicInfoCache = basicInfoSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
@@ -5731,16 +5735,23 @@
       if (!confirm(message)) return;
 
       try {
-        if (currentlyLocked) {
-          await remove(ref(db, `invoiceLocks/${month}`));
-        } else {
-          await set(ref(db, `invoiceLocks/${month}`), {
-            locked: true,
-            lockedAt: Date.now(),
-            lockedBy: currentUser?.uid || "",
-            lockedByEmail: currentUser?.email || ""
-          });
+        const targetInvoices = Object.entries(invoicesCache || {})
+          .filter(([, monthMap]) => Boolean(monthMap?.[month]));
+        if (!targetInvoices.length) {
+          showError(appError, `${month} の作成済み請求書がありません。先に請求書を作成してからロックしてください。`);
+          return;
         }
+
+        const now = Date.now();
+        const updates = {};
+        targetInvoices.forEach(([uid]) => {
+          const basePath = `invoices/${uid}/${month}`;
+          updates[`${basePath}/monthLocked`] = currentlyLocked ? null : true;
+          updates[`${basePath}/monthLockedAt`] = currentlyLocked ? null : now;
+          updates[`${basePath}/monthLockedBy`] = currentlyLocked ? null : currentUser?.uid || "";
+          updates[`${basePath}/monthLockedByEmail`] = currentlyLocked ? null : currentUser?.email || "";
+        });
+        await update(ref(db), updates);
         await loadAllData();
       } catch (error) {
         console.error(error);
