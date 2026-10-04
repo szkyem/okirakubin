@@ -289,6 +289,11 @@
       padding: 6px 10px;
     }
 
+    .invoice-lock-status { font-size: 12px; font-weight: 800; color: var(--muted); }
+    .invoice-lock-status.locked { color: #b45309; }
+    .invoice-received-row { background: #eaf5ff; }
+    .invoice-received-check { width: 18px; height: 18px; accent-color: var(--blue); cursor: pointer; }
+
     .table-wrap {
       width: 100%;
       overflow-x: auto;
@@ -1417,6 +1422,8 @@
           <input id="invoiceMonthInput" type="month" />
         </label>
         <button class="primary-btn" onclick="createInvoicesForMonth()">全会員の請求書作成</button>
+        <button id="invoiceLockBtn" class="secondary-btn" type="button" onclick="toggleInvoiceMonthLock()">請求をロック</button>
+        <span id="invoiceLockStatus" class="invoice-lock-status">編集可能</span>
       </div>
 
       <div class="invoice-summary">
@@ -1468,6 +1475,7 @@
         <table>
           <thead>
             <tr>
+              <th>受領済み</th>
               <th>対象月</th>
               <th>管理番号</th>
               <th>会員</th>
@@ -1895,6 +1903,8 @@
     const yupackOcrResult = document.getElementById("yupackOcrResult");
 
     const invoiceMonthInput = document.getElementById("invoiceMonthInput");
+    const invoiceLockBtn = document.getElementById("invoiceLockBtn");
+    const invoiceLockStatus = document.getElementById("invoiceLockStatus");
     const detailInvoiceMonthInput = document.getElementById("detailInvoiceMonthInput");
     const invoiceListBody = document.getElementById("invoiceListBody");
     const invoiceMemberCount = document.getElementById("invoiceMemberCount");
@@ -1933,6 +1943,7 @@
     let inactiveMembersCache = [];
     let loginUsersCache = {};
     let invoicesCache = {};
+    let invoiceLocksCache = {};
     let announcementsCache = {};
     let basicInfoCache = {};
     let memberSettingsCache = {};
@@ -1995,6 +2006,7 @@
         inactiveMembersCache = [];
         loginUsersCache = {};
         invoicesCache = {};
+        invoiceLocksCache = {};
         announcementsCache = {};
         memberSettingsCache = {};
         pendingMembersCache = {};
@@ -2045,12 +2057,13 @@
       hideError(appError);
 
       try {
-        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap, priceTableSnap] = await Promise.all([
+        const [membersSnap, inactiveMembersSnap, usersSnap, productsSnap, invoicesSnap, invoiceLocksSnap, announcementsSnap, basicInfoSnap, memberSettingsSnap, companyInfoSnap, confirmationBaseSnap, pendingMembersSnap, discordQueueSnap, priceTableSnap] = await Promise.all([
           get(ref(db, "members")),
           get(ref(db, "inactiveMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "invoices")),
+          get(ref(db, "invoiceLocks")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "announcements")),
           get(ref(db, "settings/basicInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
@@ -2067,6 +2080,7 @@
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
+        invoiceLocksCache = invoiceLocksSnap.val() || {};
         announcementsCache = announcementsSnap.val() || {};
         basicInfoCache = basicInfoSnap.val() || {};
         memberSettingsCache = memberSettingsSnap.val() || {};
@@ -4752,6 +4766,7 @@
     }
 
     function openInvoiceGlobalAdjustmentEdit(uid, month, adjustmentId = "") {
+      if (!ensureInvoiceMonthUnlocked(month, "請求書全体の調整")) return;
       const invoice = invoicesCache?.[uid]?.[month];
       if (!invoice) {
         showError(appError, "請求書データが見つかりません。再読み込みしてください。");
@@ -4836,6 +4851,7 @@
     }
 
     async function deleteInvoiceGlobalAdjustment(uid, month, adjustmentId) {
+      if (!ensureInvoiceMonthUnlocked(month, "請求書全体の調整削除")) return;
       const invoice = invoicesCache?.[uid]?.[month];
       if (!invoice || !adjustmentId) return;
 
@@ -4871,6 +4887,8 @@
     async function deleteBillingAdjustment(uid, productId, adjustmentId) {
       const product = findProduct(uid, productId);
       if (!product || !adjustmentId) return;
+      const adjustment = billingAdjustmentsForProduct(product).find((item) => item.id === adjustmentId);
+      if (adjustment?.targetMonth && !ensureInvoiceMonthUnlocked(adjustment.targetMonth, "請求調整の削除")) return;
 
       const target = {
         uid,
@@ -4944,6 +4962,7 @@
         }
 
         if (activeEdit.type === "invoiceGlobalAdjustment") {
+          if (!ensureInvoiceMonthUnlocked(activeEdit.month, "請求書全体の調整保存")) return;
           const invoice = invoicesCache?.[activeEdit.uid]?.[activeEdit.month];
           if (!invoice) {
             showError(appError, "請求書データが見つかりません。再読み込みしてください。");
@@ -4993,6 +5012,8 @@
         }
 
         if (activeEdit.type === "billingAdjustment") {
+          const adjustmentTargetMonth = getFormValue(formData, "targetMonth");
+          if (!ensureInvoiceMonthUnlocked(adjustmentTargetMonth, "請求調整の保存")) return;
           const adjustmentId = activeEdit.adjustmentId || `adj_${now}_${Math.random().toString(36).slice(2, 8)}`;
           const amount = feeValue(getFormValue(formData, "amount"));
 
@@ -5592,6 +5613,7 @@
 
     function renderInvoices() {
       const month = invoiceMonthInput.value || todayString().slice(0, 7);
+      const monthLocked = isInvoiceMonthLocked(month);
       const invoices = [];
       const createdInvoices = [];
       const createdUidSet = new Set();
@@ -5623,6 +5645,11 @@
         const [year, monthNumber] = String(month || "").split("-");
         invoiceSummaryMonth.textContent = year && monthNumber ? `${year}年${Number(monthNumber)}月` : month || "-";
       }
+      if (invoiceLockBtn) invoiceLockBtn.textContent = monthLocked ? "請求ロックを解除" : "請求をロック";
+      if (invoiceLockStatus) {
+        invoiceLockStatus.textContent = monthLocked ? "ロック中（受領確認のみ変更可能）" : "編集可能";
+        invoiceLockStatus.classList.toggle("locked", monthLocked);
+      }
       invoiceMemberCount.textContent = membersCache.length;
       invoiceCount.textContent = invoices.length ? `${createdInvoices.length} / 対象 ${invoices.length}` : "0";
       invoiceInspectionTotal.textContent = `${yen(inspectionTotal)}円`;
@@ -5637,7 +5664,7 @@
       if (invoiceNetSalesTotal) invoiceNetSalesTotal.textContent = `${yen(netSalesTotal)}円`;
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="13"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="14"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
         return;
       }
 
@@ -5648,7 +5675,10 @@
           return String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja");
         })
         .map((invoice) => `
-          <tr>
+          <tr class="${invoice.received === true ? "invoice-received-row" : ""}">
+            <td>
+              ${invoice.isPreview ? "-" : `<input class="invoice-received-check" type="checkbox" aria-label="受領済み" ${invoice.received === true ? "checked" : ""} onchange="setInvoiceReceived('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}',this.checked)">`}
+            </td>
             <td>${escapeHtml(invoice.month || "-")}</td>
             <td>${escapeHtml(invoice.managementNumber || "-")}</td>
             <td>
@@ -5662,18 +5692,87 @@
             <td>${escapeHtml(invoiceGlobalAdjustmentFee(invoice))}</td>
             <td><strong>${escapeHtml(invoiceGrandTotalValue(invoice))}</strong></td>
             <td>${invoice.isPreview ? '<span class="status-pill warn">未作成</span>' : escapeHtml(formatDateTime(invoice.createdAt))}</td>
-            <td>${invoice.isPreview ? "-" : `<button class="mini-btn" onclick="openInvoiceGlobalAdjustmentEdit('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">${invoiceGlobalAdjustmentLabel(invoice)}</button>`}</td>
+            <td>${invoice.isPreview ? "-" : `<button class="mini-btn" ${monthLocked ? "disabled" : ""} onclick="openInvoiceGlobalAdjustmentEdit('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">${invoiceGlobalAdjustmentLabel(invoice)}</button>`}</td>
             <td>
               <div class="inline-actions">
                 ${invoice.isPreview
-                  ? `<button class="mini-btn" onclick="createInvoiceForUid('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">作成</button>`
+                  ? `<button class="mini-btn" ${monthLocked ? "disabled" : ""} onclick="createInvoiceForUid('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">作成</button>`
                   : `<button class="mini-btn" onclick="downloadInvoiceCsv('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">CSV</button>
                 <button class="mini-btn" onclick="downloadInvoicePdf('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">PDF</button>`}
               </div>
             </td>
-            <td>${invoice.isPreview ? "-" : `<button class="danger-btn" onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button>`}</td>
+            <td>${invoice.isPreview ? "-" : `<button class="danger-btn" ${monthLocked ? "disabled" : ""} onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button>`}</td>
           </tr>
         `).join("");
+    }
+
+    function isInvoiceMonthLocked(month) {
+      return Boolean(month && invoiceLocksCache?.[month]?.locked === true);
+    }
+
+    function ensureInvoiceMonthUnlocked(month, action = "請求情報の変更") {
+      if (!isInvoiceMonthLocked(month)) return true;
+      showError(appError, `${month} の請求はロックされています。${action}を行うには、請求書画面でロックを解除してください。`);
+      return false;
+    }
+
+    async function toggleInvoiceMonthLock() {
+      hideError(appError);
+      const month = invoiceMonthInput?.value || "";
+      if (!month) {
+        showError(appError, "対象月を選択してください。");
+        return;
+      }
+
+      const currentlyLocked = isInvoiceMonthLocked(month);
+      const message = currentlyLocked
+        ? `${month} の請求ロックを解除しますか？解除後は請求書の再作成・調整・削除が可能になります。`
+        : `${month} の請求をロックしますか？ロック中は請求書の再作成・調整・削除ができなくなります。`;
+      if (!confirm(message)) return;
+
+      try {
+        if (currentlyLocked) {
+          await remove(ref(db, `invoiceLocks/${month}`));
+        } else {
+          await set(ref(db, `invoiceLocks/${month}`), {
+            locked: true,
+            lockedAt: Date.now(),
+            lockedBy: currentUser?.uid || "",
+            lockedByEmail: currentUser?.email || ""
+          });
+        }
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "請求ロックの更新に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
+    }
+
+    async function setInvoiceReceived(uid, month, received) {
+      hideError(appError);
+      const invoice = invoicesCache?.[uid]?.[month];
+      if (!invoice) {
+        showError(appError, "請求書データが見つかりません。再読み込みしてください。");
+        renderInvoices();
+        return;
+      }
+
+      try {
+        const now = Date.now();
+        await update(ref(db, `invoices/${uid}/${month}`), {
+          received: Boolean(received),
+          receivedAt: received ? now : null,
+          receivedBy: received ? currentUser?.uid || "" : null,
+          receivedByEmail: received ? currentUser?.email || "" : null
+        });
+        invoice.received = Boolean(received);
+        invoice.receivedAt = received ? now : null;
+        renderInvoices();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "受領状態の更新に失敗しました。Realtime Databaseのルールを確認してください。");
+        await loadAllData();
+      }
     }
 
     function buildInvoicePreview(member, month, items) {
@@ -5719,6 +5818,7 @@
         showError(appError, "\u5bfe\u8c61\u6708\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
         return;
       }
+      if (!ensureInvoiceMonthUnlocked(month, "請求書作成")) return;
 
       const existingCount = membersCache.filter((member) => invoicesCache?.[member.uid]?.[month]).length;
       const shouldRecreate = existingCount > 0;
@@ -5770,6 +5870,7 @@
         showError(appError, "\u5bfe\u8c61\u6708\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
         return;
       }
+      if (!ensureInvoiceMonthUnlocked(month, "請求書作成")) return;
 
       const shouldRecreate = Boolean(invoicesCache?.[member.uid]?.[month]);
       if (shouldRecreate && !confirm(`${member.name || member.email || "\u9078\u629e\u4e2d\u306e\u4f1a\u54e1"} \u306e ${month} \u8acb\u6c42\u66f8\u306f\u65e2\u306b\u4f5c\u6210\u3055\u308c\u3066\u3044\u307e\u3059\u3002\u73fe\u5728\u306e\u5546\u54c1\u60c5\u5831\u3067\u518d\u4f5c\u6210\u3057\u3001\u4f5c\u6210\u65e5\u3082\u4eca\u65e5\u306e\u65e5\u4ed8\u306b\u66f4\u65b0\u3057\u307e\u3059\u304b\uff1f`)) {
@@ -5806,6 +5907,7 @@ async function createInvoiceForUid(uid, month) {
     showError(appError, "対象月を選択してください。");
     return;
   }
+  if (!ensureInvoiceMonthUnlocked(month, "請求書作成")) return;
 
   try {
     const created = await createInvoiceForMember(member, month, true, { forceRecreate: false });
@@ -5820,6 +5922,7 @@ async function createInvoiceForUid(uid, month) {
 }
 
 async function writeInvoiceForMember(member, month, showNoTargetError = true, removeWhenEmpty = false, options = {}) {
+  if (isInvoiceMonthLocked(month)) return false;
   const items = buildInvoiceItems(member, month);
 
   if (!items.length) {
@@ -5866,6 +5969,10 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
     planLabel: planTypeLabel(member.planType),
     month,
     status: existingInvoice.status || "created",
+    received: existingInvoice.received === true,
+    receivedAt: existingInvoice.receivedAt || null,
+    receivedBy: existingInvoice.receivedBy || null,
+    receivedByEmail: existingInvoice.receivedByEmail || null,
     createdAt: shouldResetCreatedAt ? now : existingInvoice.createdAt || now,
     createdBy: shouldResetCreatedAt ? currentUser ? currentUser.uid : "" : existingInvoice.createdBy || (currentUser ? currentUser.uid : ""),
     createdByEmail: shouldResetCreatedAt ? currentUser ? currentUser.email || "" : "" : existingInvoice.createdByEmail || (currentUser ? currentUser.email || "" : ""),
@@ -5915,6 +6022,7 @@ async function refreshExistingInvoicesForProduct(target) {
     const wasInInvoice = Boolean(currentInvoices?.[month]?.items?.[target.productId]);
 
     if (existed && (wasInInvoice || wasInMonth || isInMonth)) {
+      if (isInvoiceMonthLocked(month)) continue;
       await writeInvoiceForMember(member, month, false, true);
     }
   }
@@ -5925,8 +6033,9 @@ async function refreshExistingInvoicesForMember(uid) {
   const monthMap = invoicesCache?.[uid] || {};
   if (!member) return;
 
-  for (const month of Object.keys(monthMap)) {
-    await writeInvoiceForMember(member, month, false, true);
+    for (const month of Object.keys(monthMap)) {
+      if (isInvoiceMonthLocked(month)) continue;
+      await writeInvoiceForMember(member, month, false, true);
   }
 }
 
@@ -6986,6 +7095,7 @@ function firstInvoiceDate(item) {
 
     async function deleteInvoice(uid, month) {
       hideError(appError);
+      if (!ensureInvoiceMonthUnlocked(month, "請求書の削除")) return;
 
       if (!confirm(`${month} の請求書を削除しますか？`)) return;
 
@@ -7540,6 +7650,8 @@ function firstInvoiceDate(item) {
     window.exportInspectionResultsToGss = exportInspectionResultsToGss;
     window.createStorageFolderFromInfo = createStorageFolderFromInfo;
     window.createInvoicesForMonth = createInvoicesForMonth;
+    window.toggleInvoiceMonthLock = toggleInvoiceMonthLock;
+    window.setInvoiceReceived = setInvoiceReceived;
     window.createInvoiceForSelectedMember = createInvoiceForSelectedMember;
     window.createInvoiceForUid = createInvoiceForUid;
     window.downloadInvoiceCsv = downloadInvoiceCsv;
