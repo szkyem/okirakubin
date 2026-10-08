@@ -192,6 +192,52 @@ textarea{min-height:62px;resize:vertical}
   .detail-section{padding:9px 10px;margin-bottom:7px}
   .origin-card-head{align-items:stretch;flex-direction:column}
   button{min-height:40px}
+  body{background:#f1f5f9;padding:0;padding-bottom:env(safe-area-inset-bottom)}
+  .container{min-height:100vh;border-radius:0;box-shadow:none;padding:14px 12px 28px}
+  .header{background:#fff;display:grid;grid-template-columns:1fr auto;align-items:center;padding:4px 2px 14px}
+  .title{font-size:25px}
+  .user{display:grid;grid-template-columns:1fr 1fr;gap:7px;min-width:0}
+  #userEmail{grid-column:1/-1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:12px}
+  .badge{display:none}
+  .user .compact-btn,.user .logout{min-height:36px;padding:7px 10px;font-size:12px}
+  .tabs{position:sticky;top:0;z-index:10;background:#fff;margin:0 -12px 18px;padding:0 10px;border-bottom:1px solid #dbe3ef;scrollbar-width:none;box-shadow:0 3px 10px rgba(15,23,42,.05)}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab,.manual-tab{min-width:max-content;padding:12px 11px}
+  .section h2{font-size:20px}
+  .grid{gap:8px}
+  .stat{padding:13px 12px;background:#f8fbff;border-color:#dbeafe}
+  .stat-label{font-size:12px;margin-bottom:4px}
+  .stat-value{font-size:25px}
+  .table-wrap{border:0;overflow:visible;background:transparent}
+  .products-table{display:block;min-width:0;width:100%}
+  .products-table thead{display:none}
+  .products-table tbody{display:grid;gap:12px}
+  .products-table tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;border:1px solid #dbe3ef;border-radius:12px;background:#fff!important;padding:14px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+  .products-table td{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;border:0!important;border-top:1px solid #eef2f7!important;padding:10px 0!important;font-size:14px;overflow-wrap:anywhere}
+  .products-table td::before{content:attr(data-label);display:block;color:#64748b;font-size:11px;font-weight:800;margin-bottom:4px}
+  .products-table td.mobile-primary{grid-column:1/-1;border-top:0!important;padding-top:0!important}
+  .products-table td.mobile-primary::before{font-size:11px}
+  .products-table td.mobile-primary strong,.products-table td.mobile-primary{font-size:16px;font-weight:800;color:#0f172a}
+  .products-table td.mobile-full{grid-column:1/-1}
+  .products-table td.shipping-cell{width:auto;min-width:0;max-width:none;background:#fffde7;border-radius:8px;padding:9px!important;align-items:center}
+  .products-table td .inline-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .products-table td .inline-actions button,.products-table td.mobile-action button{width:100%}
+  .products-table tr.bundle-first td:first-child{box-shadow:none}
+  .products-table tr.bundle-middle td:first-child,.products-table tr.bundle-last td:first-child{padding-left:0!important}
+  .products-table tr.bundle-middle td:first-child::before,.products-table tr.bundle-last td:first-child::before,.products-table tr.bundle-middle td:first-child::after,.products-table tr.bundle-last td:first-child::after{display:none}
+  .bulk-action-bar.show{position:sticky;bottom:8px;z-index:12;display:grid;grid-template-columns:1fr 1fr;border-radius:12px;overflow:hidden;box-shadow:0 -8px 28px rgba(15,23,42,.2)}
+  .bulk-btn{min-height:52px}
+  .gss-export-action-bar.show{align-items:stretch;flex-direction:column;position:sticky;bottom:8px;z-index:11;box-shadow:0 -8px 24px rgba(15,23,42,.14)}
+  .gss-export-action-bar button{width:100%}
+  .modal-backdrop{padding:0;align-items:flex-end}
+  .modal{border-radius:16px 16px 0 0;max-height:94dvh;padding:16px 14px calc(18px + env(safe-area-inset-bottom))}
+  .modal-head{position:sticky;top:-16px;z-index:2;background:#fff;margin:-16px -14px 12px;padding:14px;border-bottom:1px solid #e5e7eb;flex-direction:row;align-items:center}
+  .modal-head .compact-btn{min-width:72px}
+  .detail-grid{grid-template-columns:1fr;gap:3px}
+  .detail-label{margin-top:9px;font-size:11px}
+  .invoice-year{padding:12px}
+  .invoice-grid{gap:8px}
+  .invoice-month-card{min-height:96px;padding:9px}
 }
 </style>
 </head>
@@ -2236,26 +2282,26 @@ function productRow(product, mode = "registered") {
   return `
     <tr class="${bundleRowClass(product)}">
       ${isStored ? `
-        <td class="shipping-cell">
+        <td class="shipping-cell mobile-full" data-label="発送選択">
           <input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">
         </td>
       ` : ""}
-      ${isShipping ? `<td>${shippingCellHtml(product)}</td>` : ""}
-      <td>${escapeHtml(product.name)}</td>
-      <td>${escapeHtml(product.numbering || "-")}</td>
-      ${isShipping ? `<td>${shippingInfoButtonHtml(product)}</td>` : ""}
-      <td>
+      ${isShipping ? `<td data-label="発送種別">${shippingCellHtml(product)}</td>` : ""}
+      <td class="mobile-primary" data-label="商品名">${escapeHtml(product.name)}</td>
+      <td data-label="ナンバリング">${escapeHtml(product.numbering || "-")}</td>
+      ${isShipping ? `<td class="mobile-action" data-label="発送情報">${shippingInfoButtonHtml(product)}</td>` : ""}
+      <td class="mobile-action" data-label="${isShipping ? "商品情報" : "情報"}">
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
       ${isRegistered ? `
-        <td>
+        <td class="mobile-full" data-label="操作">
           <div class="inline-actions">
             <button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>
             <button class="danger compact-btn" type="button" onclick="deleteRegisteredProduct('${escapeAttr(product.id)}')">削除</button>
           </div>
         </td>
       ` : ""}
-      ${isStored ? `<td>${escapeHtml(product.shootingDate || "-")}</td><td>${feeButtonHtml(product)}</td><td>${gssExportButtonHtml(product)}</td>` : ""}
+      ${isStored ? `<td data-label="撮影日">${escapeHtml(product.shootingDate || "-")}</td><td class="mobile-action" data-label="料金">${feeButtonHtml(product)}</td><td class="mobile-full" data-label="GSS出力">${gssExportButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
   `;
@@ -2273,17 +2319,17 @@ function shippingMetaCellsHtml(product) {
   if (shippingView === "shipped") {
     const dash = bundleChildDash(product);
     return `
-      <td><strong>${dash || escapeHtml(product.shippedDate || "-")}</strong></td>
-      <td><strong>${dash || trackingNumberHtml(product)}</strong></td>
-      <td><strong>${dash || escapeHtml(product.shippingSize || "-")}</strong></td>
-      <td>${dash || feeButtonHtml(product)}</td>
+      <td data-label="発送日"><strong>${dash || escapeHtml(product.shippedDate || "-")}</strong></td>
+      <td data-label="追跡番号"><strong>${dash || trackingNumberHtml(product)}</strong></td>
+      <td data-label="発送サイズ"><strong>${dash || escapeHtml(product.shippingSize || "-")}</strong></td>
+      <td class="mobile-action" data-label="料金">${dash || feeButtonHtml(product)}</td>
     `;
   }
 
   return `
-    <td><strong>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</strong></td>
-    <td>${inquiryControl(product)}</td>
-    <td>${feeButtonHtml(product)}</td>
+    <td data-label="発送日"><strong>${bundleChildDash(product) || escapeHtml(product.shippedDate || "-")}</strong></td>
+    <td data-label="お問い合わせ">${inquiryControl(product)}</td>
+    <td class="mobile-action" data-label="料金">${feeButtonHtml(product)}</td>
   `;
 }
 
