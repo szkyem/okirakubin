@@ -2161,8 +2161,8 @@
 
     function setDefaultMonths() {
       const month = todayString().slice(0, 7);
-      if (invoiceMonthInput) invoiceMonthInput.value = month;
-      if (detailInvoiceMonthInput) detailInvoiceMonthInput.value = month;
+      if (invoiceMonthInput && !invoiceMonthInput.value) invoiceMonthInput.value = month;
+      if (detailInvoiceMonthInput && !detailInvoiceMonthInput.value) detailInvoiceMonthInput.value = month;
       if (discordNotifyDateInput) discordNotifyDateInput.value = todayString();
     }
 
@@ -2944,6 +2944,7 @@
             <td>
               <button class="mini-btn" type="button" onclick="openShippingInfo('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button>
               ${shippingKey(product.shippingRequest) === "international" ? `<div class="member-meta">集荷予定日：${escapeHtml(product.pickupScheduledDate || "未設定")}</div>` : ""}
+              ${shippingKey(product.shippingRequest) === "return" && product.returnMethod === "pickup" ? `<div class="member-meta">集荷依頼日時：${escapeHtml(formatPickupDateTime(product.returnPickupDateTime))}</div>` : ""}
             </td>
             <td>${thanksCardShippingHtml(unit.products)}</td>
             <td>${escapeHtml(shippingDestinationName(product))}</td>
@@ -3693,6 +3694,8 @@
         "returnMethod",
         "internationalMethod",
         "pickupScheduledDate",
+        "returnPickupDateTime",
+        "returnPickupMemo",
         "shippingStatus",
         "shippingDestination",
         "shippingOrigin",
@@ -3822,6 +3825,9 @@
     }
 
     function shippingDestinationName(product) {
+      if (shippingKey(product?.shippingRequest) === "return" && product?.returnMethod === "pickup") {
+        return "集荷依頼";
+      }
       if (shippingKey(product?.shippingRequest) === "return" && product?.returnMethod === "label") {
         return "QR・バーコード返品";
       }
@@ -4091,8 +4097,9 @@
 
       const isReturnRequest = shippingKey(product.shippingRequest) === "return";
       const isReturnLabel = isReturnRequest && product.returnMethod === "label";
+      const isReturnPickup = isReturnRequest && product.returnMethod === "pickup";
       const returnMethodText = isReturnRequest
-        ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
+        ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : isReturnPickup ? "集荷を依頼して返品" : "住所を指定して返品"
         : "";
       const isInternationalRequest = shippingKey(product.shippingRequest) === "international";
       const isInternationalLabel = isInternationalRequest && product.internationalMethod === "label";
@@ -4131,6 +4138,10 @@
             <div class="info-value">${shippingStatusLabel(product.shippingStatus)}</div>
 
             ${returnMethodText ? `<div class="info-label">返品方法</div><div class="info-value">${escapeHtml(returnMethodText)}</div>` : ""}
+
+            ${isReturnPickup ? `<div class="info-label">集荷依頼日時</div><div class="info-value">${escapeHtml(formatPickupDateTime(product.returnPickupDateTime))}</div>` : ""}
+
+            ${isReturnPickup ? `<div class="info-label">集荷メモ</div><div class="info-value">${lineBreaks(product.returnPickupMemo || "-")}</div>` : ""}
 
             ${internationalMethodText ? `<div class="info-label">海外発送方法</div><div class="info-value">${escapeHtml(internationalMethodText)}</div>` : ""}
 
@@ -7113,7 +7124,6 @@ function firstInvoiceDate(item) {
       try {
         await remove(ref(db, `invoices/${uid}/${month}`));
         await loadAllData();
-        renderInvoices();
       } catch (error) {
         showError(appError, "請求書の削除に失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -8405,6 +8415,12 @@ function firstInvoiceDate(item) {
         minute: "2-digit",
         second: "2-digit"
       });
+    }
+
+    function formatPickupDateTime(value) {
+      const text = String(value || "").trim();
+      if (!text) return "-";
+      return text.replace("T", " ");
     }
 
     function formatDateOnly(value) {

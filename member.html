@@ -446,7 +446,22 @@ textarea{min-height:62px;resize:vertical}
           <select id="returnMethodSelect">
             <option value="address">住所を指定して返品する</option>
             <option value="label">QRコード・バーコードを連絡して返品する</option>
+            <option value="pickup">集荷を依頼して返品する</option>
           </select>
+        </div>
+      </div>
+
+      <div id="returnPickupSection" style="display:none;">
+        <div class="modal-section-title">集荷依頼</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="returnPickupDateTime">集荷依頼日時 <span class="required">必須</span></label>
+            <input id="returnPickupDateTime" type="datetime-local">
+          </div>
+          <div class="form-group full">
+            <label for="returnPickupMemo">メモ（任意）</label>
+            <textarea id="returnPickupMemo" placeholder="集荷時の連絡事項があれば入力してください。"></textarea>
+          </div>
         </div>
       </div>
 
@@ -707,6 +722,8 @@ const shippingForm = document.getElementById("shippingForm");
 const shippingRequestType = document.getElementById("shippingRequestType");
 const originSelect = document.getElementById("originSelect");
 const returnMethodSelect = document.getElementById("returnMethodSelect");
+const returnPickupDateTime = document.getElementById("returnPickupDateTime");
+const returnPickupMemo = document.getElementById("returnPickupMemo");
 const internationalMethodSelect = document.getElementById("internationalMethodSelect");
 const internationalPickupDate = document.getElementById("internationalPickupDate");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
@@ -1583,10 +1600,11 @@ shippingForm.addEventListener("submit", async (event) => {
   const returnMethod = isReturnRequest ? returnMethodSelect.value : "";
   const internationalMethod = isInternationalRequest ? internationalMethodSelect.value : "";
   const isReturnLabel = isReturnRequest && returnMethod === "label";
+  const isReturnPickup = isReturnRequest && returnMethod === "pickup";
   const isInternationalLabel = isInternationalRequest && internationalMethod === "label";
   const isInternationalLabelPlanned = isInternationalRequest && internationalMethod === "planned";
   const isFileLabelRequest = isPrepaidLabel || isReturnLabel || isInternationalLabel;
-  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned;
+  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned || isReturnPickup;
   if (isReturnRequest && !returnMethod) {
     showError("返品方法を選択してください。");
     return;
@@ -1599,6 +1617,13 @@ shippingForm.addEventListener("submit", async (event) => {
   if (isInternationalRequest && !pickupScheduledDate) {
     showError("集荷予定日を入力してください。");
     internationalPickupDate.focus();
+    return;
+  }
+  const returnPickupDateTimeValue = isReturnPickup ? String(returnPickupDateTime?.value || "").trim() : "";
+  const returnPickupMemoValue = isReturnPickup ? String(returnPickupMemo?.value || "").trim() : "";
+  if (isReturnPickup && !returnPickupDateTimeValue) {
+    showError("集荷依頼日時を入力してください。");
+    returnPickupDateTime?.focus();
     return;
   }
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
@@ -1657,6 +1682,8 @@ shippingForm.addEventListener("submit", async (event) => {
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
         pickupScheduledDate,
+        returnPickupDateTime: returnPickupDateTimeValue,
+        returnPickupMemo: returnPickupMemoValue,
         shippingStatus: "unshipped",
         shippingDestination: destination,
         shippingOrigin: isAddresslessRequest ? {} : selectedOrigin,
@@ -1728,7 +1755,9 @@ shippingForm.addEventListener("submit", async (event) => {
     shippingForm.reset();
     closeShippingModal();
     await loadData();
-    alert(isFileLabelRequest || isInternationalLabelPlanned
+    alert(isReturnPickup
+      ? "集荷による返品依頼を作成しました。"
+      : isFileLabelRequest || isInternationalLabelPlanned
       ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : isInternationalLabelPlanned ? "海外発送のラベル調整依頼" : isInternationalLabel ? "海外発送ラベル依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || `\n\nDiscordへ${isInternationalLabelPlanned ? "調整依頼" : "ラベル"}を送信しました。`}`
       : "発送依頼を作成しました。");
   } catch (error) {
@@ -2530,6 +2559,12 @@ function formatDate(value) {
   return `${year}/${month}/${day}`;
 }
 
+function formatPickupDateTime(value) {
+  const text = String(value || "").trim();
+  if (!text) return "-";
+  return text.replace("T", " ");
+}
+
 function originLabel(origin) {
   return `${origin.postalCode || ""} ${origin.prefecture || ""} ${origin.address || ""}`;
 }
@@ -2583,14 +2618,18 @@ function updateShippingFormVisibility() {
   const isReturnRequest = type === "返品依頼";
   const isInternationalRequest = type === "海外発送";
   const isReturnLabel = isReturnRequest && returnMethodSelect?.value === "label";
+  const isReturnPickup = isReturnRequest && returnMethodSelect?.value === "pickup";
   const isInternationalLabel = isInternationalRequest && internationalMethodSelect?.value === "label";
   const isInternationalLabelPlanned = isInternationalRequest && internationalMethodSelect?.value === "planned";
   const isFileLabelRequest = isPrepaidLabel || isReturnLabel || isInternationalLabel;
-  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned;
+  const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned || isReturnPickup;
 
   const returnMethodSection = document.getElementById("returnMethodSection");
   if (returnMethodSection) returnMethodSection.style.display = isReturnRequest ? "" : "none";
   if (returnMethodSelect) returnMethodSelect.required = isReturnRequest;
+  const returnPickupSection = document.getElementById("returnPickupSection");
+  if (returnPickupSection) returnPickupSection.style.display = isReturnPickup ? "" : "none";
+  if (returnPickupDateTime) returnPickupDateTime.required = isReturnPickup;
   const internationalMethodSection = document.getElementById("internationalMethodSection");
   if (internationalMethodSection) internationalMethodSection.style.display = isInternationalRequest ? "" : "none";
   if (internationalMethodSelect) internationalMethodSelect.required = isInternationalRequest;
@@ -3987,8 +4026,9 @@ function shippingDetailHtml(product) {
   const destination = product.shippingDestination || {};
   const origin = product.shippingOrigin || {};
   const isReturnLabel = product.shippingRequest === "返品依頼" && product.returnMethod === "label";
+  const isReturnPickup = product.shippingRequest === "返品依頼" && product.returnMethod === "pickup";
   const returnMethodText = product.shippingRequest === "返品依頼"
-    ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : "住所を指定して返品"
+    ? isReturnLabel ? "QRコード・バーコードを連絡して返品" : isReturnPickup ? "集荷を依頼して返品" : "住所を指定して返品"
     : "";
   const isInternationalRequest = product.shippingRequest === "海外発送";
   const isInternationalLabel = isInternationalRequest && product.internationalMethod === "label";
@@ -4008,6 +4048,8 @@ function shippingDetailHtml(product) {
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
         ${returnMethodText ? `<div class="detail-label">返品方法</div><div>${escapeHtml(returnMethodText)}</div>` : ""}
+        ${isReturnPickup ? `<div class="detail-label">集荷依頼日時</div><div>${escapeHtml(formatPickupDateTime(product.returnPickupDateTime))}</div>` : ""}
+        ${isReturnPickup ? `<div class="detail-label">集荷メモ</div><div>${lineBreaks(product.returnPickupMemo || "-")}</div>` : ""}
         ${internationalMethodText ? `<div class="detail-label">海外発送方法</div><div>${escapeHtml(internationalMethodText)}</div>` : ""}
         ${isInternationalRequest ? `<div class="detail-label">集荷予定日</div><div>${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
         <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
