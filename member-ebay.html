@@ -738,29 +738,35 @@ const SHIPPING_RATE_TABLE = {
 
 const DEFAULT_PUBLIC_PRICE_SECTIONS = [
   {
-    id: "work",
-    title: "作業料",
-    columns: ["区分", "価格", "備考"],
+    id: "ebay_shipping_service",
+    title: "1. 発送代行料金",
+    columns: ["60サイズ", "80サイズ", "100サイズ", "120サイズ", "140サイズ", "160サイズ", "160超"],
     rows: [
-      ["検品＋写真", "1,300円", "ボディまたはレンズ1点目を含む基本料金"],
-      ["検品のみ", "1,000円", "検品のみの場合"],
-      ["レンズキット検品追加料金", "1個あたり300円", "ボディ＋レンズ2本の場合、1,300＋300＋300＝1,900円"],
-      ["国内送料", "1,000円〜", "運賃表による。発送情報の料金を請求へ反映"],
-      ["送料お客様負担の発送作業代", "500円", "送料はお客様負担で、当店が梱包・発送作業を行う場合の作業料。海外発送や国内フリマサイト等でお客様が事前に送料を負担する場合"]
-    ]
+      ["500円", "700円", "950円", "1,300円", "1,600円", "2,000円", "見積"]
+    ],
+    note: "荷受け・受取商品番号照合・領収書等の抜き取り・標準梱包・出荷手続き込み"
   },
   {
-    id: "options",
-    title: "オプション・その他",
-    columns: ["区分", "価格", "備考"],
+    id: "ebay_packaging_materials",
+    title: "2. 梱包資材料金（発送代行料金に追加）",
+    columns: ["梱包方法", "60", "80", "100", "120", "140", "160", "160超"],
     rows: [
-      ["写真のみ", "500円", "お客様による検品が済んでいて写真撮影のみの場合"],
-      ["返品対応", "700円", "検品中に見つかった不具合で返品となった場合の作業代"],
-      ["再撮影", "500円", "検品後2週間以上経過した商品のご依頼の場合"],
-      ["動画撮影", "500円", "1分程度の動画を撮影"],
-      ["サンクスカード同梱", "0円", "お客様によるご準備をお願いします"],
-      ["お気楽便チラシ同梱なし", "100円", "お気楽便チラシ同梱を不要にする場合"]
-    ]
+      ["再利用資材", "0円", "0円", "0円", "0円", "0円", "0円", "個別判断"],
+      ["新品段ボール＋新品緩衝材", "100円", "150円", "250円", "350円", "500円", "700円", "見積"]
+    ],
+    note: "再利用資材を標準使用（追加0円）。再利用可否はお気楽便が判断。資材不足時は通常梱包の範囲で新品を無償補充。強度・清潔さ・旧ラベルの除去を確認し、特殊梱包は別途見積。"
+  },
+  {
+    id: "ebay_inspection_options",
+    title: "3. 検品範囲・オプション料金",
+    columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋250円）", "詳細検品（＋750円〜）"],
+    rows: [
+      ["受取商品番号照合／領収書・納品書抜き取り", "対応", "対応", "対応"],
+      ["商品名・数量／外観の傷・破損", "対象外", "確認", "確認"],
+      ["付属品／通電確認", "対象外", "対象外", "付属品確認・通電は対応品のみ"],
+      ["詳細な機能確認", "対象外", "対象外", "別途見積"]
+    ],
+    note: "写真撮影5枚：300円／追加写真：100円・枚／動画30秒：300円／仕入先への返品作業：500円〜（返送料別）。詳細検品750円〜には簡易検品を含み、重複請求しません。"
   },
   {
     id: "shipping",
@@ -1992,7 +1998,7 @@ async function loadData() {
     const memberSettingsSnapshot = await get(ref(database, `memberSettings/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const loginUserSnapshot = await get(ref(database, `loginUsers/${dataUid()}`)).catch(() => ({ exists: () => false, val: () => ({}) }));
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
-    const priceTableSnapshot = await get(ref(database, "priceTable")).catch(() => ({ exists: () => false, val: () => ({}) }));
+    const priceTableSnapshot = await get(ref(database, "priceTable/ebay")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
     const allProducts = productsSnapshot.exists() ? Object.values(productsSnapshot.val()) : [];
     productsCache = allProducts
@@ -2432,7 +2438,8 @@ function publicPriceSections() {
     id: section.id || `section_${sectionIndex}`,
     title: section.title || "",
     columns: Array.isArray(section.columns) && section.columns.length ? section.columns : ["区分", "価格", "備考"],
-    rows: Array.isArray(section.rows) ? section.rows : []
+    rows: Array.isArray(section.rows) ? section.rows : [],
+    note: section.note || ""
   }));
 }
 
@@ -2456,6 +2463,7 @@ function renderPriceTable() {
           </tbody>
         </table>
       </div>
+      ${section.note ? `<p class="member-meta" style="margin-top:8px;white-space:pre-wrap;">${escapeHtml(section.note)}</p>` : ""}
     </div>
   `).join("");
 }
