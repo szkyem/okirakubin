@@ -1497,79 +1497,6 @@
           <div id="publicPriceTableEditor"></div>
         </div>
 
-        <h2>コンサル生料金</h2>
-
-        <div class="table-wrap">
-          <table class="price-table">
-            <tbody>
-              <tr>
-                <td class="group-cell" rowspan="4">作業料</td>
-                <td>検品＋写真</td>
-                <td>1,000円</td>
-                <td>ボディまたはレンズ1点目を含む基本料金</td>
-              </tr>
-              <tr>
-                <td>検品のみ</td>
-                <td>1,000円</td>
-                <td>検品のみの場合</td>
-              </tr>
-              <tr>
-                <td>レンズキット検品追加料金</td>
-                <td>0円</td>
-                <td>追加料金なし</td>
-              </tr>
-              <tr>
-                <td>送料お客様負担の発送作業代</td>
-                <td>400円</td>
-                <td>送料はお客様負担で、梱包・発送作業を行う場合の作業料。海外発送や国内フリマサイト等でお客様が事前に送料を負担する場合</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="table-wrap">
-          <table class="price-table">
-            <thead>
-              <tr>
-                <th>区分</th>
-                <th>価格</th>
-                <th>備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>写真のみ</td><td>500円</td><td>お客様による検品が済んでいて写真撮影のみの場合</td></tr>
-              <tr><td>返品対応</td><td>700円</td><td>検品中に見つかった不具合で返品となった場合の作業代</td></tr>
-              <tr><td>再撮影</td><td>500円</td><td>検品後2週間以上経過した商品のご依頼の場合</td></tr>
-              <tr><td>動画撮影</td><td>500円</td><td>1分程度の動画を撮影</td></tr>
-              <tr><td>Thanksカード同梱</td><td>0円</td><td>お客様によるご準備をお願いします</td></tr>
-              <tr><td>お気楽便チラシ同梱</td><td>0円</td><td>コンサル生向け</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="table-wrap">
-          <table class="price-table">
-            <thead>
-              <tr>
-                <th>サイズ</th>
-                <th>静岡</th>
-                <th>関東・信越・北陸・東海・近畿</th>
-                <th>東北・中国・四国</th>
-                <th>九州</th>
-                <th>沖縄</th>
-                <th>北海道</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>60</td><td>902円</td><td>945円</td><td>1,023円</td><td>1,135円</td><td>1,350円</td><td>1,446円</td></tr>
-              <tr><td>80</td><td>1,118円</td><td>1,167円</td><td>1,248円</td><td>1,341円</td><td>1,633円</td><td>1,671円</td></tr>
-              <tr><td>100</td><td>1,344円</td><td>1,383円</td><td>1,469円</td><td>1,582円</td><td>1,940円</td><td>1,969円</td></tr>
-              <tr><td>120</td><td>1,573円</td><td>1,617円</td><td>1,582円</td><td>1,797円</td><td>2,305円</td><td>2,339円</td></tr>
-              <tr><td>140以上</td><td>1,822円</td><td>1,858円</td><td>1,953円</td><td>2,054円</td><td>2,733円</td><td>2,773円</td></tr>
-            </tbody>
-          </table>
-        </div>
-
         <div>
           <h3>実送料（管理者のみ）</h3>
           <p class="muted" style="margin-bottom:10px;">コンサル生料金の国内送料から発送作業代400円を差し引いた金額です。</p>
@@ -1709,27 +1636,23 @@
 
     const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       {
-        id: "ebay_shipping_service",
-        title: "1. 発送代行料金",
-        columns: ["60サイズ", "80サイズ", "100サイズ", "120サイズ", "140サイズ", "160サイズ", "160超"],
+        id: "ebay_shipping_and_packaging",
+        title: "1. 発送代行・梱包料金",
+        columns: ["梱包サイズ", "リサイクル梱包", "新品梱包"],
         rows: [
-          ["500円", "700円", "950円", "1,300円", "1,600円", "2,000円", "見積"]
+          ["60サイズ", "500円", "600円"],
+          ["80サイズ", "700円", "850円"],
+          ["100サイズ", "950円", "1,200円"],
+          ["120サイズ", "1,300円", "1,650円"],
+          ["140サイズ", "1,600円", "2,100円"],
+          ["160サイズ", "2,000円", "2,700円"],
+          ["160サイズ超", "見積", "見積"]
         ],
-        note: "荷受け・受取商品番号照合・領収書等の抜き取り・標準梱包・出荷手続き込み"
-      },
-      {
-        id: "ebay_packaging_materials",
-        title: "2. 梱包資材料金（発送代行料金に追加）",
-        columns: ["梱包方法", "60", "80", "100", "120", "140", "160", "160超"],
-        rows: [
-          ["再利用資材", "0円", "0円", "0円", "0円", "0円", "0円", "個別判断"],
-          ["新品段ボール＋新品緩衝材", "100円", "150円", "250円", "350円", "500円", "700円", "見積"]
-        ],
-        note: "再利用資材を標準使用（追加0円）。再利用可否はお気楽便が判断。資材不足時は通常梱包の範囲で新品を無償補充。強度・清潔さ・旧ラベルの除去を確認し、特殊梱包は別途見積。"
+        note: "荷受け・受取商品番号照合・領収書等の抜き取り・標準梱包・出荷手続き込み。リサイクル資材の使用可否はお気楽便が判断し、特殊梱包は別途見積となります。"
       },
       {
         id: "ebay_inspection_options",
-        title: "3. 検品範囲・オプション料金",
+        title: "2. 検品範囲",
         columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋250円）", "詳細検品（＋750円〜）"],
         rows: [
           ["受取商品番号照合／領収書・納品書抜き取り", "対応", "対応", "対応"],
@@ -1737,7 +1660,24 @@
           ["付属品／通電確認", "対象外", "対象外", "付属品確認・通電は対応品のみ"],
           ["詳細な機能確認", "対象外", "対象外", "別途見積"]
         ],
-        note: "写真撮影5枚：300円／追加写真：100円・枚／動画30秒：300円／仕入先への返品作業：500円〜（返送料別）。詳細検品750円〜には簡易検品を含み、重複請求しません。"
+        note: "詳細検品750円〜には簡易検品を含み、重複請求しません。"
+      },
+      {
+        id: "ebay_optional_fees",
+        title: "3. オプション料金",
+        columns: ["サービス", "追加料金（税抜）"],
+        rows: [
+          ["簡易検品", "250円"],
+          ["詳細検品（通電確認は対応品のみ）", "750円〜"],
+          ["詳細な機能確認", "別途見積"],
+          ["写真撮影5枚", "300円"],
+          ["追加写真", "100円／枚"],
+          ["動画撮影30秒", "300円"],
+          ["リサイクル梱包", "0円"],
+          ["新品梱包", "100円〜"],
+          ["仕入先への返品作業", "500円〜"]
+        ],
+        note: "仕入先への返品作業の返送料は別途となります。"
       },
       {
         id: "shipping",
@@ -7151,9 +7091,10 @@ function firstInvoiceDate(item) {
     }
 
     function publicPriceSections() {
-      const sections = Array.isArray(priceTableCache.publicSections)
-        ? priceTableCache.publicSections
-        : DEFAULT_PUBLIC_PRICE_SECTIONS;
+      const savedSections = Array.isArray(priceTableCache.publicSections) ? priceTableCache.publicSections : [];
+      const legacyIds = new Set(["work", "options", "ebay_shipping_service", "ebay_packaging_materials"]);
+      const hasLegacyLayout = savedSections.some((section) => legacyIds.has(section?.id));
+      const sections = savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS;
 
       return sections.map((section, sectionIndex) => ({
         id: section.id || `section_${sectionIndex}`,

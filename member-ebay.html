@@ -738,27 +738,23 @@ const SHIPPING_RATE_TABLE = {
 
 const DEFAULT_PUBLIC_PRICE_SECTIONS = [
   {
-    id: "ebay_shipping_service",
-    title: "1. 発送代行料金",
-    columns: ["60サイズ", "80サイズ", "100サイズ", "120サイズ", "140サイズ", "160サイズ", "160超"],
+    id: "ebay_shipping_and_packaging",
+    title: "1. 発送代行・梱包料金",
+    columns: ["梱包サイズ", "リサイクル梱包", "新品梱包"],
     rows: [
-      ["500円", "700円", "950円", "1,300円", "1,600円", "2,000円", "見積"]
+      ["60サイズ", "500円", "600円"],
+      ["80サイズ", "700円", "850円"],
+      ["100サイズ", "950円", "1,200円"],
+      ["120サイズ", "1,300円", "1,650円"],
+      ["140サイズ", "1,600円", "2,100円"],
+      ["160サイズ", "2,000円", "2,700円"],
+      ["160サイズ超", "見積", "見積"]
     ],
-    note: "荷受け・受取商品番号照合・領収書等の抜き取り・標準梱包・出荷手続き込み"
-  },
-  {
-    id: "ebay_packaging_materials",
-    title: "2. 梱包資材料金（発送代行料金に追加）",
-    columns: ["梱包方法", "60", "80", "100", "120", "140", "160", "160超"],
-    rows: [
-      ["再利用資材", "0円", "0円", "0円", "0円", "0円", "0円", "個別判断"],
-      ["新品段ボール＋新品緩衝材", "100円", "150円", "250円", "350円", "500円", "700円", "見積"]
-    ],
-    note: "再利用資材を標準使用（追加0円）。再利用可否はお気楽便が判断。資材不足時は通常梱包の範囲で新品を無償補充。強度・清潔さ・旧ラベルの除去を確認し、特殊梱包は別途見積。"
+    note: "荷受け・受取商品番号照合・領収書等の抜き取り・標準梱包・出荷手続き込み。リサイクル資材の使用可否はお気楽便が判断し、特殊梱包は別途見積となります。"
   },
   {
     id: "ebay_inspection_options",
-    title: "3. 検品範囲・オプション料金",
+    title: "2. 検品範囲",
     columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋250円）", "詳細検品（＋750円〜）"],
     rows: [
       ["受取商品番号照合／領収書・納品書抜き取り", "対応", "対応", "対応"],
@@ -766,7 +762,24 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       ["付属品／通電確認", "対象外", "対象外", "付属品確認・通電は対応品のみ"],
       ["詳細な機能確認", "対象外", "対象外", "別途見積"]
     ],
-    note: "写真撮影5枚：300円／追加写真：100円・枚／動画30秒：300円／仕入先への返品作業：500円〜（返送料別）。詳細検品750円〜には簡易検品を含み、重複請求しません。"
+    note: "詳細検品750円〜には簡易検品を含み、重複請求しません。"
+  },
+  {
+    id: "ebay_optional_fees",
+    title: "3. オプション料金",
+    columns: ["サービス", "追加料金（税抜）"],
+    rows: [
+      ["簡易検品", "250円"],
+      ["詳細検品（通電確認は対応品のみ）", "750円〜"],
+      ["詳細な機能確認", "別途見積"],
+      ["写真撮影5枚", "300円"],
+      ["追加写真", "100円／枚"],
+      ["動画撮影30秒", "300円"],
+      ["リサイクル梱包", "0円"],
+      ["新品梱包", "100円〜"],
+      ["仕入先への返品作業", "500円〜"]
+    ],
+    note: "仕入先への返品作業の返送料は別途となります。"
   },
   {
     id: "shipping",
@@ -2430,9 +2443,10 @@ function renderInvoiceList() {
 }
 
 function publicPriceSections() {
-  const sections = Array.isArray(priceTableCache.publicSections)
-    ? priceTableCache.publicSections
-    : DEFAULT_PUBLIC_PRICE_SECTIONS;
+  const savedSections = Array.isArray(priceTableCache.publicSections) ? priceTableCache.publicSections : [];
+  const legacyIds = new Set(["work", "options", "ebay_shipping_service", "ebay_packaging_materials"]);
+  const hasLegacyLayout = savedSections.some((section) => legacyIds.has(section?.id));
+  const sections = savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS;
 
   return sections.map((section, sectionIndex) => ({
     id: section.id || `section_${sectionIndex}`,
