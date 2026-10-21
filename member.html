@@ -666,6 +666,8 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
@@ -689,6 +691,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+await setPersistence(auth, browserLocalPersistence);
 const provider = new GoogleAuthProvider();
 const database = getDatabase(
   app,
@@ -1021,9 +1024,9 @@ onAuthStateChanged(auth, async (user) => {
     await loadData();
   } catch (error) {
     console.error(error);
-    await signOut(auth);
-    showLoginUI();
-    showLoginError("会員情報の確認に失敗しました。Realtime Databaseのルールとデータを確認してください。");
+    currentUser = user;
+    showAppUI(user);
+    showError("ログイン状態は維持されています。データの読み込みに失敗したため、画面を再読み込みしてください。");
   }
 });
 

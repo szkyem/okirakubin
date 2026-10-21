@@ -270,7 +270,20 @@ textarea{min-height:62px;resize:vertical}
   .ebay-product-actions button{width:100%}
 }
 </style>
-<style>body{background:linear-gradient(135deg,#f7cf62 0%,#e5a62f 100%)}.title,.tab.active,.stat-value{color:#4b5563}.tab.active{border-bottom-color:#4b5563}.badge,button:not(.secondary):not(.danger):not(.logout):not(.tab):not(.ship-filter-btn){background:#4b5563}</style>
+<style>
+body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
+.title,.login-title,.tab.active,.stat-value,.detail-heading,.ebay-hero h2{color:#3f6652}
+.tab.active{border-bottom-color:#3f6652}
+.badge,.login-button,.service-switch button.active,button:not(.secondary):not(.danger):not(.logout):not(.tab):not(.ship-filter-btn):not(.bulk-btn):not(.gss-exported):not(.gss-export-run){background:#3f6652}
+.stat:hover{border-color:#a7c5b1;box-shadow:0 8px 22px rgba(63,102,82,.14)}
+.products-table tr.bundle-first td:first-child{box-shadow:inset 3px 0 0 #3f6652}
+.ship-filter-btn.active{color:#3f6652;border-bottom-color:#3f6652}
+.ebay-hero{border-color:#bfd3c5;background:#f0f6f2}
+.bulk-btn.domestic{background:#334155}
+.bulk-btn.prepaid{background:#64748b}
+.bulk-btn.overseas{background:#5acb88}
+.bulk-btn.return{background:#f59e0b}
+</style>
 </head>
 <body>
 
@@ -667,6 +680,8 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
@@ -690,6 +705,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+await setPersistence(auth, browserLocalPersistence);
 const provider = new GoogleAuthProvider();
 const database = getDatabase(
   app,
@@ -1022,9 +1038,9 @@ onAuthStateChanged(auth, async (user) => {
     await loadData();
   } catch (error) {
     console.error(error);
-    await signOut(auth);
-    showLoginUI();
-    showLoginError("会員情報の確認に失敗しました。Realtime Databaseのルールとデータを確認してください。");
+    currentUser = user;
+    showAppUI(user);
+    showError("ログイン状態は維持されています。データの読み込みに失敗したため、画面を再読み込みしてください。");
   }
 });
 
@@ -1551,12 +1567,12 @@ registerProductsBtn.addEventListener("click", async () => {
       name: entry.querySelector('[data-field="name"]').value.trim(),
       numbering: entry.querySelector('[data-field="numbering"]').value.trim(),
       workRequest: [...entry.querySelectorAll('[data-work-request]:checked')].map((input) => input.value).join("・"),
-      bodyCount: entry.querySelector('[data-field="bodyCount"]').value.trim(),
-      lensCount: entry.querySelector('[data-field="lensCount"]').value.trim(),
-      accessoryCount: entry.querySelector('[data-field="accessoryCount"]').value.trim(),
+      bodyCount: "0",
+      lensCount: "0",
+      accessoryCount: "0",
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
-      optionOkirakuInsert: entry.querySelector('[data-field="optionOkirakuInsert"]').checked,
+      optionOkirakuInsert: false,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
       note: entry.querySelector('[data-field="note"]')?.value.trim() || "",
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
@@ -1568,8 +1584,8 @@ registerProductsBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount || item.accessoryCount === "")) {
-    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
+  if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest)) {
+    showError("商品名、ナンバリング、作業依頼は必須です。");
     return;
   }
 
@@ -2239,7 +2255,7 @@ window.saveEbayLabel = async function(event, productId) {
       selectedProducts: [product],
       shipmentGroupNames: product.name || "",
       shipmentGroupNumberings: product.orderNumber || product.sku || "",
-      requestId: `discord_ebay_label_${dataUid()}_${product.id}`
+      requestId: `discord_ebay_label_${dataUid()}_${product.id}_${Date.now()}`
     });
     await update(ref(database, `products/${dataUid()}/${product.id}`), {
       deliveryService,
@@ -2481,22 +2497,6 @@ function addProductEntry() {
       </div>
 
       <div class="form-group">
-        <label>ボディの本数 *</label>
-        <input type="number" min="0" step="1" data-field="bodyCount" required placeholder="例：1">
-      </div>
-
-      <div class="form-group">
-        <label>レンズの本数 *</label>
-        <input type="number" min="0" step="1" data-field="lensCount" required placeholder="例：2">
-      </div>
-
-      <div class="form-group">
-        <label>検品確認が必要な周辺機器本数 *</label>
-        <input type="number" min="0" step="1" data-field="accessoryCount" required placeholder="例：0">
-        <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
-      </div>
-
-      <div class="form-group">
         <label>購入先URL</label>
         <input type="url" data-field="purchaseUrl" placeholder="https://example.com">
       </div>
@@ -2505,12 +2505,11 @@ function addProductEntry() {
         <label>オプション</label>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionVideo"><span>動画撮影</span></div>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionThanksCard"><span>サンクスカード同梱</span></div>
-        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionOkirakuInsert" checked><span>お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</span></div>
       </div>
 
       <div class="form-group full">
         <label>オプションコメント</label>
-        <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"></textarea>
+        <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄（相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"></textarea>
       </div>
 
     </div>
@@ -2520,7 +2519,6 @@ function addProductEntry() {
     if (document.querySelectorAll(".product-entry").length === 1) {
       entry.querySelectorAll("input,textarea").forEach((input) => input.value = "");
       entry.querySelectorAll('input[type="checkbox"]').forEach((input) => input.checked = false);
-      entry.querySelector('[data-field="optionOkirakuInsert"]').checked = true;
       entry.querySelector("select").selectedIndex = 0;
       return;
     }
@@ -2835,12 +2833,8 @@ function optionSummary(product) {
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
   if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("サンクスカード同梱");
-  if (isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(optionObject.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(optionObject.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(optionObject.flyer)) {
-    options.push("お気楽便Thanksカード・チラシ同梱");
-  }
-
   optionLabels.forEach((label) => {
-    if (label && !options.includes(label)) options.push(label);
+    if (label && !label.includes("お気楽便Thanksカード") && !options.includes(label)) options.push(label);
   });
 
   return options.length ? options.join("、") : "-";
@@ -3085,22 +3079,6 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group">
-          <label>ボディの本数 <span class="required">必須</span></label>
-          <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}">
-        </div>
-
-        <div class="form-group">
-          <label>レンズの本数 <span class="required">必須</span></label>
-          <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}">
-        </div>
-
-        <div class="form-group">
-          <label>検品確認が必要な周辺機器本数 <span class="required">必須</span></label>
-          <input name="accessoryCount" type="number" min="0" step="1" required value="${escapeAttr(product.accessoryCount ?? "")}">
-          <p class="member-meta">※ストロボ、バッテリーグリップなど、動作確認等の検品が必要な付属品は、1点ごとに追加検品料金が発生します。</p>
-        </div>
-
-        <div class="form-group">
           <label>購入先URL</label>
           <input name="purchaseUrl" type="url" value="${escapeAttr(product.purchaseUrl || "")}">
         </div>
@@ -3109,7 +3087,6 @@ window.openProductEdit = function(productId) {
           <label>オプション</label>
           <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}><span>動画撮影</span></div>
           <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}><span>サンクスカード同梱</span></div>
-          <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || isOptionEnabled(product.optionOkirakuThanksCard) || isOptionEnabled(product.options?.okirakuThanksCard) || isOptionEnabled(product.optionFlyer) || isOptionEnabled(product.options?.flyer) ? "checked" : ""}><span>お気楽便Thanksカード・チラシ同梱（チラシ同梱を不要にする場合は、別途100円かかります）</span></div>
         </div>
 
         <div class="form-group full">
@@ -3137,20 +3114,20 @@ window.saveProductEdit = async function(event, productId) {
     name: String(formData.get("name") || "").trim(),
     numbering: String(formData.get("numbering") || "").trim(),
     workRequest: formData.getAll("workRequestOption").map((value) => String(value)).join("・"),
-    bodyCount: String(formData.get("bodyCount") || "").trim(),
-    lensCount: String(formData.get("lensCount") || "").trim(),
-    accessoryCount: String(formData.get("accessoryCount") ?? "").trim(),
+    bodyCount: "0",
+    lensCount: "0",
+    accessoryCount: "0",
     optionVideo: formData.get("optionVideo") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
-    optionOkirakuInsert: formData.get("optionOkirakuInsert") === "on",
+    optionOkirakuInsert: false,
     optionComment: String(formData.get("optionComment") || "").trim(),
     purchaseUrl: String(formData.get("purchaseUrl") || "").trim(),
     note: product.note || "",
     updatedAt: Date.now()
   };
 
-  if (!data.name || !data.numbering || !data.workRequest || !data.bodyCount || !data.lensCount || data.accessoryCount === "") {
-    showError("商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
+  if (!data.name || !data.numbering || !data.workRequest) {
+    showError("商品名、ナンバリング、作業依頼は必須です。");
     return;
   }
 
@@ -3430,7 +3407,7 @@ window.downloadInvoicePdf = function(month) {
           .bottom,.tax-table,.bank-box{break-inside:avoid;page-break-inside:avoid}
         }
       </style>
-    <style>body{background:linear-gradient(135deg,#f7cf62 0%,#e5a62f 100%)}.title,.tab.active,.stat-value{color:#4b5563}.tab.active{border-bottom-color:#4b5563}.badge,button:not(.secondary):not(.danger):not(.logout):not(.tab):not(.ship-filter-btn){background:#4b5563}</style>
+    <style>body{background:#fff}.title,.tab.active,.stat-value{color:#3f6652}.tab.active{border-bottom-color:#3f6652}.badge{background:#3f6652}</style>
 </head>
     <body onload="window.print()">
       <div class="invoice">
@@ -3693,9 +3670,6 @@ function productDetailHtml(product) {
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
-        <div class="detail-label">ボディの本数</div><div>${escapeHtml(product.bodyCount ?? "-")}</div>
-        <div class="detail-label">レンズの本数</div><div>${escapeHtml(product.lensCount ?? "-")}</div>
-        <div class="detail-label">検品確認が必要な周辺機器本数</div><div>${escapeHtml(product.accessoryCount ?? "-")}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
@@ -3979,7 +3953,7 @@ function inspectionFeeFor(product) {
   if (product.workRequest === "写真のみ") return PRICE_TABLE.photoOnly;
   if (product.workRequest === "検品のみ") return PRICE_TABLE.inspectionOnly;
 
-  let fee = PRICE_TABLE.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) + numberValue(product.accessoryCount) - 1) * PRICE_TABLE.additionalKitItem;
+  let fee = PRICE_TABLE.inspectionBase;
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
     fee += PRICE_TABLE.video;
@@ -4288,6 +4262,7 @@ async function exportProductInspectionToGss(productIds) {
 
 async function sendPrepaidLabelToDiscord({ file, memo, requestType, pickupScheduledDate, selectedProducts, shipmentGroupNames, shipmentGroupNumberings, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
+  await refreshMemberSettingsForGssExport();
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
 
@@ -4321,6 +4296,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, requestType, pickupSchedu
 
 async function sendLabelAdjustmentToDiscord({ shipmentGroupNames, shipmentGroupNumberings, pickupScheduledDate, requestId }) {
   if (!GAS_WEB_APP_URL) throw new Error("GAS_WEB_APP_URLが未設定です。");
+  await refreshMemberSettingsForGssExport();
   const labelWebhookUrl = memberProfileCache.discordLabelWebhookUrl || memberProfileCache.discordWebhookUrl || "";
   if (!labelWebhookUrl) throw new Error("Discord Webhook URL(発送ラベル連絡用)が未設定です。管理者に設定を依頼してください。");
 

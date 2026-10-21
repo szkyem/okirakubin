@@ -1133,7 +1133,7 @@
       .detail-invoice-input { width: 100%; }
     }
   </style>
-<style>body{background:linear-gradient(135deg,#f7cf62 0%,#e5a62f 100%)}.brand,.tab.active{color:#4b5563}.tab.active{border-bottom-color:#4b5563}.role-pill,.primary-btn{background:#4b5563}.stat-value{color:#4b5563}</style>
+<style>:root{--blue:#3f6652;--blue-soft:#edf5f0}body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}.brand,.tab.active,.stat-value{color:#3f6652}.tab.active{border-bottom-color:#3f6652}.role-pill,.primary-btn{background:#3f6652}.primary-btn:hover{background:#315242}</style>
 </head>
 <body>
   <div id="loginView" class="login-page">
@@ -1633,6 +1633,8 @@
       GoogleAuthProvider,
       signInWithPopup,
       onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence,
       signOut
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
@@ -1747,6 +1749,7 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    await setPersistence(auth, browserLocalPersistence);
     const provider = new GoogleAuthProvider();
     const db = getDatabase(app, databaseUrl);
 
@@ -1987,7 +1990,7 @@
           get(ref(db, "settings/basicInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
-          get(ref(db, "settings/confirmationTemplateBase")).catch(() => ({ val: () => null })),
+          get(ref(db, "settings/ebayConfirmationTemplateBase")).catch(() => ({ val: () => null })),
           get(ref(db, "pendingMembers")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "discordNotificationQueue")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "priceTable")).catch(() => ({ val: () => ({}) }))
@@ -3713,17 +3716,7 @@
         const options = product?.options || {};
         return isOptionEnabled(product?.optionThanksCard) || isOptionEnabled(options.thanksCard);
       });
-      const hasOkirakuCard = productList.some((product) => {
-        const options = product?.options || {};
-        const labels = Array.isArray(product?.optionLabels) ? product.optionLabels : [];
-        return isOptionEnabled(product?.optionOkirakuInsert)
-          || isOptionEnabled(options.okirakuInsert)
-          || isOptionEnabled(product?.optionOkirakuThanksCard)
-          || isOptionEnabled(options.okirakuThanksCard)
-          || isOptionEnabled(product?.optionFlyer)
-          || isOptionEnabled(options.flyer)
-          || labels.includes("お気楽便Thanksカード・チラシ同梱");
-      });
+      const hasOkirakuCard = false;
 
       if (!hasCustomerCard && !hasOkirakuCard) {
         return `<span class="status-pill gray">なし</span>`;
@@ -4050,15 +4043,6 @@
 
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
-
-            <div class="info-label">ボディの本数</div>
-            <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
-
-            <div class="info-label">レンズの本数</div>
-            <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
-
-            <div class="info-label">検品確認が必要な周辺機器本数</div>
-            <div class="info-value">${escapeHtml(product.accessoryCount ?? "-")}</div>
 
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
@@ -4405,15 +4389,6 @@
             <div class="info-label">作業依頼</div>
             <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
 
-            <div class="info-label">ボディの本数</div>
-            <div class="info-value">${escapeHtml(product.bodyCount ?? "-")}</div>
-
-            <div class="info-label">レンズの本数</div>
-            <div class="info-value">${escapeHtml(product.lensCount ?? "-")}</div>
-
-            <div class="info-label">検品確認が必要な周辺機器本数</div>
-            <div class="info-value">${escapeHtml(product.accessoryCount ?? "-")}</div>
-
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
 
@@ -4650,21 +4625,6 @@
           </label>
 
           <label>
-            ボディの本数 *
-            <input name="bodyCount" type="number" min="0" step="1" required value="${escapeAttr(product.bodyCount ?? "")}" />
-          </label>
-
-          <label>
-            レンズの本数 *
-            <input name="lensCount" type="number" min="0" step="1" required value="${escapeAttr(product.lensCount ?? "")}" />
-          </label>
-
-          <label>
-            検品確認が必要な周辺機器本数 *
-            <input name="accessoryCount" type="number" min="0" step="1" required value="${escapeAttr(product.accessoryCount ?? "")}" />
-          </label>
-
-          <label>
             購入先URL
             <input name="purchaseUrl" value="${escapeAttr(product.purchaseUrl || "")}" />
           </label>
@@ -4675,7 +4635,6 @@
             </div>
             <label><input type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video) ? "checked" : ""} /> 動画撮影</label>
             <label><input type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) || isOptionEnabled(product.options?.thanksCard) ? "checked" : ""} /> Thanksカード同梱</label>
-            <label><input type="checkbox" name="optionOkirakuInsert" ${isOptionEnabled(product.optionOkirakuInsert) || isOptionEnabled(product.options?.okirakuInsert) || (Array.isArray(product.optionLabels) && product.optionLabels.includes("お気楽便Thanksカード・チラシ同梱")) ? "checked" : ""} /> お気楽便Thanksカード・チラシ同梱</label>
           </div>
 
           <label class="full">
@@ -5107,14 +5066,14 @@
 
           const optionVideo = formData.get("optionVideo") === "on";
           const optionThanksCard = formData.get("optionThanksCard") === "on";
-          const optionOkirakuInsert = formData.get("optionOkirakuInsert") === "on";
+          const optionOkirakuInsert = false;
           const optionLabels = [];
           if (optionOkirakuInsert) optionLabels.push("お気楽便Thanksカード・チラシ同梱");
-          const bodyCount = getFormValue(formData, "bodyCount");
-          const lensCount = getFormValue(formData, "lensCount");
-          const accessoryCount = getFormValue(formData, "accessoryCount");
-          if (!getFormValue(formData, "name") || !getFormValue(formData, "numbering") || !getFormValue(formData, "workRequest") || !bodyCount || !lensCount || accessoryCount === "") {
-            showError(appError, "商品名、ナンバリング、作業依頼、ボディの本数、レンズの本数、検品確認が必要な周辺機器本数は必須です。");
+          const bodyCount = "0";
+          const lensCount = "0";
+          const accessoryCount = "0";
+          if (!getFormValue(formData, "name") || !getFormValue(formData, "numbering") || !getFormValue(formData, "workRequest")) {
+            showError(appError, "商品名、ナンバリング、作業依頼は必須です。");
             return;
           }
 
@@ -6430,7 +6389,7 @@ function diagnoseInvoiceForSelectedMember() {
   w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>請求対象の診断</title>
     <style>body{font-family:sans-serif;font-size:13px;padding:16px;} table{border-collapse:collapse;width:100%;}
     th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;vertical-align:top;} th{background:#f5f5f5;}
-    small{color:#777;}</style><style>body{background:linear-gradient(135deg,#f7cf62 0%,#e5a62f 100%)}.brand,.tab.active{color:#4b5563}.tab.active{border-bottom-color:#4b5563}.role-pill,.primary-btn{background:#4b5563}.stat-value{color:#4b5563}</style>
+    small{color:#777;}</style><style>body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}.brand,.tab.active,.stat-value{color:#3f6652}.tab.active{border-bottom-color:#3f6652}.role-pill,.primary-btn{background:#3f6652}</style>
 </head><body>
     <h2>請求対象の診断: ${escapeHtml(member.adminDisplayName || member.name || "")}（管理番号: ${escapeHtml(member.managementNumber || "-")}） / 対象月 ${escapeHtml(month)}</h2>
     <p>この会員に紐づく商品: <b>${(member.products || []).length}件</b>（uid: ${escapeHtml(member.uid)}）<br>
@@ -6552,15 +6511,11 @@ function firstInvoiceDate(item) {
       } else if (product.workRequest === "検品のみ") {
         fee = prices.inspectionOnly;
       } else {
-        fee = prices.inspectionBase + Math.max(0, numberValue(product.bodyCount) + numberValue(product.lensCount) + numberValue(product.accessoryCount) - 1) * prices.additionalKitItem;
+        fee = prices.inspectionBase;
       }
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video)) {
         fee += prices.video;
-      }
-
-      if (!isConsultingMember(member) && isOkirakuInsertDeclined(product)) {
-        fee += prices.flyerRemoval || 0;
       }
 
       return fee;
@@ -6762,7 +6717,7 @@ function firstInvoiceDate(item) {
               .bottom,.tax-table,.bank-box{break-inside:avoid;page-break-inside:avoid}
             }
           </style>
-        <style>body{background:linear-gradient(135deg,#f7cf62 0%,#e5a62f 100%)}.brand,.tab.active{color:#4b5563}.tab.active{border-bottom-color:#4b5563}.role-pill,.primary-btn{background:#4b5563}.stat-value{color:#4b5563}</style>
+        <style>body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}.brand,.tab.active,.stat-value{color:#3f6652}.tab.active{border-bottom-color:#3f6652}.role-pill,.primary-btn{background:#3f6652}</style>
 </head>
         <body onload="window.print()">
           <div class="invoice">
@@ -6972,7 +6927,7 @@ function firstInvoiceDate(item) {
           updatedBy: currentUser?.uid || ""
         };
 
-        await set(ref(db, "settings/confirmationTemplateBase"), payload);
+        await set(ref(db, "settings/ebayConfirmationTemplateBase"), payload);
         confirmationBaseCache = payload;
         renderConfirmationBase();
         showError(appError, "確認結果ベースを保存しました。");
@@ -6993,7 +6948,7 @@ function firstInvoiceDate(item) {
           updatedBy: currentUser?.uid || ""
         };
 
-        await set(ref(db, "settings/confirmationTemplateBase"), payload);
+        await set(ref(db, "settings/ebayConfirmationTemplateBase"), payload);
         confirmationBaseCache = payload;
         renderConfirmationBase();
       } catch (error) {
@@ -7780,10 +7735,8 @@ function firstInvoiceDate(item) {
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
       if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
-      if (isOkirakuInsertDeclined(product)) options.push(OKIRAKU_INSERT_DECLINED_OPTION_LABEL);
-
       optionLabels.forEach((label) => {
-        if (label && !options.includes(label)) options.push(label);
+        if (label && !label.includes("お気楽便Thanksカード") && !options.includes(label)) options.push(label);
       });
 
       return options;
@@ -7791,12 +7744,6 @@ function firstInvoiceDate(item) {
 
     function invoiceOptionSummary(product, member) {
       const options = optionSummaryParts(product);
-      if (!isConsultingMember(member) && isOkirakuInsertDeclined(product)) {
-        return options
-          .map((label) => label === OKIRAKU_INSERT_DECLINED_OPTION_LABEL ? OKIRAKU_INSERT_DECLINED_BILLING_LABEL : label)
-          .join("、") || "-";
-      }
-
       return options.join("、") || "-";
     }
 
@@ -7819,7 +7766,7 @@ function firstInvoiceDate(item) {
 
     function isOkirakuInsertDeclined(product) {
       const optionObject = product?.options || {};
-      return isOptionExplicitlyDisabled(product?.optionOkirakuInsert) || isOptionExplicitlyDisabled(optionObject.okirakuInsert);
+      return false;
     }
 
     function planTypeLabel(value) {
@@ -7872,55 +7819,23 @@ function firstInvoiceDate(item) {
 
     function defaultConfirmationBase() {
       return {
-        groups: [
-        {
-          section: "外観コンディション",
+        groups: [{
+          section: "確認結果",
           rows: [
-            { key: "appearanceScratch", label: "キズ、凹み、塗装剥がれは", options: ["ある。", "ない。", "使用感あり。"], defaultComment: "" },
-            { key: "appearanceDamage", label: "欠損や破損は", options: ["ある。", "ない。"], defaultComment: "" },
-            { key: "appearanceOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
+            { key: "contentsCheck", label: "内容物の確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "appearanceCheck", label: "外観のチェック", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "otherCheck", label: "その他", options: ["確認済み", "要確認", "対象外"], defaultComment: "" }
           ]
-        },
-        {
-          section: "光学コンディション",
-          rows: [
-            { key: "opticalMirror", label: "ミラー部は", options: ["ある。", "ない。"], defaultComment: "" },
-            { key: "opticalSensor", label: "センサー部は", options: ["ある。", "ない。"], defaultComment: "" },
-            { key: "opticalFinder", label: "ファインダー部は", options: ["ある。", "ない。"], defaultComment: "" },
-            { key: "opticalLens", label: "レンズ部は", options: ["ある。", "ない。", "カビあり。", "曇りあり。", "チリあり。"], defaultComment: "" },
-            { key: "opticalOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
-          ]
-        },
-        {
-          section: "動作コンディション",
-          rows: [
-            { key: "operationCheck", label: "動作確認は", options: ["した。", "していない。", "できる。", "できない。"], defaultComment: "" },
-            { key: "operationPhoto", label: "写真撮影は", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationMovie", label: "動画撮影は", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationZoom", label: "ズームは", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationFlash", label: "フラッシュは", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationWheel", label: "コントロールホイールは", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationCursor", label: "カーソルボタンは", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationSave", label: "保存は", options: ["できる。", "できない。"], defaultComment: "" },
-            { key: "operationOther", label: "その他は", options: ["ある。", "ない。", "その他。"], defaultComment: "" }
-          ]
-        },
-        {
-          section: "その他",
-          rows: [
-            { key: "otherAccessories", label: "付属品", options: ["ある。", "ない。"], defaultComment: "" },
-            { key: "productNote", label: "備考欄", options: ["あり。", "なし。"], defaultComment: "" }
-          ]
-        }
-      ]};
+        }]
+      };
     }
 
     function confirmationRows() {
-      return ensureProductNoteRows((confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups);
+      return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
     }
 
     function confirmationRowsForProduct(product, includeProductNote = false) {
-      return ensureProductNoteRows(confirmationRows());
+      return confirmationRows();
     }
 
     function isProductNoteRow(row) {
@@ -7928,27 +7843,10 @@ function firstInvoiceDate(item) {
     }
 
     function ensureProductNoteRows(groups, noteOptions = ["あり。", "なし。"]) {
-      const copied = (groups || []).map((group) => ({
+      return (groups || []).map((group) => ({
         section: group.section,
         rows: [...(group.rows || [])]
       }));
-
-      let otherGroup = copied.find((group) => group.section === "その他");
-      if (!otherGroup) {
-        otherGroup = { section: "その他", rows: [] };
-        copied.push(otherGroup);
-      }
-
-      if (!otherGroup.rows.some((row) => isProductNoteRow(row))) {
-        otherGroup.rows.push({
-          key: "productNote",
-          label: "備考欄",
-          options: noteOptions,
-          defaultComment: ""
-        });
-      }
-
-      return copied;
     }
 
     function productNoteText(product) {
