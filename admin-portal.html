@@ -1171,20 +1171,22 @@
           <a class="secondary-btn" href="admin-ebay.html" target="_blank" rel="noopener" style="text-decoration:none;">eBay管理を新しいタブで開く</a>
         </div>
       </div>
+      <h3 style="margin:22px 0 12px;color:var(--blue);">カメラ発送代行</h3>
       <div class="stats">
         <div class="stat-card"><div class="stat-label">カメラ会員</div><div id="portalCameraMembers" class="stat-value">0</div></div>
         <div class="stat-card"><div class="stat-label">カメラ 登録商品</div><div id="portalCameraRegistered" class="stat-value">0</div></div>
         <div class="stat-card"><div class="stat-label">カメラ 未発送商品</div><div id="portalCameraUnshipped" class="stat-value">0</div></div>
       </div>
-      <div class="stats" style="margin-top:14px;">
+      <h3 style="margin:26px 0 12px;color:var(--blue);">eBay発送代行</h3>
+      <div class="stats">
         <div class="stat-card"><div class="stat-label">eBay会員</div><div id="portalEbayMembers" class="stat-value">0</div></div>
         <div class="stat-card"><div class="stat-label">eBay 登録商品</div><div id="portalEbayRegistered" class="stat-value">0</div></div>
         <div class="stat-card"><div class="stat-label">eBay 未発送商品</div><div id="portalEbayUnshipped" class="stat-value">0</div></div>
       </div>
       <div class="section-title-row" style="margin-top:30px;"><h2>請求状況</h2><span id="portalInvoiceMonth" class="role-pill"></span></div>
       <div class="stats">
-        <div class="stat-card"><div class="stat-label">カメラ請求書</div><div id="portalCameraInvoices" class="stat-value">0</div><div id="portalCameraReceived" class="muted"></div></div>
-        <div class="stat-card"><div class="stat-label">eBay請求書</div><div id="portalEbayInvoices" class="stat-value">0</div><div id="portalEbayReceived" class="muted"></div></div>
+        <div class="stat-card"><div class="stat-label">カメラ請求書</div><div id="portalCameraInvoices" class="stat-value">0</div><div id="portalCameraInvoiceAmount" style="font-size:20px;font-weight:800;margin:5px 0;"></div><div id="portalCameraReceived" class="muted"></div></div>
+        <div class="stat-card"><div class="stat-label">eBay請求書</div><div id="portalEbayInvoices" class="stat-value">0</div><div id="portalEbayInvoiceAmount" style="font-size:20px;font-weight:800;margin:5px 0;"></div><div id="portalEbayReceived" class="muted"></div></div>
       </div>
     </section>
 
@@ -2404,10 +2406,14 @@
       const ebayInvoices = Object.values(ebayInvoicesCache || {}).map((monthMap) => monthMap?.[month]).filter(Boolean);
       const cameraReceived = cameraInvoices.filter((invoice) => invoice.received === true).length;
       const ebayReceived = ebayInvoices.filter((invoice) => invoice.received === true).length;
+      const cameraAmount = cameraInvoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal || invoice.amount || 0), 0);
+      const ebayAmount = ebayInvoices.reduce((sum, invoice) => sum + Number(invoice.amount || invoice.grandTotal || 0), 0);
       document.getElementById("portalInvoiceMonth").textContent = `${month} 対象`;
       document.getElementById("portalCameraInvoices").textContent = cameraInvoices.length;
+      document.getElementById("portalCameraInvoiceAmount").textContent = `請求総額 ${cameraAmount.toLocaleString("ja-JP")}円`;
       document.getElementById("portalCameraReceived").textContent = `受領済み ${cameraReceived}件 ／ 未受領 ${cameraInvoices.length - cameraReceived}件`;
       document.getElementById("portalEbayInvoices").textContent = ebayInvoices.length;
+      document.getElementById("portalEbayInvoiceAmount").textContent = `請求総額 ${ebayAmount.toLocaleString("ja-JP")}円`;
       document.getElementById("portalEbayReceived").textContent = `受領済み ${ebayReceived}件 ／ 未受領 ${ebayInvoices.length - ebayReceived}件`;
     }
 
