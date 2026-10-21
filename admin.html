@@ -1150,6 +1150,7 @@
     <header class="topbar">
       <h1 class="brand">おきらく便</h1>
       <div class="user-area">
+        <a class="secondary-btn" href="admin-portal.html" style="text-decoration:none;">総合トップ</a>
         <span id="userEmail"></span>
         <span class="role-pill">管理者</span>
         <button id="logoutBtn" class="secondary-btn">ログアウト</button>
@@ -3996,6 +3997,10 @@
     }
 
     function setMainTab(tabName, options = {}) {
+      if (tabName === "ebay") {
+        window.location.href = "admin-ebay.html";
+        return;
+      }
       const safeTabName = document.querySelector(`[data-main-tab="${tabName}"]`) ? tabName : "members";
       currentMainTab = safeTabName;
 

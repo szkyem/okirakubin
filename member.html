@@ -1987,7 +1987,7 @@ shippingModalBackdrop.addEventListener("click", (event) => {
 });
 
 cameraServiceBtn?.addEventListener("click", () => setActiveService("camera"));
-ebayServiceBtn?.addEventListener("click", () => setActiveService("ebay"));
+ebayServiceBtn?.addEventListener("click", () => { window.location.href = "member-ebay.html"; });
 showEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.remove("hidden"));
 closeEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.add("hidden"));
 ebayProductForm?.addEventListener("submit", saveEbayProduct);
@@ -2076,6 +2076,10 @@ function enabledMemberServices() {
 
 function applyServiceAvailability() {
   const services = enabledMemberServices();
+  if (!services.camera && services.ebay) {
+    window.location.replace("member-ebay.html");
+    return;
+  }
   const hasBoth = services.camera && services.ebay;
   serviceSwitch?.classList.toggle("hidden", !hasBoth);
   if (!services[activeService]) activeService = services.ebay ? "ebay" : "camera";
@@ -2085,6 +2089,10 @@ function applyServiceAvailability() {
 function setActiveService(service) {
   const services = enabledMemberServices();
   if (!services[service]) return;
+  if (service === "ebay") {
+    window.location.href = "member-ebay.html";
+    return;
+  }
   activeService = service;
   cameraServiceArea?.classList.toggle("hidden", service !== "camera");
   ebayServiceArea?.classList.toggle("hidden", service !== "ebay");
