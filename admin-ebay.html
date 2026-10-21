@@ -2450,7 +2450,7 @@
       const ok = confirm(`${member.name || member.email || uid} の代理修正モードに入りますか？`);
       if (!ok) return;
 
-      const url = `member.html?proxyUid=${encodeURIComponent(uid)}&adminProxy=1`;
+      const url = `member-ebay.html?proxyUid=${encodeURIComponent(uid)}&adminProxy=1`;
       window.open(url, "_blank", "noopener");
     }
 
