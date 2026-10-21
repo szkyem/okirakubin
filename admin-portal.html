@@ -4026,7 +4026,14 @@
       const product = member?.ebayProducts?.find((item) => item.id === productId);
       if (!product || !confirm(`${product.name || "この商品"} を発送済みにしますか？`)) return;
       try {
-        await update(ref(db, `products/${uid}/${productId}`), { ebayStatus: "shipped", shippedAt: Date.now(), updatedAt: Date.now() });
+        const now = Date.now();
+        await update(ref(db, `products/${uid}/${productId}`), {
+          ebayStatus: "shipped",
+          shippingStatus: "shipped",
+          shippedDate: todayString(),
+          shippedAt: now,
+          updatedAt: now
+        });
         await loadAllData();
         setMainTab("ebay", { pushHistory: false });
       } catch (error) {

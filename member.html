@@ -2020,8 +2020,8 @@ async function loadData() {
 
     document.getElementById("productCount").textContent = registeredProducts.length;
     document.getElementById("storedCount").textContent = storedProducts.length;
-    document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && product.shippingStatus !== "shipped")).length;
-    document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => product.shippingStatus === "shipped")).length;
+    document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && !isShippedStatus(product.shippingStatus))).length;
+    document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => isShippedStatus(product.shippingStatus))).length;
     document.getElementById("basicInfoBox").innerHTML = basicInfoHtml();
     document.getElementById("recentAnnouncements").innerHTML = recentAnnouncementsHtml();
     document.getElementById("pastAnnouncements").innerHTML = pastAnnouncementsHtml();
@@ -2319,8 +2319,8 @@ function renderShippingList() {
   const filtered = productsCache
     .filter((product) => {
       if (!hasValue(product.shippingRequest)) return false;
-      if (shippingView === "shipped") return product.shippingStatus === "shipped";
-      return product.shippingStatus !== "shipped";
+      if (shippingView === "shipped") return isShippedStatus(product.shippingStatus);
+      return !isShippedStatus(product.shippingStatus);
     })
     .filter((product) => {
       if (!searchKeyword) return true;
@@ -2696,7 +2696,7 @@ function bundleRowClass(product) {
 function shipmentDisplayGroupKey(product) {
   if (product.shipmentGroupId) return `group_${product.shipmentGroupId}`;
 
-  if (product.shippingStatus === "shipped" && hasValue(product.shippedDate)) {
+  if (isShippedStatus(product.shippingStatus) && hasValue(product.shippedDate)) {
     return [
       "shipped",
       product.shippedDate || "",
@@ -2817,9 +2817,13 @@ function shippingPill(value) {
 function shippingStatusText(product) {
   if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
   const bundleCount = product.shipmentGroupCount > 1 ? `<span class="bundle-count">同梱 ${escapeHtml(product.shipmentGroupCount)}点</span>` : "";
-  return product.shippingStatus === "shipped"
-    ? `<span class="status-pill domestic">発送済み</span>${bundleCount}`
+  return isShippedStatus(product.shippingStatus)
+    ? `<span class="status-pill domestic">${product.shippingStatus === "cash_on_delivery" ? "着払い発送" : "発送済み"}</span>${bundleCount}`
     : `<span class="status-pill none">未発送</span>${bundleCount}`;
+}
+
+function isShippedStatus(value) {
+  return value === "shipped" || value === "cash_on_delivery";
 }
 
 function canEditProduct(product) {
@@ -4382,7 +4386,7 @@ function shippingDetailHtml(product) {
         ${isReturnPickup ? `<div class="detail-label">集荷メモ</div><div>${lineBreaks(product.returnPickupMemo || "-")}</div>` : ""}
         ${internationalMethodText ? `<div class="detail-label">海外発送方法</div><div>${escapeHtml(internationalMethodText)}</div>` : ""}
         ${isInternationalRequest ? `<div class="detail-label">集荷予定日</div><div>${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
-        <div class="detail-label">状態</div><div>${product.shippingStatus === "shipped" ? "発送済み" : "未発送"}</div>
+        <div class="detail-label">状態</div><div>${isShippedStatus(product.shippingStatus) ? product.shippingStatus === "cash_on_delivery" ? "着払い発送" : "発送済み" : "未発送"}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>
         <div class="detail-label">備考</div><div>${escapeHtml(destination.note || "-")}</div>
