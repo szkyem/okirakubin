@@ -1161,7 +1161,6 @@
       <button class="tab active" data-main-tab="members">会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="shippingBatch">発送待ち情報</button>
-      <button class="tab" data-main-tab="ebay">eBay発送代行</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
@@ -1169,8 +1168,8 @@
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
       <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
-      <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
-      <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
+      <button class="tab hidden" data-main-tab="pendingMembers" aria-hidden="true">会員仮登録</button>
+      <button class="tab hidden" data-main-tab="inactiveMembers" aria-hidden="true">非会員一覧</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -1180,20 +1179,12 @@
           <div id="totalMembers" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">カメラ 登録済み商品</div>
+          <div class="stat-label">登録済み商品</div>
           <div id="totalRegistered" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">カメラ 未発送</div>
+          <div class="stat-label">未発送</div>
           <div id="totalUnshipped" class="stat-value">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">eBay 登録済み</div>
-          <div id="totalEbayRegistered" class="stat-value">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">eBay 未発送</div>
-          <div id="totalEbayUnshipped" class="stat-value">0</div>
         </div>
       </div>
 
@@ -2196,6 +2187,10 @@
         renderAnnouncements();
         renderPrices();
         renderDiscordNotifications();
+        const requestedView = new URLSearchParams(window.location.search).get("view");
+        if (requestedView === "pendingMembers" || requestedView === "inactiveMembers") {
+          setMainTab(requestedView, { pushHistory: false });
+        }
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
       }
