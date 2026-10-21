@@ -1157,46 +1157,38 @@
     </header>
 
     <nav class="tabs" aria-label="総合管理メニュー">
-      <a class="manual-tab" href="admin.html">カメラ管理</a>
-      <a class="manual-tab" href="admin-ebay.html">eBay管理</a>
-      <button class="tab active" data-main-tab="pendingMembers">会員仮登録</button>
+      <button class="tab active" data-main-tab="portalTop">トップ</button>
+      <button class="tab" data-main-tab="members">会員一覧</button>
+      <button class="tab" data-main-tab="pendingMembers">会員仮登録</button>
       <button class="tab" data-main-tab="inactiveMembers">非会員一覧</button>
     </nav>
 
-    <section id="membersSection" class="section hidden">
-      <div class="stats">
-        <div class="stat-card">
-          <div class="stat-label">会員</div>
-          <div id="totalMembers" class="stat-value">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">登録済み商品</div>
-          <div id="totalRegistered" class="stat-value">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">未発送</div>
-          <div id="totalUnshipped" class="stat-value">0</div>
-        </div>
-      </div>
-
+    <section id="portalTopSection" class="section">
       <div class="section-title-row">
-        <h2>お問い合わせ</h2>
+        <div><h2>サービス状況</h2><p class="muted">カメラとeBay発送代行を分けて確認できます。</p></div>
+        <div class="inline-actions">
+          <a class="primary-btn" href="admin.html" target="_blank" rel="noopener" style="text-decoration:none;">カメラ管理を新しいタブで開く</a>
+          <a class="secondary-btn" href="admin-ebay.html" target="_blank" rel="noopener" style="text-decoration:none;">eBay管理を新しいタブで開く</a>
+        </div>
       </div>
-      <div class="table-wrap inquiry-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>管理番号</th>
-              <th>会員</th>
-              <th>商品名</th>
-              <th>ナンバリング</th>
-              <th>お問い合わせ内容</th>
-            </tr>
-          </thead>
-          <tbody id="inquiryListBody"></tbody>
-        </table>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">カメラ会員</div><div id="portalCameraMembers" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">カメラ 登録商品</div><div id="portalCameraRegistered" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">カメラ 未発送商品</div><div id="portalCameraUnshipped" class="stat-value">0</div></div>
       </div>
+      <div class="stats" style="margin-top:14px;">
+        <div class="stat-card"><div class="stat-label">eBay会員</div><div id="portalEbayMembers" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">eBay 登録商品</div><div id="portalEbayRegistered" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">eBay 未発送商品</div><div id="portalEbayUnshipped" class="stat-value">0</div></div>
+      </div>
+      <div class="section-title-row" style="margin-top:30px;"><h2>請求状況</h2><span id="portalInvoiceMonth" class="role-pill"></span></div>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">カメラ請求書</div><div id="portalCameraInvoices" class="stat-value">0</div><div id="portalCameraReceived" class="muted"></div></div>
+        <div class="stat-card"><div class="stat-label">eBay請求書</div><div id="portalEbayInvoices" class="stat-value">0</div><div id="portalEbayReceived" class="muted"></div></div>
+      </div>
+    </section>
 
+    <section id="membersSection" class="section hidden">
       <div class="section-title-row">
         <h2>会員一覧</h2>
         <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・識別名・会員氏名で検索" />
@@ -1205,16 +1197,11 @@
         <table>
           <thead>
             <tr>
-              <th>管理番号</th>
+              <th>会員番号</th>
               <th>識別名</th>
               <th>会員</th>
-              <th>登録済み商品</th>
-              <th>保管商品</th>
-              <th>未発送</th>
-              <th>発送済み</th>
-              <th>最終ログイン</th>
-              <th>代理修正</th>
-              <th>会員状態</th>
+              <th>利用区分</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="memberListBody"></tbody>
@@ -1246,7 +1233,7 @@
       </div>
     </section>
 
-    <section id="pendingMembersSection" class="section">
+    <section id="pendingMembersSection" class="section hidden">
       <div class="section-title-row">
         <h2>会員仮登録</h2>
       </div>
@@ -1857,6 +1844,7 @@
     const appError = document.getElementById("appError");
     const userEmail = document.getElementById("userEmail");
 
+    const portalTopSection = document.getElementById("portalTopSection");
     const membersSection = document.getElementById("membersSection");
     const inactiveMembersSection = document.getElementById("inactiveMembersSection");
     const pendingMembersSection = document.getElementById("pendingMembersSection");
@@ -1961,6 +1949,7 @@
     let inactiveMembersCache = [];
     let loginUsersCache = {};
     let invoicesCache = {};
+    let ebayInvoicesCache = {};
     let invoiceLocksCache = {};
     let announcementsCache = {};
     let basicInfoCache = {};
@@ -1976,7 +1965,7 @@
     let yupackOcrRecordsCache = [];
     let selectedMemberUid = null;
     let detailView = "registered";
-    let currentMainTab = "pendingMembers";
+    let currentMainTab = "portalTop";
     let isApplyingHistoryState = false;
     let activeEdit = null;
 
@@ -2025,6 +2014,7 @@
         inactiveMembersCache = [];
         loginUsersCache = {};
         invoicesCache = {};
+        ebayInvoicesCache = {};
         invoiceLocksCache = {};
         announcementsCache = {};
         memberSettingsCache = {};
@@ -2098,6 +2088,7 @@
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
         invoicesCache = invoicesSnap.val() || {};
+        ebayInvoicesCache = (await get(ref(db, "ebayInvoices")).catch(() => ({ val: () => ({}) }))).val() || {};
         invoiceLocksCache = {};
         Object.values(invoicesCache).forEach((monthMap) => {
           Object.entries(monthMap || {}).forEach(([month, invoice]) => {
@@ -2165,6 +2156,7 @@
 
         setDefaultMonths();
         renderPendingMembers();
+        renderPortalTop();
         renderMembers();
         renderInactiveMembers();
         renderInquiries();
@@ -2393,7 +2385,57 @@
       `).join("");
     }
 
+    function renderPortalTop() {
+      const cameraMembers = membersCache.filter((member) => member.enabledServices?.camera !== false);
+      const ebayMembers = membersCache.filter((member) => member.enabledServices?.ebay === true);
+      const cameraRegistered = cameraMembers.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
+      const cameraUnshipped = cameraMembers.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
+      const ebayRegistered = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
+      const ebayUnshipped = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => !["registered", "shipped"].includes(product.ebayStatus || "registered")).length, 0);
+      document.getElementById("portalCameraMembers").textContent = cameraMembers.length;
+      document.getElementById("portalCameraRegistered").textContent = cameraRegistered;
+      document.getElementById("portalCameraUnshipped").textContent = cameraUnshipped;
+      document.getElementById("portalEbayMembers").textContent = ebayMembers.length;
+      document.getElementById("portalEbayRegistered").textContent = ebayRegistered;
+      document.getElementById("portalEbayUnshipped").textContent = ebayUnshipped;
+
+      const month = todayString().slice(0, 7);
+      const cameraInvoices = Object.values(invoicesCache || {}).map((monthMap) => monthMap?.[month]).filter(Boolean);
+      const ebayInvoices = Object.values(ebayInvoicesCache || {}).map((monthMap) => monthMap?.[month]).filter(Boolean);
+      const cameraReceived = cameraInvoices.filter((invoice) => invoice.received === true).length;
+      const ebayReceived = ebayInvoices.filter((invoice) => invoice.received === true).length;
+      document.getElementById("portalInvoiceMonth").textContent = `${month} 対象`;
+      document.getElementById("portalCameraInvoices").textContent = cameraInvoices.length;
+      document.getElementById("portalCameraReceived").textContent = `受領済み ${cameraReceived}件 ／ 未受領 ${cameraInvoices.length - cameraReceived}件`;
+      document.getElementById("portalEbayInvoices").textContent = ebayInvoices.length;
+      document.getElementById("portalEbayReceived").textContent = `受領済み ${ebayReceived}件 ／ 未受領 ${ebayInvoices.length - ebayReceived}件`;
+    }
+
     function renderMembers() {
+      if (!memberListBody) return;
+      {
+      const searchKeyword = normalizeSearch(memberSearchInput?.value || "");
+      const displayMembers = searchKeyword
+        ? membersCache.filter((member) => normalizeSearch(`${member.managementNumber || ""} ${member.adminDisplayName || ""} ${member.name || ""}`).includes(searchKeyword))
+        : membersCache;
+      if (!displayMembers.length) {
+        memberListBody.innerHTML = `<tr><td colspan="5"><div class="empty">${membersCache.length ? "検索条件に一致する会員がいません。" : "会員が登録されていません。"}</div></td></tr>`;
+        return;
+      }
+      memberListBody.innerHTML = displayMembers.map((member) => {
+        const camera = member.enabledServices?.camera !== false;
+        const ebay = member.enabledServices?.ebay === true;
+        const serviceType = camera && ebay ? "両会員" : ebay ? "eBay会員" : "カメラ会員";
+        return `<tr>
+          <td><strong>${escapeHtml(member.managementNumber || "-")}</strong></td>
+          <td>${escapeHtml(member.adminDisplayName || "-")}</td>
+          <td><div class="member-name">${escapeHtml(member.name || "-")}</div><div class="member-meta">${escapeHtml(member.email || "-")}</div></td>
+          <td><span class="role-pill">${serviceType}</span></td>
+          <td><button class="mini-btn" type="button" onclick="openMemberManagementEdit('${escapeAttr(member.uid)}')">会員設定</button></td>
+        </tr>`;
+      }).join("");
+      return;
+      }
       const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
       const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
       const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
@@ -2548,6 +2590,7 @@
     }
 
     function renderInquiries() {
+      if (!inquiryListBody) return;
       const inquiries = membersCache.flatMap((member) => {
         return member.products.flatMap((product) => {
           if (isShippedStatus(product.shippingStatus)) return [];
@@ -3987,13 +4030,14 @@
         window.location.href = "admin-ebay.html";
         return;
       }
-      const safeTabName = document.querySelector(`[data-main-tab="${tabName}"]`) ? tabName : "members";
+      const safeTabName = document.querySelector(`[data-main-tab="${tabName}"]`) ? tabName : "portalTop";
       currentMainTab = safeTabName;
 
       document.querySelectorAll("[data-main-tab]").forEach((button) => {
         button.classList.toggle("active", button.dataset.mainTab === safeTabName);
       });
 
+      portalTopSection.classList.toggle("hidden", safeTabName !== "portalTop");
       membersSection.classList.toggle("hidden", safeTabName !== "members");
       inactiveMembersSection.classList.toggle("hidden", safeTabName !== "inactiveMembers");
       pendingMembersSection.classList.toggle("hidden", safeTabName !== "pendingMembers");
@@ -4012,7 +4056,7 @@
       }
     }
 
-    function adminHistoryState(tabName = "pendingMembers") {
+    function adminHistoryState(tabName = "portalTop") {
       return {
         okirakubinApp: "admin",
         tab: tabName,
@@ -4022,7 +4066,7 @@
 
     function initializeAdminHistory() {
       try {
-        history.replaceState(adminHistoryState("pendingMembers"), document.title, location.href);
+        history.replaceState(adminHistoryState("portalTop"), document.title, location.href);
       } catch (error) {
         console.warn("admin history init failed", error);
       }
@@ -4030,8 +4074,8 @@
 
     function pushAdminHistory(tabName) {
       try {
-        history.replaceState(adminHistoryState("pendingMembers"), document.title, location.href);
-        if (tabName === "pendingMembers") return;
+        history.replaceState(adminHistoryState("portalTop"), document.title, location.href);
+        if (tabName === "portalTop") return;
         history.pushState(adminHistoryState(tabName), document.title, location.href);
       } catch (error) {
         console.warn("admin history push failed", error);
@@ -4046,9 +4090,9 @@
 
       if (state.okirakubinApp === "admin") {
         if (state.memberUid) selectedMemberUid = state.memberUid;
-        setMainTab(state.tab || "members");
+        setMainTab(state.tab || "portalTop");
       } else {
-        setMainTab("pendingMembers");
+        setMainTab("portalTop");
         initializeAdminHistory();
       }
 
