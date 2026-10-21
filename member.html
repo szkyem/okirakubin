@@ -501,36 +501,6 @@ textarea{min-height:62px;resize:vertical}
   </section>
   </div>
 
-  <section id="ebayServiceArea" class="hidden">
-    <div class="ebay-hero">
-      <div>
-        <h2>eBay発送代行</h2>
-        <p class="member-meta">商品登録後に発送を依頼してください。梱包後のサイズ・重量はお気楽便側で登録します。</p>
-      </div>
-      <button id="showEbayRegisterBtn" type="button">eBay商品を登録</button>
-    </div>
-
-    <div class="ebay-summary">
-      <div class="stat"><div class="stat-label">登録済み</div><div id="ebayRegisteredCount" class="stat-value">0</div></div>
-      <div class="stat"><div class="stat-label">対応中</div><div id="ebayRequestedCount" class="stat-value">0</div></div>
-      <div class="stat"><div class="stat-label">発送済み</div><div id="ebayShippedCount" class="stat-value">0</div></div>
-    </div>
-
-    <div id="ebayRegisterPanel" class="form hidden">
-      <div class="form-header"><h2>eBay商品登録</h2><button id="closeEbayRegisterBtn" class="secondary" type="button">閉じる</button></div>
-      <form id="ebayProductForm">
-        <div class="form-grid">
-          <div class="form-group"><label>商品名 <span class="required">必須</span></label><input name="name" type="text" required></div>
-          <div class="form-group"><label>eBay注文番号・管理番号 <span class="required">必須</span></label><input name="orderNumber" type="text" required></div>
-          <div class="form-group"><label>SKU <span class="required">必須</span></label><input name="sku" type="text" required></div>
-          <div class="form-group"><label>商品重量 <span class="required">必須</span></label><input name="itemWeight" type="text" required placeholder="例：850g / 0.85kg"></div>
-        </div>
-        <button type="submit" style="width:100%;">登録する</button>
-      </form>
-    </div>
-
-    <div id="ebayProductList" class="ebay-product-list"></div>
-  </section>
 </div>
 
 <div class="modal-backdrop" id="modalBackdrop">

@@ -1168,8 +1168,6 @@
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
       <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
-      <button class="tab hidden" data-main-tab="pendingMembers" aria-hidden="true">会員仮登録</button>
-      <button class="tab hidden" data-main-tab="inactiveMembers" aria-hidden="true">非会員一覧</button>
     </nav>
 
     <section id="membersSection" class="section">
@@ -1227,99 +1225,6 @@
             </tr>
           </thead>
           <tbody id="memberListBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="inactiveMembersSection" class="section hidden">
-      <div class="section-title-row">
-        <h2>非会員一覧</h2>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>管理番号</th>
-              <th>識別名</th>
-              <th>会員</th>
-              <th>登録済み商品</th>
-              <th>保管商品</th>
-              <th>未発送</th>
-              <th>発送済み</th>
-              <th>非会員化日</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="inactiveMemberListBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="pendingMembersSection" class="section hidden">
-      <div class="section-title-row">
-        <h2>会員仮登録</h2>
-      </div>
-      <form id="pendingMemberForm" class="announcement-form">
-        <div class="form-grid">
-          <label>
-            氏名
-            <input id="pendingMemberName" type="text" required placeholder="例：鈴木康将" />
-          </label>
-          <label>
-            メールアドレス
-            <input id="pendingMemberEmail" type="email" required placeholder="example@gmail.com" />
-          </label>
-          <label>
-            管理番号
-            <input id="pendingMemberManagementNumber" type="text" placeholder="例：20260528" />
-          </label>
-          <label>
-            プラン
-            <select id="pendingMemberPlanType">
-              <option value="">選択してください</option>
-              <option value="standard">スタンダード</option>
-              <option value="premium">プレミアム</option>
-              <option value="consulting">コンサル生</option>
-            </select>
-          </label>
-          <div class="full">
-            <div style="font-weight:800;margin-bottom:8px;">利用サービス</div>
-            <label style="display:inline-flex;align-items:center;gap:8px;margin-right:18px;"><input id="pendingMemberServiceCamera" type="checkbox" checked style="width:auto;" />カメラサービス</label>
-            <label style="display:inline-flex;align-items:center;gap:8px;"><input id="pendingMemberServiceEbay" type="checkbox" style="width:auto;" />eBay発送代行</label>
-          </div>
-          <label class="full">
-            Google Drive URL置き場
-            <input id="pendingMemberDriveBaseUrl" type="url" placeholder="https://drive.google.com/drive/folders/..." />
-          </label>
-          <label class="full">
-            Discord Webhook URL(検品発送連絡用)
-            <input id="pendingMemberDiscordWebhookUrl" type="url" placeholder="https://discord.com/api/webhooks/..." />
-          </label>
-          <label class="full">
-            Discord Webhook URL(発送ラベル連絡用)
-            <input id="pendingMemberDiscordLabelWebhookUrl" type="url" placeholder="https://discord.com/api/webhooks/..." />
-          </label>
-        </div>
-        <div class="announcement-actions">
-          <button id="pendingMemberSubmitBtn" class="primary-btn" type="submit">仮登録する</button>
-          <button id="pendingMemberCancelBtn" class="secondary-btn hidden" type="button">編集をキャンセル</button>
-        </div>
-      </form>
-      <div class="table-wrap inquiry-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>管理番号</th>
-              <th>氏名</th>
-              <th>メール</th>
-              <th>プラン</th>
-              <th>利用サービス</th>
-              <th>Discord</th>
-              <th>登録日</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="pendingMemberListBody"></tbody>
         </table>
       </div>
     </section>
@@ -1416,19 +1321,6 @@
             </tr>
           </thead>
           <tbody id="shippingBatchBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="ebaySection" class="section hidden">
-      <div class="section-title-row">
-        <div><h2>eBay発送代行</h2><p class="muted">会員から依頼された商品へ梱包後情報を登録します。</p></div>
-        <input id="ebayAdminSearchInput" class="member-search" type="search" placeholder="会員・商品名・注文番号・SKUで検索" />
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>管理番号</th><th>会員</th><th>商品名</th><th>注文番号・管理番号</th><th>SKU</th><th>商品重量</th><th>状態</th><th>梱包後情報</th><th>操作</th></tr></thead>
-          <tbody id="ebayAdminListBody"></tbody>
         </table>
       </div>
     </section>
@@ -2019,8 +1911,8 @@
     detailTableArea.addEventListener("click", handleDetailTableClick);
     shippingBatchSearchInput.addEventListener("input", renderShippingBatch);
     ebayAdminSearchInput?.addEventListener("input", renderEbayAdminList);
-    pendingMemberForm.addEventListener("submit", savePendingMember);
-    pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
+    pendingMemberForm?.addEventListener("submit", savePendingMember);
+    pendingMemberCancelBtn?.addEventListener("click", resetPendingMemberForm);
     discordNotifyDateInput.addEventListener("change", renderDiscordNotifications);
     yupackOcrPasteZone?.addEventListener("paste", handleYupackOcrPaste);
 
@@ -2187,10 +2079,6 @@
         renderAnnouncements();
         renderPrices();
         renderDiscordNotifications();
-        const requestedView = new URLSearchParams(window.location.search).get("view");
-        if (requestedView === "pendingMembers" || requestedView === "inactiveMembers") {
-          setMainTab(requestedView, { pushHistory: false });
-        }
       } catch (error) {
         showError(appError, "データの読み込みに失敗しました。Realtime Databaseのルールを確認してください。");
       }
@@ -2372,6 +2260,7 @@
     }
 
     function renderPendingMembers() {
+      if (!pendingMemberListBody) return;
       const pendingMembers = Object.entries(pendingMembersCache || {})
         .map(([key, value]) => ({ ...value, key }))
         .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
@@ -4004,11 +3893,11 @@
       });
 
       membersSection.classList.toggle("hidden", safeTabName !== "members");
-      inactiveMembersSection.classList.toggle("hidden", safeTabName !== "inactiveMembers");
-      pendingMembersSection.classList.toggle("hidden", safeTabName !== "pendingMembers");
+      inactiveMembersSection?.classList.toggle("hidden", safeTabName !== "inactiveMembers");
+      pendingMembersSection?.classList.toggle("hidden", safeTabName !== "pendingMembers");
       detailSection.classList.toggle("hidden", safeTabName !== "detail");
       shippingBatchSection.classList.toggle("hidden", safeTabName !== "shippingBatch");
-      ebaySection.classList.toggle("hidden", safeTabName !== "ebay");
+      ebaySection?.classList.toggle("hidden", safeTabName !== "ebay");
       invoicesSection.classList.toggle("hidden", safeTabName !== "invoices");
       companySection.classList.toggle("hidden", safeTabName !== "company");
       pricesSection.classList.toggle("hidden", safeTabName !== "prices");
