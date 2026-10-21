@@ -1160,6 +1160,7 @@
       <button class="tab active" data-main-tab="members">会員一覧</button>
       <button class="tab" data-main-tab="detail">会員詳細</button>
       <button class="tab" data-main-tab="shippingBatch">発送待ち情報</button>
+      <button class="tab" data-main-tab="ebay">eBay発送代行</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="company">会社情報</button>
       <button class="tab" data-main-tab="prices">価格表</button>
@@ -1178,12 +1179,20 @@
           <div id="totalMembers" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">登録済み商品</div>
+          <div class="stat-label">カメラ 登録済み商品</div>
           <div id="totalRegistered" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">未発送</div>
+          <div class="stat-label">カメラ 未発送</div>
           <div id="totalUnshipped" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">eBay 登録済み</div>
+          <div id="totalEbayRegistered" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">eBay 未発送</div>
+          <div id="totalEbayUnshipped" class="stat-value">0</div>
         </div>
       </div>
 
@@ -1281,6 +1290,11 @@
               <option value="consulting">コンサル生</option>
             </select>
           </label>
+          <div class="full">
+            <div style="font-weight:800;margin-bottom:8px;">利用サービス</div>
+            <label style="display:inline-flex;align-items:center;gap:8px;margin-right:18px;"><input id="pendingMemberServiceCamera" type="checkbox" checked style="width:auto;" />カメラサービス</label>
+            <label style="display:inline-flex;align-items:center;gap:8px;"><input id="pendingMemberServiceEbay" type="checkbox" style="width:auto;" />eBay発送代行</label>
+          </div>
           <label class="full">
             Google Drive URL置き場
             <input id="pendingMemberDriveBaseUrl" type="url" placeholder="https://drive.google.com/drive/folders/..." />
@@ -1307,6 +1321,7 @@
               <th>氏名</th>
               <th>メール</th>
               <th>プラン</th>
+              <th>利用サービス</th>
               <th>Discord</th>
               <th>登録日</th>
               <th>操作</th>
@@ -1409,6 +1424,19 @@
             </tr>
           </thead>
           <tbody id="shippingBatchBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="ebaySection" class="section hidden">
+      <div class="section-title-row">
+        <div><h2>eBay発送代行</h2><p class="muted">会員から依頼された商品へ梱包後情報を登録します。</p></div>
+        <input id="ebayAdminSearchInput" class="member-search" type="search" placeholder="会員・商品名・注文番号・SKUで検索" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>管理番号</th><th>会員</th><th>商品名</th><th>注文番号・管理番号</th><th>SKU</th><th>商品重量</th><th>状態</th><th>梱包後情報</th><th>操作</th></tr></thead>
+          <tbody id="ebayAdminListBody"></tbody>
         </table>
       </div>
     </section>
@@ -1851,6 +1879,7 @@
     const pendingMembersSection = document.getElementById("pendingMembersSection");
     const detailSection = document.getElementById("detailSection");
     const shippingBatchSection = document.getElementById("shippingBatchSection");
+    const ebaySection = document.getElementById("ebaySection");
     const invoicesSection = document.getElementById("invoicesSection");
     const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
@@ -1863,6 +1892,8 @@
     const totalMembers = document.getElementById("totalMembers");
     const totalRegistered = document.getElementById("totalRegistered");
     const totalUnshipped = document.getElementById("totalUnshipped");
+    const totalEbayRegistered = document.getElementById("totalEbayRegistered");
+    const totalEbayUnshipped = document.getElementById("totalEbayUnshipped");
     const memberListBody = document.getElementById("memberListBody");
     const inactiveMemberListBody = document.getElementById("inactiveMemberListBody");
     const inquiryListBody = document.getElementById("inquiryListBody");
@@ -1872,6 +1903,8 @@
     const pendingMemberEmail = document.getElementById("pendingMemberEmail");
     const pendingMemberManagementNumber = document.getElementById("pendingMemberManagementNumber");
     const pendingMemberPlanType = document.getElementById("pendingMemberPlanType");
+    const pendingMemberServiceCamera = document.getElementById("pendingMemberServiceCamera");
+    const pendingMemberServiceEbay = document.getElementById("pendingMemberServiceEbay");
     const pendingMemberDriveBaseUrl = document.getElementById("pendingMemberDriveBaseUrl");
     const pendingMemberDiscordWebhookUrl = document.getElementById("pendingMemberDiscordWebhookUrl");
     const pendingMemberDiscordLabelWebhookUrl = document.getElementById("pendingMemberDiscordLabelWebhookUrl");
@@ -1896,6 +1929,8 @@
     const detailTableArea = document.getElementById("detailTableArea");
     const detailProductSearchInput = document.getElementById("detailProductSearchInput");
     const shippingBatchSearchInput = document.getElementById("shippingBatchSearchInput");
+    const ebayAdminSearchInput = document.getElementById("ebayAdminSearchInput");
+    const ebayAdminListBody = document.getElementById("ebayAdminListBody");
     const shippingBatchBody = document.getElementById("shippingBatchBody");
     const yupackOcrFileInput = document.getElementById("yupackOcrFileInput");
     const yupackOcrPasteZone = document.getElementById("yupackOcrPasteZone");
@@ -1991,6 +2026,7 @@
     detailProductSearchInput.addEventListener("input", renderMemberDetail);
     detailTableArea.addEventListener("click", handleDetailTableClick);
     shippingBatchSearchInput.addEventListener("input", renderShippingBatch);
+    ebayAdminSearchInput?.addEventListener("input", renderEbayAdminList);
     pendingMemberForm.addEventListener("submit", savePendingMember);
     pendingMemberCancelBtn.addEventListener("click", resetPendingMemberForm);
     discordNotifyDateInput.addEventListener("change", renderDiscordNotifications);
@@ -2098,10 +2134,12 @@
           const user = usersRaw[uid] || {};
           const memberSettings = memberSettingsCache[uid] || {};
           const productMap = productsRaw[uid] || {};
-          const products = Object.entries(productMap).map(([id, value]) => ({
+          const allProducts = Object.entries(productMap).map(([id, value]) => ({
             id,
             ...value
           }));
+          const products = allProducts.filter((product) => product.serviceType !== "ebay");
+          const ebayProducts = allProducts.filter((product) => product.serviceType === "ebay");
 
           return {
             uid,
@@ -2119,10 +2157,12 @@
             inspectionSheetName: memberSettings.inspectionSheetName || "検品結果",
             inspectionGeneratorWebhookUrl: memberSettings.inspectionGeneratorWebhookUrl || "",
             planType: memberSettings.planType || user.planType || "",
+            enabledServices: memberSettings.enabledServices || { camera: true, ebay: false },
             inactiveAt: memberSettings.inactiveAt || "",
             inactiveReason: memberSettings.inactiveReason || "",
             writeLocked: memberSettings.writeLocked === true,
-            products
+            products,
+            ebayProducts
           };
         };
 
@@ -2147,6 +2187,7 @@
         renderInquiries();
         renderMemberDetail();
         renderShippingBatch();
+        renderEbayAdminList();
         renderInvoices();
         renderCompanyInfo();
         renderConfirmationBase();
@@ -2174,12 +2215,17 @@
       const email = pendingMemberEmail.value.trim().toLowerCase();
       const managementNumber = pendingMemberManagementNumber.value.trim();
       const planType = pendingMemberPlanType.value;
+      const enabledServices = { camera: pendingMemberServiceCamera.checked, ebay: pendingMemberServiceEbay.checked };
       const driveBaseUrl = pendingMemberDriveBaseUrl.value.trim();
       const discordWebhookUrl = pendingMemberDiscordWebhookUrl.value.trim();
       const discordLabelWebhookUrl = pendingMemberDiscordLabelWebhookUrl.value.trim();
 
       if (!name || !email) {
         showError(appError, "氏名とメールアドレスを入力してください。");
+        return;
+      }
+      if (!enabledServices.camera && !enabledServices.ebay) {
+        showError(appError, "利用サービスを1つ以上選択してください。");
         return;
       }
 
@@ -2195,6 +2241,7 @@
           email,
           managementNumber,
           planType,
+          enabledServices,
           driveBaseUrl,
           discordWebhookUrl,
           discordLabelWebhookUrl,
@@ -2227,6 +2274,8 @@
     function resetPendingMemberForm() {
       activePendingMemberKey = null;
       pendingMemberForm.reset();
+      pendingMemberServiceCamera.checked = true;
+      pendingMemberServiceEbay.checked = false;
       pendingMemberSubmitBtn.textContent = "仮登録する";
       pendingMemberCancelBtn.classList.add("hidden");
       pendingMemberEmail.disabled = false;
@@ -2244,6 +2293,8 @@
       pendingMemberEmail.value = member.email || "";
       pendingMemberManagementNumber.value = member.managementNumber || "";
       pendingMemberPlanType.value = member.planType || "";
+      pendingMemberServiceCamera.checked = member.enabledServices?.camera !== false;
+      pendingMemberServiceEbay.checked = member.enabledServices?.ebay === true;
       pendingMemberDriveBaseUrl.value = member.driveBaseUrl || "";
       pendingMemberDiscordWebhookUrl.value = member.discordWebhookUrl || "";
       pendingMemberDiscordLabelWebhookUrl.value = member.discordLabelWebhookUrl || member.discordWebhookUrl || "";
@@ -2297,6 +2348,7 @@
           [`memberSettings/${uid}`]: {
             managementNumber: pending.managementNumber || "",
             planType: pending.planType || "",
+            enabledServices: pending.enabledServices || { camera: true, ebay: false },
             driveBaseUrl: pending.driveBaseUrl || "",
             discordWebhookUrl: pending.discordWebhookUrl || "",
             discordLabelWebhookUrl: pending.discordLabelWebhookUrl || pending.discordWebhookUrl || "",
@@ -2329,7 +2381,7 @@
         .sort((a, b) => Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0));
 
       if (!pendingMembers.length) {
-        pendingMemberListBody.innerHTML = `<tr><td colspan="7"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
+        pendingMemberListBody.innerHTML = `<tr><td colspan="8"><div class="empty">仮登録中の会員はいません。</div></td></tr>`;
         return;
       }
 
@@ -2339,6 +2391,7 @@
           <td>${escapeHtml(member.name || "-")}</td>
           <td>${escapeHtml(member.email || "-")}</td>
           <td>${escapeHtml(planTypeLabel(member.planType))}</td>
+          <td>${escapeHtml(serviceLabels(member.enabledServices))}</td>
           <td>
             <span class="status-pill ${member.discordWebhookUrl ? "blue" : "gray"}">検品発送${member.discordWebhookUrl ? "設定済み" : "未設定"}</span>
             <span class="status-pill ${member.discordLabelWebhookUrl ? "blue" : "gray"}">ラベル${member.discordLabelWebhookUrl ? "設定済み" : "未設定"}</span>
@@ -2356,10 +2409,14 @@
     function renderMembers() {
       const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
       const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
+      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
+      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => product.ebayStatus !== "shipped" && product.ebayStatus !== "registered").length, 0);
 
       totalMembers.textContent = membersCache.length;
       totalRegistered.textContent = totalRegisteredCount;
       totalUnshipped.textContent = totalUnshippedCount;
+      if (totalEbayRegistered) totalEbayRegistered.textContent = totalEbayRegisteredCount;
+      if (totalEbayUnshipped) totalEbayUnshipped.textContent = totalEbayUnshippedCount;
 
       if (!membersCache.length) {
         memberListBody.innerHTML = `<tr><td colspan="10"><div class="empty">会員が登録されていません。</div></td></tr>`;
@@ -3873,6 +3930,71 @@
       renderMemberDetail();
     }
 
+    function ebayAdminRows() {
+      return membersCache.flatMap((member) => (member.ebayProducts || []).map((product) => ({ member, product })));
+    }
+
+    function ebayStatusLabel(value) {
+      return ({ registered: "登録済み", requested: "発送依頼済み", measured: "梱包情報確認済み", label_received: "ラベル受領済み", shipped: "発送済み" })[value || "registered"] || value || "登録済み";
+    }
+
+    function renderEbayAdminList() {
+      if (!ebayAdminListBody) return;
+      const keyword = normalizeSearch(ebayAdminSearchInput?.value || "");
+      const rows = ebayAdminRows()
+        .filter(({ member, product }) => !keyword || normalizeSearch(`${member.managementNumber || ""} ${member.name || ""} ${member.adminDisplayName || ""} ${product.name || ""} ${product.orderNumber || ""} ${product.sku || ""}`).includes(keyword))
+        .sort((a, b) => Number(b.product.shippingRequestedAt || b.product.createdAt || 0) - Number(a.product.shippingRequestedAt || a.product.createdAt || 0));
+      if (!rows.length) {
+        ebayAdminListBody.innerHTML = `<tr><td colspan="9"><div class="empty">eBay商品はありません。</div></td></tr>`;
+        return;
+      }
+      ebayAdminListBody.innerHTML = rows.map(({ member, product }) => `
+        <tr>
+          <td>${escapeHtml(member.managementNumber || "-")}</td>
+          <td><div class="member-name">${escapeHtml(member.adminDisplayName || member.name || "-")}</div><div class="member-meta">${escapeHtml(member.email || "-")}</div></td>
+          <td>${escapeHtml(product.name || "-")}</td>
+          <td>${escapeHtml(product.orderNumber || "-")}</td>
+          <td>${escapeHtml(product.sku || "-")}</td>
+          <td>${escapeHtml(product.itemWeight || "-")}</td>
+          <td><span class="status-pill ${product.ebayStatus === "shipped" ? "green" : product.ebayStatus === "requested" ? "yellow" : "blue"}">${escapeHtml(ebayStatusLabel(product.ebayStatus))}</span></td>
+          <td>${escapeHtml(product.packageSize || "未登録")} / ${escapeHtml(product.packageWeight || "未登録")}${product.countryOfOrigin ? `<div class="member-meta">原産国 ${escapeHtml(product.countryOfOrigin)}</div>` : ""}</td>
+          <td><div class="inline-actions"><button class="mini-btn" type="button" onclick="openEbayPackagingEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">梱包情報</button>${product.ebayStatus === "label_received" ? `<button class="primary-btn" type="button" onclick="completeEbayShipping('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">発送済み</button>` : ""}</div></td>
+        </tr>
+      `).join("");
+    }
+
+    function openEbayPackagingEdit(uid, productId) {
+      const member = findMember(uid);
+      const product = member?.ebayProducts?.find((item) => item.id === productId);
+      if (!product) return;
+      activeEdit = { type: "ebayPackaging", uid, productId };
+      editModalTitle.textContent = "eBay 梱包後情報を登録";
+      editForm.innerHTML = `
+        <p class="form-note">${escapeHtml(member.adminDisplayName || member.name || "-")} / ${escapeHtml(product.name || "-")} / SKU ${escapeHtml(product.sku || "-")}</p>
+        <div class="form-grid">
+          <label>梱包後サイズ<input name="packageSize" value="${escapeAttr(product.packageSize || "")}" placeholder="例：40 × 30 × 20 cm" required /></label>
+          <label>梱包後重量<input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2 kg" required /></label>
+          <label>原産国（必要な場合）<input name="countryOfOrigin" value="${escapeAttr(product.countryOfOrigin || "")}" placeholder="例：Japan" /></label>
+        </div>
+        <div class="modal-actions"><button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button><button class="primary-btn" type="submit">保存する</button></div>
+      `;
+      editModalBackdrop.classList.add("show");
+    }
+
+    async function completeEbayShipping(uid, productId) {
+      const member = findMember(uid);
+      const product = member?.ebayProducts?.find((item) => item.id === productId);
+      if (!product || !confirm(`${product.name || "この商品"} を発送済みにしますか？`)) return;
+      try {
+        await update(ref(db, `products/${uid}/${productId}`), { ebayStatus: "shipped", shippedAt: Date.now(), updatedAt: Date.now() });
+        await loadAllData();
+        setMainTab("ebay", { pushHistory: false });
+      } catch (error) {
+        console.error(error);
+        showError(appError, "eBay商品の発送完了更新に失敗しました。");
+      }
+    }
+
     function setMainTab(tabName, options = {}) {
       const safeTabName = document.querySelector(`[data-main-tab="${tabName}"]`) ? tabName : "members";
       currentMainTab = safeTabName;
@@ -3886,6 +4008,7 @@
       pendingMembersSection.classList.toggle("hidden", safeTabName !== "pendingMembers");
       detailSection.classList.toggle("hidden", safeTabName !== "detail");
       shippingBatchSection.classList.toggle("hidden", safeTabName !== "shippingBatch");
+      ebaySection.classList.toggle("hidden", safeTabName !== "ebay");
       invoicesSection.classList.toggle("hidden", safeTabName !== "invoices");
       companySection.classList.toggle("hidden", safeTabName !== "company");
       pricesSection.classList.toggle("hidden", safeTabName !== "prices");
@@ -4517,6 +4640,12 @@
               <option value="consulting" ${member.planType === "consulting" ? "selected" : ""}>コンサル生</option>
             </select>
           </label>
+
+          <div class="full">
+            <div style="font-weight:800;margin-bottom:8px;">利用サービス</div>
+            <label style="display:inline-flex;align-items:center;gap:8px;margin-right:18px;"><input name="serviceCamera" type="checkbox" ${member.enabledServices?.camera !== false ? "checked" : ""} style="width:auto;" />カメラサービス</label>
+            <label style="display:inline-flex;align-items:center;gap:8px;"><input name="serviceEbay" type="checkbox" ${member.enabledServices?.ebay === true ? "checked" : ""} style="width:auto;" />eBay発送代行</label>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -4943,6 +5072,24 @@
         : null;
 
       try {
+        if (activeEdit.type === "ebayPackaging") {
+          const packageSize = getFormValue(formData, "packageSize");
+          const packageWeight = getFormValue(formData, "packageWeight");
+          if (!packageSize || !packageWeight) {
+            showError(appError, "梱包後サイズと梱包後重量を入力してください。");
+            return;
+          }
+          await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), {
+            packageSize,
+            packageWeight,
+            countryOfOrigin: getFormValue(formData, "countryOfOrigin"),
+            ebayStatus: "measured",
+            measuredAt: now,
+            measuredBy: currentUser?.uid || "",
+            updatedAt: now
+          });
+        }
+
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
@@ -4953,6 +5100,11 @@
           const inspectionSheetName = getFormValue(formData, "inspectionSheetName") || "検品結果";
           const inspectionGeneratorWebhookUrl = getFormValue(formData, "inspectionGeneratorWebhookUrl");
           const planType = getFormValue(formData, "planType");
+          const enabledServices = { camera: formData.get("serviceCamera") === "on", ebay: formData.get("serviceEbay") === "on" };
+          if (!enabledServices.camera && !enabledServices.ebay) {
+            showError(appError, "利用サービスを1つ以上選択してください。");
+            return;
+          }
 
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
@@ -4964,6 +5116,7 @@
             inspectionSheetName,
             inspectionGeneratorWebhookUrl,
             planType,
+            enabledServices,
             updatedAt: now,
             updatedBy: currentUser?.uid || ""
           });
@@ -7649,6 +7802,8 @@ function firstInvoiceDate(item) {
     window.openFeeDetailModal = openFeeDetailModal;
     window.openPreferenceModal = openPreferenceModal;
     window.openMemberManagementEdit = openMemberManagementEdit;
+    window.openEbayPackagingEdit = openEbayPackagingEdit;
+    window.completeEbayShipping = completeEbayShipping;
     window.openPendingMemberEdit = openPendingMemberEdit;
     window.deletePendingMember = deletePendingMember;
     window.activatePendingMemberFromAdmin = activatePendingMemberFromAdmin;
@@ -7775,6 +7930,14 @@ function firstInvoiceDate(item) {
       };
 
       return labels[value] || "-";
+    }
+
+    function serviceLabels(value) {
+      const services = value || { camera: true, ebay: false };
+      const labels = [];
+      if (services.camera !== false) labels.push("カメラ");
+      if (services.ebay === true) labels.push("eBay");
+      return labels.join("・") || "未設定";
     }
 
     function isConsultingMember(member) {

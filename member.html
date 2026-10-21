@@ -148,6 +148,25 @@ textarea{min-height:62px;resize:vertical}
 .price-table th{background:#475569;color:#fff;text-align:left}
 .price-table th,.price-table td{border:1px solid #d1d5db;padding:10px;vertical-align:middle}
 .price-table .group-cell{background:#eef2ff;color:#1d4ed8;font-weight:800;text-align:center;white-space:nowrap}
+.service-switch{display:flex;justify-content:center;gap:8px;margin:-8px 0 22px;padding:6px;background:#f1f5f9;border-radius:10px}
+.service-switch.hidden{display:none}
+.service-switch button{min-width:180px;background:transparent;color:#64748b}
+.service-switch button.active{background:#2563eb;color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.2)}
+.ebay-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:20px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff}
+.ebay-hero h2{color:#1d4ed8;margin-bottom:5px}
+.ebay-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.ebay-product-list{display:grid;gap:12px;margin-top:16px}
+.ebay-product-card{border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:16px}
+.ebay-product-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.ebay-product-name{font-size:17px;font-weight:800;color:#0f172a}
+.ebay-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 14px}
+.ebay-field-label{display:block;color:#64748b;font-size:11px;font-weight:800;margin-bottom:3px}
+.ebay-product-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #eef2f7}
+.ebay-status{display:inline-flex;border-radius:999px;padding:5px 10px;background:#e2e8f0;color:#475569;font-size:12px;font-weight:800;white-space:nowrap}
+.ebay-status.requested{background:#fef3c7;color:#92400e}
+.ebay-status.measured{background:#dbeafe;color:#1d4ed8}
+.ebay-status.label_received{background:#dcfce7;color:#166534}
+.ebay-status.shipped{background:#dcfce7;color:#166534}
 @media(max-width:700px){
   body{padding:10px;font-size:14px;overflow-x:hidden}
   .container,.login-container{width:100%;padding:18px;border-radius:8px}
@@ -238,6 +257,17 @@ textarea{min-height:62px;resize:vertical}
   .invoice-year{padding:12px}
   .invoice-grid{gap:8px}
   .invoice-month-card{min-height:96px;padding:9px}
+  .service-switch{margin:0 0 16px}
+  .service-switch button{min-width:0;flex:1;padding:10px 8px}
+  .ebay-hero{align-items:stretch;flex-direction:column;padding:15px}
+  .ebay-hero button{width:100%}
+  .ebay-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  .ebay-summary .stat{padding:10px 8px}
+  .ebay-summary .stat-label{font-size:10px}
+  .ebay-summary .stat-value{font-size:22px}
+  .ebay-fields{grid-template-columns:1fr 1fr}
+  .ebay-product-actions{display:grid;grid-template-columns:1fr}
+  .ebay-product-actions button{width:100%}
 }
 </style>
 </head>
@@ -269,6 +299,12 @@ textarea{min-height:62px;resize:vertical}
     </div>
   </header>
 
+  <div id="serviceSwitch" class="service-switch hidden" aria-label="利用サービス切替">
+    <button id="cameraServiceBtn" class="active" type="button">カメラサービス</button>
+    <button id="ebayServiceBtn" type="button">eBay発送代行</button>
+  </div>
+
+  <div id="cameraServiceArea">
   <nav class="tabs">
     <button class="tab active" data-tab="overview" type="button">トップ</button>
     <button class="tab" data-tab="register" type="button">商品登録</button>
@@ -462,6 +498,38 @@ textarea{min-height:62px;resize:vertical}
         <button type="submit" style="width:100%;">保存する</button>
       </form>
     </div>
+  </section>
+  </div>
+
+  <section id="ebayServiceArea" class="hidden">
+    <div class="ebay-hero">
+      <div>
+        <h2>eBay発送代行</h2>
+        <p class="member-meta">商品登録後に発送を依頼してください。梱包後のサイズ・重量はお気楽便側で登録します。</p>
+      </div>
+      <button id="showEbayRegisterBtn" type="button">eBay商品を登録</button>
+    </div>
+
+    <div class="ebay-summary">
+      <div class="stat"><div class="stat-label">登録済み</div><div id="ebayRegisteredCount" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">対応中</div><div id="ebayRequestedCount" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">発送済み</div><div id="ebayShippedCount" class="stat-value">0</div></div>
+    </div>
+
+    <div id="ebayRegisterPanel" class="form hidden">
+      <div class="form-header"><h2>eBay商品登録</h2><button id="closeEbayRegisterBtn" class="secondary" type="button">閉じる</button></div>
+      <form id="ebayProductForm">
+        <div class="form-grid">
+          <div class="form-group"><label>商品名 <span class="required">必須</span></label><input name="name" type="text" required></div>
+          <div class="form-group"><label>eBay注文番号・管理番号 <span class="required">必須</span></label><input name="orderNumber" type="text" required></div>
+          <div class="form-group"><label>SKU <span class="required">必須</span></label><input name="sku" type="text" required></div>
+          <div class="form-group"><label>商品重量 <span class="required">必須</span></label><input name="itemWeight" type="text" required placeholder="例：850g / 0.85kg"></div>
+        </div>
+        <button type="submit" style="width:100%;">登録する</button>
+      </form>
+    </div>
+
+    <div id="ebayProductList" class="ebay-product-list"></div>
   </section>
 </div>
 
@@ -725,6 +793,7 @@ let currentUser = null;
 let activeMemberUid = null;
 let isAdminProxyMode = false;
 let productsCache = [];
+let ebayProductsCache = [];
 let originsCache = [];
 let announcementsCache = [];
 let basicInfoCache = {};
@@ -742,6 +811,7 @@ let selectedProductIds = new Set();
 let selectedGssExportIds = new Set();
 let isGssExporting = false;
 let isShippingRequestSubmitting = false;
+let activeService = "camera";
 
 const loginArea = document.getElementById("loginArea");
 const appArea = document.getElementById("appArea");
@@ -758,6 +828,16 @@ const productForm = document.getElementById("productForm");
 const productEntries = document.getElementById("productEntries");
 const addEntryBtn = document.getElementById("addEntryBtn");
 const registerProductsBtn = document.getElementById("registerProductsBtn");
+const serviceSwitch = document.getElementById("serviceSwitch");
+const cameraServiceBtn = document.getElementById("cameraServiceBtn");
+const ebayServiceBtn = document.getElementById("ebayServiceBtn");
+const cameraServiceArea = document.getElementById("cameraServiceArea");
+const ebayServiceArea = document.getElementById("ebayServiceArea");
+const showEbayRegisterBtn = document.getElementById("showEbayRegisterBtn");
+const closeEbayRegisterBtn = document.getElementById("closeEbayRegisterBtn");
+const ebayRegisterPanel = document.getElementById("ebayRegisterPanel");
+const ebayProductForm = document.getElementById("ebayProductForm");
+const ebayProductList = document.getElementById("ebayProductList");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
@@ -1416,6 +1496,7 @@ async function activatePendingMember(user) {
     [`memberSettings/${user.uid}`]: {
       managementNumber: pending.managementNumber || "",
       planType: pending.planType || "",
+      enabledServices: pending.enabledServices || { camera: true, ebay: false },
       driveBaseUrl: pending.driveBaseUrl || "",
             discordWebhookUrl: pending.discordWebhookUrl || "",
       discordLabelWebhookUrl: pending.discordLabelWebhookUrl || pending.discordWebhookUrl || "",
@@ -1905,6 +1986,12 @@ shippingModalBackdrop.addEventListener("click", (event) => {
   if (event.target === shippingModalBackdrop) closeShippingModal();
 });
 
+cameraServiceBtn?.addEventListener("click", () => setActiveService("camera"));
+ebayServiceBtn?.addEventListener("click", () => setActiveService("ebay"));
+showEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.remove("hidden"));
+closeEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.add("hidden"));
+ebayProductForm?.addEventListener("submit", saveEbayProduct);
+
 async function loadData() {
   if (!currentUser) return;
 
@@ -1919,13 +2006,17 @@ async function loadData() {
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
     const priceTableSnapshot = await get(ref(database, "priceTable")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
-    productsCache = productsSnapshot.exists()
-      ? Object.values(productsSnapshot.val()).sort((a, b) => {
+    const allProducts = productsSnapshot.exists() ? Object.values(productsSnapshot.val()) : [];
+    productsCache = allProducts
+      .filter((product) => product?.serviceType !== "ebay")
+      .sort((a, b) => {
           const aNumber = String(a.numbering || "");
           const bNumber = String(b.numbering || "");
           return aNumber.localeCompare(bNumber, "ja", { numeric: true });
-        })
-      : [];
+        });
+    ebayProductsCache = allProducts
+      .filter((product) => product?.serviceType === "ebay")
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
 
     originsCache = originsSnapshot.exists()
       ? Object.values(originsSnapshot.val()).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ja"))
@@ -1945,6 +2036,7 @@ async function loadData() {
     companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
     priceTableCache = priceTableSnapshot.exists() ? priceTableSnapshot.val() : {};
     renderMemberBadge();
+    applyServiceAvailability();
     applyWriteLockState();
 
     const registeredProducts = getRegisteredProducts();
@@ -1966,11 +2058,222 @@ async function loadData() {
     renderOriginList();
     renderInvoiceList();
     renderPriceTable();
+    renderEbayProducts();
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
   }
 }
+
+function enabledMemberServices() {
+  const configured = memberProfileCache.enabledServices || {};
+  const hasExplicitSetting = Object.prototype.hasOwnProperty.call(configured, "camera") || Object.prototype.hasOwnProperty.call(configured, "ebay");
+  return {
+    camera: hasExplicitSetting ? configured.camera === true : true,
+    ebay: hasExplicitSetting ? configured.ebay === true : false
+  };
+}
+
+function applyServiceAvailability() {
+  const services = enabledMemberServices();
+  const hasBoth = services.camera && services.ebay;
+  serviceSwitch?.classList.toggle("hidden", !hasBoth);
+  if (!services[activeService]) activeService = services.ebay ? "ebay" : "camera";
+  setActiveService(activeService);
+}
+
+function setActiveService(service) {
+  const services = enabledMemberServices();
+  if (!services[service]) return;
+  activeService = service;
+  cameraServiceArea?.classList.toggle("hidden", service !== "camera");
+  ebayServiceArea?.classList.toggle("hidden", service !== "ebay");
+  cameraServiceBtn?.classList.toggle("active", service === "camera");
+  ebayServiceBtn?.classList.toggle("active", service === "ebay");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function saveEbayProduct(event) {
+  event.preventDefault();
+  clearError();
+  if (!currentUser || !ensureWritableAction("eBay商品登録")) return;
+  const formData = new FormData(event.target);
+  const name = String(formData.get("name") || "").trim();
+  const orderNumber = String(formData.get("orderNumber") || "").trim();
+  const sku = String(formData.get("sku") || "").trim();
+  const itemWeight = String(formData.get("itemWeight") || "").trim();
+  if (!name || !orderNumber || !sku || !itemWeight) {
+    showError("商品名、注文番号・管理番号、SKU、商品重量を入力してください。");
+    return;
+  }
+
+  const now = Date.now();
+  const productId = `ebay_${now}_${Math.random().toString(36).slice(2, 8)}`;
+  try {
+    await set(ref(database, `products/${dataUid()}/${productId}`), {
+      id: productId,
+      ownerUid: dataUid(),
+      ownerEmail: currentUser.email || "",
+      serviceType: "ebay",
+      name,
+      orderNumber,
+      sku,
+      itemWeight,
+      ebayStatus: "registered",
+      createdAt: now,
+      updatedAt: now
+    });
+    event.target.reset();
+    ebayRegisterPanel?.classList.add("hidden");
+    await loadData();
+    setActiveService("ebay");
+    showSuccess("eBay商品を登録しました。");
+  } catch (error) {
+    console.error(error);
+    showError("eBay商品の登録に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+}
+
+function ebayStatusText(product) {
+  const status = product.ebayStatus || "registered";
+  const labels = { registered: "登録済み", requested: "発送依頼済み", measured: "梱包情報確認済み", label_received: "ラベル受領済み", shipped: "発送済み" };
+  return labels[status] || status;
+}
+
+function renderEbayProducts() {
+  const registered = ebayProductsCache.filter((item) => (item.ebayStatus || "registered") === "registered").length;
+  const requested = ebayProductsCache.filter((item) => !["registered", "shipped"].includes(item.ebayStatus || "registered")).length;
+  const shipped = ebayProductsCache.filter((item) => item.ebayStatus === "shipped").length;
+  const registeredEl = document.getElementById("ebayRegisteredCount");
+  const requestedEl = document.getElementById("ebayRequestedCount");
+  const shippedEl = document.getElementById("ebayShippedCount");
+  if (registeredEl) registeredEl.textContent = registered;
+  if (requestedEl) requestedEl.textContent = requested;
+  if (shippedEl) shippedEl.textContent = shipped;
+  if (!ebayProductList) return;
+  if (!ebayProductsCache.length) {
+    ebayProductList.innerHTML = emptyHtml("eBay商品はまだ登録されていません");
+    return;
+  }
+  ebayProductList.innerHTML = ebayProductsCache.map((product) => `
+    <article class="ebay-product-card">
+      <div class="ebay-product-head">
+        <div><div class="ebay-product-name">${escapeHtml(product.name || "-")}</div><div class="member-meta">登録日 ${escapeHtml(formatDate(product.createdAt))}</div></div>
+        <span class="ebay-status ${escapeAttr(product.ebayStatus || "registered")}">${escapeHtml(ebayStatusText(product))}</span>
+      </div>
+      <div class="ebay-fields">
+        <div><span class="ebay-field-label">注文番号・管理番号</span>${escapeHtml(product.orderNumber || "-")}</div>
+        <div><span class="ebay-field-label">SKU</span>${escapeHtml(product.sku || "-")}</div>
+        <div><span class="ebay-field-label">商品重量</span>${escapeHtml(product.itemWeight || "-")}</div>
+        <div><span class="ebay-field-label">梱包後サイズ</span>${escapeHtml(product.packageSize || "未登録")}</div>
+        <div><span class="ebay-field-label">梱包後重量</span>${escapeHtml(product.packageWeight || "未登録")}</div>
+        <div><span class="ebay-field-label">原産国</span>${escapeHtml(product.countryOfOrigin || "-")}</div>
+        <div><span class="ebay-field-label">配送サービス</span>${escapeHtml(product.deliveryService || "未登録")}</div>
+        <div><span class="ebay-field-label">発送日</span>${escapeHtml(product.shippingDate || "未登録")}</div>
+      </div>
+      <div class="ebay-product-actions">
+        ${(product.ebayStatus || "registered") === "registered" ? `<button type="button" onclick="requestEbayShipping('${escapeAttr(product.id)}')">発送を依頼する</button>` : ""}
+        ${product.ebayStatus === "measured" ? `<button type="button" onclick="openEbayLabelUpload('${escapeAttr(product.id)}')">配送情報・ラベルを送る</button>` : ""}
+        <button class="secondary" type="button" onclick="showEbayProductInfo('${escapeAttr(product.id)}')">詳細</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+window.requestEbayShipping = async function(productId) {
+  if (!ensureWritableAction("eBay発送依頼")) return;
+  const product = ebayProductsCache.find((item) => item.id === productId);
+  if (!product || !confirm(`${product.name || "この商品"} の発送を依頼しますか？`)) return;
+  try {
+    await update(ref(database, `products/${dataUid()}/${productId}`), { ebayStatus: "requested", shippingRequestedAt: Date.now(), updatedAt: Date.now() });
+    await loadData();
+    setActiveService("ebay");
+  } catch (error) {
+    console.error(error);
+    showError("eBay発送依頼に失敗しました。");
+  }
+};
+
+window.showEbayProductInfo = function(productId) {
+  const product = ebayProductsCache.find((item) => item.id === productId);
+  if (!product) return;
+  openModal("eBay商品情報", `<div class="detail-section"><div class="detail-grid">
+    <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
+    <div class="detail-label">注文番号・管理番号</div><div>${escapeHtml(product.orderNumber || "-")}</div>
+    <div class="detail-label">SKU</div><div>${escapeHtml(product.sku || "-")}</div>
+    <div class="detail-label">商品重量</div><div>${escapeHtml(product.itemWeight || "-")}</div>
+    <div class="detail-label">梱包後サイズ</div><div>${escapeHtml(product.packageSize || "未登録")}</div>
+    <div class="detail-label">梱包後重量</div><div>${escapeHtml(product.packageWeight || "未登録")}</div>
+    <div class="detail-label">原産国</div><div>${escapeHtml(product.countryOfOrigin || "-")}</div>
+    <div class="detail-label">配送サービス</div><div>${escapeHtml(product.deliveryService || "-")}</div>
+    <div class="detail-label">発送日</div><div>${escapeHtml(product.shippingDate || "-")}</div>
+    <div class="detail-label">ラベル</div><div>${escapeHtml(product.labelFileName || "未送信")}</div>
+    <div class="detail-label">状態</div><div>${escapeHtml(ebayStatusText(product))}</div>
+  </div></div>`, true);
+};
+
+window.openEbayLabelUpload = function(productId) {
+  if (!ensureWritableAction("eBayラベル送信")) return;
+  const product = ebayProductsCache.find((item) => item.id === productId);
+  if (!product || product.ebayStatus !== "measured") return;
+  openModal("配送情報・ラベルを送信", `
+    <form class="modal-form" onsubmit="saveEbayLabel(event, '${escapeAttr(product.id)}')">
+      <p class="member-meta">${escapeHtml(product.name || "-")} / ${escapeHtml(product.orderNumber || "-")}</p>
+      <div class="form-grid">
+        <div class="form-group"><label>配送サービス <span class="required">必須</span></label><input name="deliveryService" required placeholder="例：FedEx / DHL / eBay SpeedPAK"></div>
+        <div class="form-group"><label>発送日 <span class="required">必須</span></label><input name="shippingDate" type="date" required></div>
+        <div class="form-group full"><label>発送ラベル <span class="required">必須</span></label><input name="labelFile" type="file" accept="image/*,.pdf" required></div>
+      </div>
+      <button type="submit" style="width:100%;">送信する</button>
+    </form>
+  `, true);
+};
+
+window.saveEbayLabel = async function(event, productId) {
+  event.preventDefault();
+  clearError();
+  const product = ebayProductsCache.find((item) => item.id === productId);
+  if (!product || !ensureWritableAction("eBayラベル送信")) return;
+  const formData = new FormData(event.target);
+  const deliveryService = String(formData.get("deliveryService") || "").trim();
+  const shippingDate = String(formData.get("shippingDate") || "").trim();
+  const file = formData.get("labelFile");
+  if (!deliveryService || !shippingDate || !(file instanceof File) || !file.size) {
+    showError("配送サービス、発送日、発送ラベルを入力してください。");
+    return;
+  }
+  const submitButton = event.target.querySelector('button[type="submit"]');
+  if (submitButton) { submitButton.disabled = true; submitButton.textContent = "送信中..."; }
+  try {
+    await sendPrepaidLabelToDiscord({
+      file,
+      memo: `配送サービス：${deliveryService}\n発送日：${shippingDate}`,
+      requestType: "eBay発送代行",
+      pickupScheduledDate: "",
+      selectedProducts: [product],
+      shipmentGroupNames: product.name || "",
+      shipmentGroupNumberings: product.orderNumber || product.sku || "",
+      requestId: `discord_ebay_label_${dataUid()}_${product.id}`
+    });
+    await update(ref(database, `products/${dataUid()}/${product.id}`), {
+      deliveryService,
+      shippingDate,
+      labelFileName: file.name || "label.pdf",
+      labelReceivedAt: Date.now(),
+      ebayStatus: "label_received",
+      updatedAt: Date.now()
+    });
+    closeModal();
+    await loadData();
+    setActiveService("ebay");
+    showSuccess("配送情報とラベルを送信しました。");
+  } catch (error) {
+    console.error(error);
+    showError(`ラベル送信に失敗しました。${error?.message || ""}`);
+  } finally {
+    if (submitButton) { submitButton.disabled = false; submitButton.textContent = "送信する"; }
+  }
+};
 
 function isMemberWriteLocked() {
   return !isAdminProxyMode && (memberProfileCache.writeLocked === true || memberProfileCache.status === "inactive");
