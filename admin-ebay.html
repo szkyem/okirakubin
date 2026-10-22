@@ -1586,6 +1586,7 @@
         <h2 id="editModalTitle">編集</h2>
         <button id="editModalCloseBtn" class="secondary-btn" type="button">閉じる</button>
       </div>
+      <div id="editModalMessage" class="error hidden"></div>
       <form id="editForm"></form>
     </div>
   </div>
@@ -1875,6 +1876,7 @@
     const editModalBackdrop = document.getElementById("editModalBackdrop");
     const editModalTitle = document.getElementById("editModalTitle");
     const editModalCloseBtn = document.getElementById("editModalCloseBtn");
+    const editModalMessage = document.getElementById("editModalMessage");
     const editForm = document.getElementById("editForm");
 
     let currentUser = null;
@@ -5092,6 +5094,13 @@
       if (!activeEdit) return;
 
       hideError(appError);
+      hideError(editModalMessage);
+      const submitButton = event.submitter instanceof HTMLButtonElement ? event.submitter : editForm.querySelector('button[type="submit"]');
+      const submitButtonText = submitButton?.textContent || "保存する";
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "写真を処理して保存中...";
+      }
 
       const formData = new FormData(editForm);
       const now = Date.now();
@@ -5464,7 +5473,14 @@
       } catch (error) {
         console.error(error);
         const detail = String(error?.message || "").trim();
-        showError(appError, `保存に失敗しました。${detail ? ` ${detail}` : " Realtime Databaseのルールを確認してください。"}`);
+        const message = `保存に失敗しました。${detail ? ` ${detail}` : " Realtime Databaseのルールを確認してください。"}`;
+        showError(editModalMessage, message);
+        showError(appError, message);
+      } finally {
+        if (submitButton?.isConnected) {
+          submitButton.disabled = false;
+          submitButton.textContent = submitButtonText;
+        }
       }
     });
 
@@ -7781,6 +7797,7 @@ function firstInvoiceDate(item) {
 
     function closeEditModal() {
       editModalBackdrop.classList.remove("show");
+      hideError(editModalMessage);
       editForm.innerHTML = "";
       activeEdit = null;
     }
@@ -8652,7 +8669,8 @@ function firstInvoiceDate(item) {
     }
 
     async function uploadTemporaryProductPhotos(uid, productId, files) {
-      const imageFiles = files.filter((file) => file instanceof File && file.size && String(file.type || "").startsWith("image/"));
+      const imageFiles = files.filter((file) => file instanceof File && file.size);
+      if (!imageFiles.length) throw new Error("選択した写真を読み込めませんでした。もう一度写真を選択してください。");
       if (imageFiles.length > 2) throw new Error("簡易写真は最大2枚までです。");
       if (imageFiles.some((file) => file.size > 25 * 1024 * 1024)) throw new Error("元の写真は1枚25MB以下にしてください。");
       const uploadedAt = Date.now();
@@ -8664,14 +8682,30 @@ function firstInvoiceDate(item) {
         try {
           const target = storageRef(storage, path);
           const compressedFile = dataUrlToBlob(url);
-          await uploadBytes(target, compressedFile, { contentType: "image/jpeg", customMetadata: { expiresAt: String(expiresAt) } });
-          const downloadUrl = await getDownloadURL(target);
+          await withTimeout(
+            uploadBytes(target, compressedFile, { contentType: "image/jpeg", customMetadata: { expiresAt: String(expiresAt) } }),
+            8000,
+            "写真保管先が応答しませんでした。直接保存へ切り替えます。"
+          );
+          const downloadUrl = await withTimeout(
+            getDownloadURL(target),
+            8000,
+            "写真URLの取得がタイムアウトしました。直接保存へ切り替えます。"
+          );
           return { url: downloadUrl, path, name: file.name || safeName, uploadedAt, expiresAt, storageType: "firebase-storage" };
         } catch (storageError) {
           console.warn("Firebase Storageへ保存できないため、一時写真をデータベース保存へ切り替えます。", storageError);
           return { url, path: "", name: file.name || safeName, uploadedAt, expiresAt, storageType: "realtime-database" };
         }
       }));
+    }
+
+    function withTimeout(promise, timeoutMs, message) {
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
     }
 
     function dataUrlToBlob(dataUrl) {
@@ -8741,6 +8775,10 @@ function firstInvoiceDate(item) {
     function showError(element, message) {
       element.textContent = message;
       element.classList.remove("hidden");
+      if (element === appError && editModalBackdrop?.classList.contains("show") && editModalMessage) {
+        editModalMessage.textContent = message;
+        editModalMessage.classList.remove("hidden");
+      }
     }
 
     function hideError(element) {
