@@ -3238,7 +3238,34 @@ function packageWeightGrams(value) {
   const text = String(value || "").trim().toLowerCase().replace(/,/g, "");
   const amount = Number.parseFloat(text);
   if (!Number.isFinite(amount) || amount <= 0) return 0;
-  return /kg|キロ/.test(text) ? Math.round(amount * 1000) : Math.round(amount);
+  return /kg|キロ/.test(text) || (!/[gｇグラム]/.test(text) && amount < 50) ? Math.round(amount * 1000) : Math.round(amount);
+}
+
+function weightGramsText(value) {
+  const grams = packageWeightGrams(value);
+  return grams ? `${grams.toLocaleString("ja-JP")}g` : "-";
+}
+
+function calculatedBoxSize(length, width, height) {
+  const values = [length, width, height].map(Number);
+  if (values.some((value) => !Number.isFinite(value) || value <= 0)) return "未計算";
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const size = [60, 80, 100, 120, 140, 160].find((limit) => total <= limit);
+  return size ? `${size}サイズ` : "160サイズ超";
+}
+
+function boxDimensionsText(product, repacked = false) {
+  const prefix = repacked ? "repackedBox" : "box";
+  const values = [product?.[`${prefix}Length`], product?.[`${prefix}Width`], product?.[`${prefix}Height`]];
+  if (values.some((value) => !value)) return "-";
+  return `${values.map((value) => escapeHtml(value)).join(" × ")} cm`;
+}
+
+function boxPackageSizeText(product, repacked = false) {
+  const prefix = repacked ? "repackedBox" : "box";
+  const values = [product?.[`${prefix}Length`], product?.[`${prefix}Width`], product?.[`${prefix}Height`]];
+  if (values.every((value) => Number(value) > 0)) return calculatedBoxSize(...values);
+  return repacked ? product?.repackedPackageSize || "-" : product?.packageSize || product?.expectedSize || "-";
 }
 
 function temporaryPhotosHtml(product) {
@@ -4242,22 +4269,28 @@ function productDetailHtml(product) {
     </div>
 
     <div class="detail-section">
-      <div class="detail-heading">管理者記載情報</div>
+      <div class="detail-heading">管理者記載情報（1：受取・確認時）</div>
       <div class="detail-grid">
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
         <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
-        <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
-        <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
-        <div class="detail-label">再梱包後サイズ</div><div>${escapeHtml(product.repackedPackageSize || "-")}</div>
-        <div class="detail-label">再梱包後重量</div><div>${escapeHtml(product.repackedPackageWeight || "-")}</div>
-        <div class="detail-label">発送時予想重量</div><div>${estimatedShippingWeightHtml(product)}</div>
-        <div class="detail-label">箱の実寸</div><div>${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
-        <div class="detail-label">再梱包後の箱実寸</div><div>${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
+        <div class="detail-label">箱のサイズ</div><div>${boxDimensionsText(product)}</div>
+        <div class="detail-label">自動計算サイズ</div><div>${escapeHtml(boxPackageSizeText(product))}</div>
+        <div class="detail-label">重量（g）</div><div>${weightGramsText(product.packageWeight)}</div>
         <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product)}</div>
         <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>
         <div class="detail-label">調整時の連絡事項</div><div>${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-heading">管理者記載情報（2：再梱包後）</div>
+      <div class="detail-grid">
+        <div class="detail-label">箱のサイズ</div><div>${boxDimensionsText(product, true)}</div>
+        <div class="detail-label">自動計算サイズ</div><div>${escapeHtml(boxPackageSizeText(product, true))}</div>
+        <div class="detail-label">再梱包後重量（g）</div><div>${weightGramsText(product.repackedPackageWeight)}</div>
+        <div class="detail-label">発送時予想重量</div><div>${estimatedShippingWeightHtml(product)}</div>
       </div>
     </div>
   `;

@@ -826,6 +826,29 @@
       width: 170px;
     }
 
+    .dimension-input-row {
+      display: grid;
+      grid-template-columns: minmax(70px, 1fr) auto minmax(70px, 1fr) auto minmax(70px, 1fr) minmax(110px, auto);
+      gap: 8px;
+      align-items: end;
+      min-width: 520px;
+    }
+
+    [data-dimension-group] { overflow-x: auto; }
+
+    .dimension-input-row .dimension-mark {
+      align-self: center;
+      font-weight: 800;
+      color: #64748b;
+    }
+
+    .calculated-box-size {
+      align-self: center;
+      white-space: nowrap;
+      font-weight: 800;
+      color: var(--blue);
+    }
+
     .confirmation-table tr.confirmation-required-missing td {
       background: #fff3bf;
     }
@@ -2907,9 +2930,52 @@
       const text = String(value || "").trim().toLowerCase().replace(/,/g, "");
       const amount = Number.parseFloat(text);
       if (!Number.isFinite(amount) || amount <= 0) return 0;
-      return /kg|キロ/.test(text) ? Math.round(amount * 1000) : Math.round(amount);
+      return /kg|キロ/.test(text) || (!/[gｇグラム]/.test(text) && amount < 50) ? Math.round(amount * 1000) : Math.round(amount);
     }
 
+    function weightGramsText(value) {
+      const grams = packageWeightGrams(value);
+      return grams ? `${grams.toLocaleString("ja-JP")}g` : "-";
+    }
+
+    function calculatedBoxSize(length, width, height) {
+      const values = [length, width, height].map(Number);
+      if (values.some((value) => !Number.isFinite(value) || value <= 0)) return "未計算";
+      const total = values.reduce((sum, value) => sum + value, 0);
+      const size = [60, 80, 100, 120, 140, 160].find((limit) => total <= limit);
+      return size ? `${size}サイズ` : "160サイズ超";
+    }
+
+    function boxDimensionsText(product, repacked = false) {
+      const prefix = repacked ? "repackedBox" : "box";
+      const values = [product?.[`${prefix}Length`], product?.[`${prefix}Width`], product?.[`${prefix}Height`]];
+      if (values.some((value) => !value)) return "-";
+      return `${values.map((value) => escapeHtml(value)).join(" × ")} cm`;
+    }
+
+    function boxPackageSizeText(product, repacked = false) {
+      const prefix = repacked ? "repackedBox" : "box";
+      const values = [product?.[`${prefix}Length`], product?.[`${prefix}Width`], product?.[`${prefix}Height`]];
+      if (values.every((value) => Number(value) > 0)) return calculatedBoxSize(...values);
+      return repacked ? product?.repackedPackageSize || "-" : product?.packageSize || product?.expectedSize || "-";
+    }
+
+    function bindBoxSizeCalculators(scope) {
+      scope.querySelectorAll("[data-dimension-group]").forEach((group) => {
+        const inputs = [...group.querySelectorAll('input[type="number"]')];
+        const result = group.querySelector("[data-calculated-size]");
+        const sizeInput = scope.elements?.[group.dataset.sizeInput];
+        const updateSize = () => {
+          const values = inputs.map((input) => input.value);
+          const calculated = calculatedBoxSize(...values);
+          if (result) result.textContent = calculated;
+          if (sizeInput && calculated !== "未計算") sizeInput.value = calculated;
+          if (sizeInput && calculated === "未計算" && inputs.some((input) => input.value)) sizeInput.value = "";
+        };
+        inputs.forEach((input) => input.addEventListener("input", updateSize));
+        updateSize();
+      });
+    }
     function getDetailProducts(member) {
       return getProductGroups(member)[detailView] || [];
     }
@@ -4192,6 +4258,24 @@
       return findMember(uid)?.products.find((product) => product.id === productId);
     }
 
+    function repackingAdminInfoBoxHtml(product) {
+      return `
+        <div class="info-box">
+          <div class="info-box-title"><span>管理者記載情報（2：再梱包後）</span></div>
+          <div class="info-grid">
+            <div class="info-label">箱のサイズ</div>
+            <div class="info-value">${boxDimensionsText(product, true)}</div>
+            <div class="info-label">自動計算サイズ</div>
+            <div class="info-value">${escapeHtml(boxPackageSizeText(product, true))}</div>
+            <div class="info-label">再梱包後重量（g）</div>
+            <div class="info-value">${weightGramsText(product.repackedPackageWeight)}</div>
+            <div class="info-label">発送時予想重量</div>
+            <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
+          </div>
+        </div>
+      `;
+    }
+
     function openInfoModal(uid, productId) {
       const product = findProduct(uid, productId);
       const member = findMember(uid);
@@ -4233,7 +4317,7 @@
 
         <div class="info-box">
           <div class="info-box-title">
-            <span>管理者記載情報</span>
+            <span>管理者記載情報（1：受取・確認時）</span>
             <button class="mini-btn" onclick="openAdminFieldsEdit('${escapeAttr(uid)}','${escapeAttr(productId)}')">編集</button>
           </div>
           <div class="info-grid">
@@ -4249,26 +4333,14 @@
             <div class="info-label">簡易アップロード写真</div>
             <div class="info-value">${temporaryPhotosHtml(product)}</div>
 
-            <div class="info-label">サイズ</div>
-            <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
+            <div class="info-label">箱のサイズ</div>
+            <div class="info-value">${boxDimensionsText(product)}</div>
 
-            <div class="info-label">重量</div>
-            <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
+            <div class="info-label">自動計算サイズ</div>
+            <div class="info-value">${escapeHtml(boxPackageSizeText(product))}</div>
 
-            <div class="info-label">再梱包後サイズ</div>
-            <div class="info-value">${escapeHtml(product.repackedPackageSize || "-")}</div>
-
-            <div class="info-label">再梱包後重量</div>
-            <div class="info-value">${escapeHtml(product.repackedPackageWeight || "-")}</div>
-
-            <div class="info-label">発送時予想重量</div>
-            <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
-
-            <div class="info-label">箱の実寸</div>
-            <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
-
-            <div class="info-label">再梱包後の箱実寸</div>
-            <div class="info-value">${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
+            <div class="info-label">重量（g）</div>
+            <div class="info-value">${weightGramsText(product.packageWeight)}</div>
 
             <div class="info-label">梱包袋判定</div>
             <div class="info-value">${packagingFitSummaryHtml(product)}</div>
@@ -4292,6 +4364,7 @@
             <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
           </div>
         </div>
+        ${repackingAdminInfoBoxHtml(product)}
       `;
 
       infoModalBackdrop.classList.add("show");
@@ -4608,7 +4681,7 @@
 
         <div class="info-box">
           <div class="info-box-title">
-            <span>管理者記載情報</span>
+            <span>管理者記載情報（1：受取・確認時）</span>
             <button class="mini-btn" onclick="openAdminFieldsEdit('${escapeAttr(uid)}','${escapeAttr(product.id)}')">編集</button>
           </div>
           <div class="info-grid">
@@ -4624,26 +4697,14 @@
             <div class="info-label">簡易アップロード写真</div>
             <div class="info-value">${temporaryPhotosHtml(product)}</div>
 
-            <div class="info-label">サイズ</div>
-            <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
+            <div class="info-label">箱のサイズ</div>
+            <div class="info-value">${boxDimensionsText(product)}</div>
 
-            <div class="info-label">重量</div>
-            <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
+            <div class="info-label">自動計算サイズ</div>
+            <div class="info-value">${escapeHtml(boxPackageSizeText(product))}</div>
 
-            <div class="info-label">再梱包後サイズ</div>
-            <div class="info-value">${escapeHtml(product.repackedPackageSize || "-")}</div>
-
-            <div class="info-label">再梱包後重量</div>
-            <div class="info-value">${escapeHtml(product.repackedPackageWeight || "-")}</div>
-
-            <div class="info-label">発送時予想重量</div>
-            <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
-
-            <div class="info-label">箱の実寸</div>
-            <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
-
-            <div class="info-label">再梱包後の箱実寸</div>
-            <div class="info-value">${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
+            <div class="info-label">重量（g）</div>
+            <div class="info-value">${weightGramsText(product.packageWeight)}</div>
 
             <div class="info-label">梱包袋判定</div>
             <div class="info-value">${packagingFitSummaryHtml(product)}</div>
@@ -4667,6 +4728,7 @@
             <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
           </div>
         </div>
+        ${repackingAdminInfoBoxHtml(product)}
       `).join("");
     }
 
@@ -4821,29 +4883,42 @@
             <p class="form-note">会員の作業依頼に対して必要な項目が未選択の場合は、黄色で表示されます。</p>
           </div>
 
-          <label>
-            サイズ
-            <input name="packageSize" value="${escapeAttr(product.packageSize || product.expectedSize || "")}" placeholder="例：60サイズ" />
-          </label>
-
-          <label>
-            重量
-            <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
-          </label>
-
-          <label>箱の縦（cm）<input name="boxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.boxLength || "")}" /></label>
-          <label>箱の横（cm）<input name="boxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.boxWidth || "")}" /></label>
-          <label>箱の高さ（cm）<input name="boxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.boxHeight || "")}" /></label>
+          <div class="full info-box">
+            <div class="info-box-title">管理者記載情報（1：受取・確認時）</div>
+            <div class="form-grid">
+              <div class="full" data-dimension-group data-size-input="packageSize">
+                <label>箱のサイズ（cm）</label>
+                <div class="dimension-input-row">
+                  <input aria-label="箱の縦" name="boxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.boxLength || "")}" placeholder="縦" />
+                  <span class="dimension-mark">×</span>
+                  <input aria-label="箱の横" name="boxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.boxWidth || "")}" placeholder="横" />
+                  <span class="dimension-mark">×</span>
+                  <input aria-label="箱の高さ" name="boxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.boxHeight || "")}" placeholder="高さ" />
+                  <span class="calculated-box-size" data-calculated-size>未計算</span>
+                </div>
+              </div>
+              <label>自動計算サイズ<input name="packageSize" value="${escapeAttr(product.packageSize || product.expectedSize || "")}" readonly /></label>
+              <label>重量（g）<input name="packageWeight" inputmode="decimal" value="${escapeAttr(packageWeightGrams(product.packageWeight) || "")}" placeholder="例：1500" /></label>
+            </div>
+          </div>
 
           <div class="full info-box">
-            <div class="info-box-title">再梱包後の情報</div>
-            <p class="form-note">再梱包中の商品を保管商品または発送準備中へ進める場合は、再梱包後サイズ・重量を入力してください。</p>
+            <div class="info-box-title">管理者記載情報（2：再梱包後）</div>
+            <p class="form-note">再梱包中の商品を次のステータスへ進める場合は、再梱包後の箱サイズと重量を入力してください。</p>
             <div class="form-grid">
-              <label>再梱包後サイズ<input name="repackedPackageSize" value="${escapeAttr(product.repackedPackageSize || "")}" placeholder="例：60サイズ" /></label>
-              <label>再梱包後重量<input name="repackedPackageWeight" value="${escapeAttr(product.repackedPackageWeight || "")}" placeholder="例：1.25kg" /></label>
-              <label>再梱包後の箱・縦（cm）<input name="repackedBoxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxLength || "")}" /></label>
-              <label>再梱包後の箱・横（cm）<input name="repackedBoxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxWidth || "")}" /></label>
-              <label>再梱包後の箱・高さ（cm）<input name="repackedBoxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxHeight || "")}" /></label>
+              <div class="full" data-dimension-group data-size-input="repackedPackageSize">
+                <label>再梱包後の箱サイズ（cm）</label>
+                <div class="dimension-input-row">
+                  <input aria-label="再梱包後の箱の縦" name="repackedBoxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxLength || "")}" placeholder="縦" />
+                  <span class="dimension-mark">×</span>
+                  <input aria-label="再梱包後の箱の横" name="repackedBoxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxWidth || "")}" placeholder="横" />
+                  <span class="dimension-mark">×</span>
+                  <input aria-label="再梱包後の箱の高さ" name="repackedBoxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxHeight || "")}" placeholder="高さ" />
+                  <span class="calculated-box-size" data-calculated-size>未計算</span>
+                </div>
+              </div>
+              <label>自動計算サイズ<input name="repackedPackageSize" value="${escapeAttr(product.repackedPackageSize || "")}" readonly /></label>
+              <label>再梱包後重量（g）<input name="repackedPackageWeight" inputmode="decimal" value="${escapeAttr(packageWeightGrams(product.repackedPackageWeight) || "")}" placeholder="例：1565" /></label>
             </div>
           </div>
 
@@ -4878,6 +4953,7 @@
       `;
 
       editModalBackdrop.classList.add("show");
+      bindBoxSizeCalculators(editForm);
       updateRequiredConfirmationHighlights(product);
       editForm.querySelectorAll("[data-confirmation-form-row] select").forEach((select) => {
         select.addEventListener("change", () => updateRequiredConfirmationHighlights(product));
