@@ -148,6 +148,18 @@ textarea{min-height:62px;resize:vertical}
 .price-table th{background:#475569;color:#fff;text-align:left}
 .price-table th,.price-table td{border:1px solid #d1d5db;padding:10px;vertical-align:middle}
 .price-table .group-cell{background:#eef2ff;color:#1d4ed8;font-weight:800;text-align:center;white-space:nowrap}
+.simulator-card{max-width:760px;border:1px solid #dbe3df;border-radius:16px;background:#fff;padding:20px;box-shadow:0 5px 18px rgba(31,65,50,.06)}
+.simulator-group{padding:15px 0;border-bottom:1px solid #e5e7eb}
+.simulator-group:first-child{padding-top:0}
+.simulator-label{display:block;font-weight:800;margin-bottom:10px;color:#374151}
+.simulator-choice{display:flex;align-items:center;gap:8px;margin:9px 0}
+.simulator-choice input{width:auto}
+.simulator-select{width:100%;margin-top:8px}
+.simulator-breakdown{margin-top:20px;border-top:1px solid #dfe5e2;padding-top:18px}
+.simulator-line{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid #edf0ee}
+.simulator-total{margin-top:16px;padding:14px;border-radius:12px;background:#f3f6f4}
+.simulator-total-label{color:#6b7280;font-size:13px}
+.simulator-total-value{font-size:32px;font-weight:900;color:#263f34;margin-top:3px}
 .service-switch{display:flex;justify-content:center;gap:8px;margin:-8px 0 22px;padding:6px;background:#f1f5f9;border-radius:10px}
 .service-switch.hidden{display:none}
 .service-switch button{min-width:180px;background:transparent;color:#64748b}
@@ -326,6 +338,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
     <button class="tab" data-tab="shipping" type="button">発送管理</button>
     <button class="tab" data-tab="origins" type="button">発送元登録</button>
     <button class="tab" data-tab="prices" type="button">価格表</button>
+    <button class="tab" data-tab="simulator" type="button">料金シミュレーター</button>
     <button class="tab" data-tab="invoices" type="button">請求書DL</button>
     <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
     <button class="tab" data-tab="basicInfo" type="button">基本情報</button>
@@ -454,6 +467,39 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
   <section class="section" id="prices">
     <h2 style="margin-bottom:16px;">価格表</h2>
     <div id="publicPriceTableView" class="price-section"></div>
+  </section>
+
+  <section class="section" id="simulator">
+    <h2 style="margin-bottom:16px;">料金シミュレーター</h2>
+    <p class="member-meta" style="margin-bottom:16px;">価格表の設定をもとに、発送代行料金の概算を確認できます。国際送料は含まれません。</p>
+    <div class="simulator-card">
+      <div class="simulator-group">
+        <span class="simulator-label">サイズ調整・再梱包</span>
+        <label class="simulator-choice"><input type="radio" name="simulatorRepack" value="none" checked>なし（そのまま発送）</label>
+        <label class="simulator-choice"><input type="radio" name="simulatorRepack" value="repack">あり</label>
+      </div>
+      <div class="simulator-group" id="simulatorRepackOptions">
+        <label class="simulator-label" for="simulatorSize">梱包後サイズ</label>
+        <select id="simulatorSize" class="simulator-select"></select>
+        <label class="simulator-choice"><input id="simulatorRecycle" type="checkbox" checked>リサイクル材の使用を許可する</label>
+      </div>
+      <div class="simulator-group">
+        <span class="simulator-label">検品</span>
+        <label class="simulator-choice"><input type="radio" name="simulatorInspection" value="none" checked>なし</label>
+        <label class="simulator-choice"><input type="radio" name="simulatorInspection" value="simple">簡易検品</label>
+        <label class="simulator-choice"><input type="radio" name="simulatorInspection" value="detail">詳細検品</label>
+      </div>
+      <div class="simulator-breakdown">
+        <div class="simulator-line"><span>基本発送料金</span><strong id="simulatorBaseLine">400円</strong></div>
+        <div class="simulator-line"><span>サイズ調整</span><strong id="simulatorSizeLine">+0円</strong></div>
+        <div class="simulator-line"><span>梱包資材</span><strong id="simulatorMaterialLine">+0円</strong></div>
+        <div class="simulator-line"><span>検品</span><strong id="simulatorInspectionLine">+0円</strong></div>
+        <div class="simulator-total">
+          <div class="simulator-total-label">合計料金（税抜・国際送料別）</div>
+          <div class="simulator-total-value" id="simulatorTotal">400円</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="section" id="settings">
@@ -2074,6 +2120,7 @@ async function loadData() {
     renderOriginList();
     renderInvoiceList();
     renderPriceTable();
+    renderPriceSimulator();
     renderEbayProducts();
   } catch (error) {
     console.error(error);
@@ -2482,6 +2529,98 @@ function renderPriceTable() {
   `).join("");
 }
 
+function simulatorPriceNumber(value) {
+  const text = String(value || "");
+  if (!text || /見積|個別|判断/.test(text)) return null;
+  const parsed = Number(text.replace(/[^\d.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function simulatorPriceText(value, prefix = false, approximate = false) {
+  if (value === null) return "個別見積";
+  return `${prefix ? "+" : ""}${Number(value).toLocaleString("ja-JP")}円${approximate ? "〜" : ""}`;
+}
+
+function simulatorRateData() {
+  const sections = publicPriceSections();
+  const packagingSection = sections.find((section) => section.id === "ebay_shipping_and_packaging");
+  const optionSection = sections.find((section) => section.id === "ebay_optional_fees");
+  const baseFee = Math.max(0, Number(priceTableCache.simulatorBaseFee ?? 400));
+  const sizes = (packagingSection?.rows || []).map((row) => ({
+    label: String(row[0] || ""),
+    recycle: simulatorPriceNumber(row[1]),
+    recycleText: String(row[1] || ""),
+    newMaterial: simulatorPriceNumber(row[2]),
+    newMaterialText: String(row[2] || "")
+  })).filter((row) => row.label);
+  const optionValue = (keyword, fallback) => {
+    const row = (optionSection?.rows || []).find((item) => String(item[0] || "").includes(keyword));
+    return row ? { value: simulatorPriceNumber(row[1]), text: String(row[1] || "") } : { value: fallback, text: `${fallback}円` };
+  };
+  return { baseFee, sizes, simple: optionValue("簡易検品", 250), detail: optionValue("詳細検品（", 750) };
+}
+
+function renderPriceSimulator() {
+  const sizeSelect = document.getElementById("simulatorSize");
+  if (!sizeSelect) return;
+  const data = simulatorRateData();
+  const selectedSize = sizeSelect.value;
+  sizeSelect.innerHTML = data.sizes.map((row) => `<option value="${escapeAttr(row.label)}">${escapeHtml(row.label)}</option>`).join("");
+  if (data.sizes.some((row) => row.label === selectedSize)) sizeSelect.value = selectedSize;
+  updatePriceSimulator();
+}
+
+function updatePriceSimulator() {
+  const data = simulatorRateData();
+  const repack = document.querySelector('input[name="simulatorRepack"]:checked')?.value === "repack";
+  const inspection = document.querySelector('input[name="simulatorInspection"]:checked')?.value || "none";
+  const recycle = document.getElementById("simulatorRecycle")?.checked !== false;
+  const sizeSelect = document.getElementById("simulatorSize");
+  const selected = data.sizes.find((row) => row.label === sizeSelect?.value) || data.sizes[0];
+  const repackOptions = document.getElementById("simulatorRepackOptions");
+  if (repackOptions) repackOptions.style.opacity = repack ? "1" : ".48";
+  if (sizeSelect) sizeSelect.disabled = !repack;
+  const recycleInput = document.getElementById("simulatorRecycle");
+  if (recycleInput) recycleInput.disabled = !repack;
+
+  let sizeFee = 0;
+  let materialFee = 0;
+  let isQuote = false;
+  let approximate = false;
+  if (repack && selected) {
+    if (selected.recycle === null) {
+      isQuote = true;
+      sizeFee = null;
+      materialFee = recycle ? 0 : null;
+    } else {
+      sizeFee = Math.max(0, selected.recycle - data.baseFee);
+      if (!recycle) {
+        materialFee = selected.newMaterial === null ? null : Math.max(0, selected.newMaterial - selected.recycle);
+        if (materialFee === null) isQuote = true;
+      }
+      approximate = /〜/.test(recycle ? selected.recycleText : selected.newMaterialText);
+    }
+  }
+
+  const inspectionData = inspection === "simple" ? data.simple : inspection === "detail" ? data.detail : { value: 0, text: "0円" };
+  const inspectionFee = inspectionData.value;
+  if (inspectionFee === null) isQuote = true;
+  approximate = approximate || /〜/.test(inspectionData.text);
+  const total = isQuote || sizeFee === null || materialFee === null
+    ? null
+    : data.baseFee + sizeFee + materialFee + inspectionFee;
+
+  document.getElementById("simulatorBaseLine").textContent = simulatorPriceText(data.baseFee);
+  document.getElementById("simulatorSizeLine").textContent = simulatorPriceText(sizeFee, true);
+  document.getElementById("simulatorMaterialLine").textContent = simulatorPriceText(materialFee, true);
+  document.getElementById("simulatorInspectionLine").textContent = simulatorPriceText(inspectionFee, true, /〜/.test(inspectionData.text));
+  document.getElementById("simulatorTotal").textContent = simulatorPriceText(total, false, approximate);
+}
+
+document.querySelectorAll('input[name="simulatorRepack"], input[name="simulatorInspection"], #simulatorRecycle, #simulatorSize').forEach((input) => {
+  input.addEventListener("change", updatePriceSimulator);
+});
+
 function resetEntries() {
   productEntries.innerHTML = "";
   entryCount = 0;
@@ -2511,7 +2650,7 @@ function addProductEntry() {
       </div>
 
       <div class="form-group full">
-        <label>作業依頼内容を選択してください（複数選択可） *</label>
+        <label>検品・作業内容（商品登録時に選択／複数選択可） *</label>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="内容物の確認"><span>内容物の確認</span></div>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="外観のチェック"><span>外観のチェック</span></div>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="写真"><span>写真</span></div>
@@ -3153,7 +3292,7 @@ window.saveProductEdit = async function(event, productId) {
   };
 
   if (!data.name || !data.numbering || !data.workRequest) {
-    showError("商品名、ナンバリング、作業依頼は必須です。");
+    showError("商品名、ナンバリング、検品・作業内容は必須です。");
     return;
   }
 

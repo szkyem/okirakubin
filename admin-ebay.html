@@ -1491,6 +1491,10 @@
             <div>
               <h3>一般価格表（会員公開）</h3>
               <p class="muted">ここで保存した内容が会員画面の価格表に表示されます。</p>
+              <label style="display:block;margin-top:10px;max-width:260px;">
+                シミュレーター基本発送料金（税抜）
+                <input id="simulatorBaseFeeInput" type="number" min="0" step="1" value="400">
+              </label>
             </div>
             <button class="primary-btn" type="button" onclick="savePublicPriceTable()">価格表を保存</button>
           </div>
@@ -7215,6 +7219,8 @@ function firstInvoiceDate(item) {
       if (!editor) return;
 
       const sections = publicPriceSections();
+      const simulatorBaseFeeInput = document.getElementById("simulatorBaseFeeInput");
+      if (simulatorBaseFeeInput) simulatorBaseFeeInput.value = String(Number(priceTableCache.simulatorBaseFee ?? 400));
       editor.innerHTML = sections.map((section, sectionIndex) => {
         const rows = section.rows.length ? section.rows : [section.columns.map(() => "")];
 
@@ -7311,9 +7317,11 @@ function firstInvoiceDate(item) {
       if (!confirm("会員画面に表示される価格表をこの内容で保存しますか？")) return;
 
       const sections = collectPublicPriceSectionsFromEditor();
+      const simulatorBaseFee = Math.max(0, Number(document.getElementById("simulatorBaseFeeInput")?.value || 400));
       try {
         await update(ref(db, "priceTable/ebay"), {
           publicSections: sections,
+          simulatorBaseFee,
           updatedAt: Date.now(),
           updatedBy: currentUser ? currentUser.uid : "",
           updatedByEmail: currentUser ? currentUser.email || "" : ""
