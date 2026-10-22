@@ -348,7 +348,9 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
     <div class="grid">
       <div class="stat" onclick="goToStoredView('registered')"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
       <div class="stat" onclick="goToStoredView('adjusting')"><div class="stat-label">調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
+      <div class="stat" onclick="goToStoredView('repacking')"><div class="stat-label">再梱包中</div><div class="stat-value" id="repackingCount">0</div></div>
       <div class="stat" onclick="goToStoredView('stored')"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
+      <div class="stat" onclick="goToStoredView('shipping_ready')"><div class="stat-label">発送準備中</div><div class="stat-value" id="shippingReadyCount">0</div></div>
       <div class="stat" onclick="goToShippingView('unshipped')"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
       <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
@@ -383,9 +385,11 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
     <h2 style="margin-bottom:16px;">保管商品</h2>
 
     <div class="ship-filter">
-      <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
-      <button class="ship-filter-btn" id="adjustingStoredFilterBtn" type="button">調整中</button>
       <button class="ship-filter-btn" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
+      <button class="ship-filter-btn" id="adjustingStoredFilterBtn" type="button">調整中</button>
+      <button class="ship-filter-btn" id="repackingStoredFilterBtn" type="button">再梱包中</button>
+      <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
+      <button class="ship-filter-btn" id="shippingReadyStoredFilterBtn" type="button">発送準備中</button>
     </div>
 
     <div class="section-tools">
@@ -932,7 +936,9 @@ const internationalMethodSelect = document.getElementById("internationalMethodSe
 const internationalPickupDate = document.getElementById("internationalPickupDate");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
 const adjustingStoredFilterBtn = document.getElementById("adjustingStoredFilterBtn");
+const repackingStoredFilterBtn = document.getElementById("repackingStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
+const shippingReadyStoredFilterBtn = document.getElementById("shippingReadyStoredFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
 const shippedFilterBtn = document.getElementById("shippedFilterBtn");
@@ -1604,8 +1610,18 @@ adjustingStoredFilterBtn.addEventListener("click", () => {
   renderStoredList();
 });
 
+repackingStoredFilterBtn.addEventListener("click", () => {
+  storedView = "repacking";
+  renderStoredList();
+});
+
 storedFilterBtn.addEventListener("click", () => {
   storedView = "stored";
+  renderStoredList();
+});
+
+shippingReadyStoredFilterBtn.addEventListener("click", () => {
+  storedView = "shipping_ready";
   renderStoredList();
 });
 
@@ -1891,6 +1907,7 @@ shippingForm.addEventListener("submit", async (event) => {
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
+        productStage: "shipping_requested",
         ebayStatus: "requested",
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
@@ -2150,14 +2167,18 @@ async function loadData() {
 
     const registeredProducts = getRegisteredProducts();
     const adjustingProducts = getAdjustingProducts();
+    const repackingProducts = getRepackingProducts();
     const storedProducts = getStoredProducts();
-    const selectableIds = new Set(storedProducts.map((product) => product.id));
+    const shippingReadyProducts = getShippingReadyProducts();
+    const selectableIds = new Set(shippingReadyProducts.map((product) => product.id));
     selectedProductIds = new Set([...selectedProductIds].filter((id) => selectableIds.has(id)));
     selectedGssExportIds = new Set([...selectedGssExportIds].filter((id) => selectableIds.has(id)));
 
     document.getElementById("productCount").textContent = registeredProducts.length;
     document.getElementById("adjustingCount").textContent = adjustingProducts.length;
+    document.getElementById("repackingCount").textContent = repackingProducts.length;
     document.getElementById("storedCount").textContent = storedProducts.length;
+    document.getElementById("shippingReadyCount").textContent = shippingReadyProducts.length;
     document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && !isShippedStatus(product.shippingStatus))).length;
     document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => isShippedStatus(product.shippingStatus))).length;
     document.getElementById("basicInfoBox").innerHTML = basicInfoHtml();
@@ -2436,7 +2457,7 @@ function applyWriteLockState() {
 
 function getRegisteredProducts() {
   return productsCache.filter((product) => {
-    return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage !== "adjusting" && product.productStage !== "stored";
+    return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && !["adjusting", "repacking", "stored", "shipping_ready"].includes(product.productStage);
   });
 }
 
@@ -2444,27 +2465,44 @@ function getAdjustingProducts() {
   return productsCache.filter((product) => !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage === "adjusting");
 }
 
+function getRepackingProducts() {
+  return productsCache.filter((product) => !hasValue(product.shippingRequest) && product.productStage === "repacking");
+}
+
 function getStoredProducts() {
   return productsCache.filter((product) => {
-    return !hasValue(product.shippingRequest) && (hasValue(product.shootingDate) || product.productStage === "stored");
+    return !hasValue(product.shippingRequest) && product.productStage !== "repacking" && product.productStage !== "shipping_ready" && (hasValue(product.shootingDate) || product.productStage === "stored");
   });
+}
+
+function getShippingReadyProducts() {
+  return productsCache.filter((product) => !hasValue(product.shippingRequest) && product.productStage === "shipping_ready");
 }
 
 function renderStoredList() {
   registeredStoredFilterBtn.classList.toggle("active", storedView === "registered");
   adjustingStoredFilterBtn.classList.toggle("active", storedView === "adjusting");
+  repackingStoredFilterBtn.classList.toggle("active", storedView === "repacking");
   storedFilterBtn.classList.toggle("active", storedView === "stored");
+  shippingReadyStoredFilterBtn.classList.toggle("active", storedView === "shipping_ready");
 
-  const baseProducts = storedView === "registered" ? getRegisteredProducts() : storedView === "adjusting" ? getAdjustingProducts() : getStoredProducts();
+  const productsByView = {
+    registered: getRegisteredProducts(),
+    adjusting: getAdjustingProducts(),
+    repacking: getRepackingProducts(),
+    stored: getStoredProducts(),
+    shipping_ready: getShippingReadyProducts()
+  };
+  const baseProducts = productsByView[storedView] || [];
   const searchKeyword = normalizeSearch(storedSearchInput.value);
   const products = searchKeyword
     ? baseProducts.filter((product) => normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword))
     : baseProducts;
 
-  const emptyMessage = storedView === "registered" ? "登録済み商品はありません" : storedView === "adjusting" ? "調整中の商品はありません" : "保管商品はありません";
+  const emptyMessages = { registered: "登録済み商品はありません", adjusting: "調整中の商品はありません", repacking: "再梱包中の商品はありません", stored: "保管商品はありません", shipping_ready: "発送準備中の商品はありません" };
 
   document.getElementById("storedList").innerHTML =
-    products.length ? productTable(products, { mode: storedView }) + (storedView === "stored" ? gssExportActionBar() + bulkActionBar() : "") : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : emptyMessage);
+    products.length ? productTable(products, { mode: storedView }) + (storedView === "shipping_ready" ? gssExportActionBar() + bulkActionBar() : "") : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : emptyMessages[storedView]);
 }
 
 function renderShippingList() {
@@ -2795,7 +2833,9 @@ function productTable(products, options = {}) {
   const mode = options.mode || "registered";
   const isRegistered = mode === "registered";
   const isAdjusting = mode === "adjusting";
+  const isRepacking = mode === "repacking";
   const isStored = mode === "stored";
+  const isShippingReady = mode === "shipping_ready";
   const isShipping = mode === "shipping";
 
   return `
@@ -2803,13 +2843,13 @@ function productTable(products, options = {}) {
       <table class="products-table">
         <thead>
           <tr>
-            ${isStored || isShipping ? "<th>発送</th>" : ""}
+            ${isShippingReady || isShipping ? "<th>発送</th>" : ""}
             <th>商品名</th>
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
             <th>写真</th>
-            ${isRegistered || isAdjusting ? "<th>操作</th>" : ""}
+            ${isRegistered || isAdjusting || isStored ? "<th>操作</th>" : ""}
             ${isStored ? "<th>撮影日</th><th>料金</th><th>GSS出力</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
@@ -2825,12 +2865,14 @@ function productTable(products, options = {}) {
 function productRow(product, mode = "registered") {
   const isRegistered = mode === "registered";
   const isAdjusting = mode === "adjusting";
+  const isRepacking = mode === "repacking";
   const isStored = mode === "stored";
+  const isShippingReady = mode === "shipping_ready";
   const isShipping = mode === "shipping";
 
   return `
     <tr class="${bundleRowClass(product)}">
-      ${isStored ? `
+      ${isShippingReady ? `
         <td class="shipping-cell mobile-full" data-label="発送選択">
           <input class="shipping-check" type="checkbox" ${selectedProductIds.has(product.id) ? "checked" : ""} onchange="toggleProductSelection('${escapeAttr(product.id)}', this.checked)">
         </td>
@@ -2857,6 +2899,7 @@ function productRow(product, mode = "registered") {
           ${product.adjustmentDecision ? `<div class="member-meta" style="margin-top:6px;">${escapeHtml(adjustmentDecisionText(product))}</div>` : ""}
         </td>
       ` : ""}
+      ${isStored ? `<td class="mobile-full" data-label="操作"><button class="secondary compact-btn" type="button" onclick="moveStoredToShippingReady('${escapeAttr(product.id)}')">発送準備へ移動</button></td>` : ""}
       ${isStored ? `<td data-label="撮影日">${escapeHtml(product.shootingDate || "-")}</td><td class="mobile-action" data-label="料金">${feeButtonHtml(product)}</td><td class="mobile-full" data-label="GSS出力">${gssExportButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
@@ -3099,13 +3142,15 @@ function isShippedStatus(value) {
 }
 
 function canEditProduct(product) {
-  return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage !== "adjusting" && product.productStage !== "stored";
+  return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && !["adjusting", "repacking", "stored", "shipping_ready"].includes(product.productStage);
 }
 
 function productStageText(product) {
   if (isShippedStatus(product?.shippingStatus)) return "発送済み";
   if (hasValue(product?.shippingRequest)) return "発送手続き中";
   if (product?.productStage === "adjusting") return "調整中";
+  if (product?.productStage === "repacking") return "再梱包中";
+  if (product?.productStage === "shipping_ready") return "発送準備中";
   if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
   return "登録済み商品";
 }
@@ -3114,6 +3159,7 @@ function adjustmentDecisionText(product) {
   const decisions = {
     ship_as_is: "そのまま発送",
     resize_repack: "サイズ調整・再梱包",
+    store: "保管する",
     return: "返品を希望"
   };
   const materials = {
@@ -3138,7 +3184,11 @@ function packagingFitSettings() {
 }
 
 function packagingFitResult(product, bag) {
-  const dimensions = [Number(product?.boxLength || 0), Number(product?.boxWidth || 0), Number(product?.boxHeight || 0)];
+  const dimensions = [
+    Number(product?.repackedBoxLength || product?.boxLength || 0),
+    Number(product?.repackedBoxWidth || product?.boxWidth || 0),
+    Number(product?.repackedBoxHeight || product?.boxHeight || 0)
+  ];
   if (dimensions.some((value) => !value || value <= 0)) return { status: "未判定", detail: "箱の縦・横・高さが未入力です" };
   const margin = packagingFitSettings().margin;
   const permutations = [
@@ -3155,14 +3205,40 @@ function packagingFitResult(product, bag) {
 
 function packagingFitSummaryHtml(product) {
   const settings = packagingFitSettings();
-  const baseWeight = Number(product?.itemWeightGrams || 0);
-  const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "梱包前重量未入力";
+  const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
+  const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "重量未入力";
   const rows = [
     ["DHL フライヤー", packagingFitResult(product, settings.dhl)],
     ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)],
     ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded)]
   ];
   return `${rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="member-meta">${escapeHtml(result.detail)}／見込み総重量 ${escapeHtml(weightText(settings.bagWeight))}</div></div>`).join("")}<div><strong>段ボール梱包</strong><div class="member-meta">見込み総重量 ${escapeHtml(weightText(settings.cardboardWeight))}</div></div>`;
+}
+
+function estimatedShippingWeight(product) {
+  const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
+  if (!baseWeight) return { text: "重量未入力", detail: "" };
+  const settings = packagingFitSettings();
+  const bagResults = [packagingFitResult(product, settings.fedex), packagingFitResult(product, settings.fedexPadded)];
+  if (bagResults.some((result) => result.status === "使用可能")) {
+    return { text: `${(baseWeight + settings.bagWeight).toLocaleString("ja-JP")}g`, detail: `パック重量 ${settings.bagWeight}g 加算` };
+  }
+  if (bagResults.every((result) => result.status === "使用不可")) {
+    return { text: `${(baseWeight + settings.cardboardWeight).toLocaleString("ja-JP")}g`, detail: `段ボール重量 ${settings.cardboardWeight}g 加算` };
+  }
+  return { text: "判定要確認", detail: "梱包袋判定が確定すると自動計算されます" };
+}
+
+function estimatedShippingWeightHtml(product) {
+  const estimate = estimatedShippingWeight(product);
+  return `<strong>${escapeHtml(estimate.text)}</strong>${estimate.detail ? `<div class="member-meta">${escapeHtml(estimate.detail)}</div>` : ""}`;
+}
+
+function packageWeightGrams(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/,/g, "");
+  const amount = Number.parseFloat(text);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  return /kg|キロ/.test(text) ? Math.round(amount * 1000) : Math.round(amount);
 }
 
 function temporaryPhotosHtml(product) {
@@ -3223,6 +3299,7 @@ window.openAdjustmentDecision = function(productId) {
           <option value="">選択してください</option>
           <option value="ship_as_is" ${product.adjustmentDecision === "ship_as_is" ? "selected" : ""}>そのまま発送</option>
           <option value="resize_repack" ${product.adjustmentDecision === "resize_repack" ? "selected" : ""}>サイズ調整・再梱包</option>
+          <option value="store" ${product.adjustmentDecision === "store" ? "selected" : ""}>保管する</option>
           <option value="return" ${product.adjustmentDecision === "return" ? "selected" : ""}>返品を希望</option>
         </select>
       </div>
@@ -3273,18 +3350,38 @@ window.saveAdjustmentDecision = async function(event, productId) {
       adjustmentDecisionAt: now,
       adjustmentCompletedAt: now,
       returnRequestedDuringAdjustment: adjustmentDecision === "return",
-      productStage: "stored",
+      productStage: adjustmentDecision === "resize_repack" ? "repacking" : adjustmentDecision === "store" ? "stored" : "shipping_ready",
       updatedAt: now
     });
     closeModal();
     await loadData();
     setMemberTab("stored");
-    storedView = "stored";
+    storedView = adjustmentDecision === "resize_repack" ? "repacking" : adjustmentDecision === "store" ? "stored" : "shipping_ready";
     renderStoredList();
     showSuccess("調整内容を保存しました。");
   } catch (error) {
     console.error(error);
     showError("調整内容の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+};
+
+window.moveStoredToShippingReady = async function(productId) {
+  if (!ensureWritableAction("発送準備への移動")) return;
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product || product.productStage !== "stored" || hasValue(product.shippingRequest)) {
+    showError("保管中の商品を確認できません。再読み込みしてください。");
+    return;
+  }
+  if (!confirm(`${product.name || "商品"}を発送準備中へ移動しますか？`)) return;
+  try {
+    await update(ref(database, `products/${dataUid()}/${productId}`), { productStage: "shipping_ready", shippingReadyAt: Date.now(), updatedAt: Date.now() });
+    await loadData();
+    storedView = "shipping_ready";
+    renderStoredList();
+    showSuccess("発送準備中へ移動しました。");
+  } catch (error) {
+    console.error(error);
+    showError("発送準備への移動に失敗しました。Realtime Databaseのルールを確認してください。");
   }
 };
 
@@ -4153,8 +4250,11 @@ function productDetailHtml(product) {
         <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
         <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
         <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
-        <div class="detail-label">梱包前重量</div><div>${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
+        <div class="detail-label">再梱包後サイズ</div><div>${escapeHtml(product.repackedPackageSize || "-")}</div>
+        <div class="detail-label">再梱包後重量</div><div>${escapeHtml(product.repackedPackageWeight || "-")}</div>
+        <div class="detail-label">発送時予想重量</div><div>${estimatedShippingWeightHtml(product)}</div>
         <div class="detail-label">箱の実寸</div><div>${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+        <div class="detail-label">再梱包後の箱実寸</div><div>${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
         <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product)}</div>
         <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>
         <div class="detail-label">調整時の連絡事項</div><div>${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
@@ -4167,6 +4267,7 @@ function confirmationResultDisplayHtml(product) {
   const values = product.confirmationTemplate || {};
   const entries = Object.entries(values).filter(([key, entry]) => {
     if (!entry || typeof entry !== "object") return false;
+    if (isCameraOnlyConfirmationEntry(entry)) return false;
     return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
   }).map(([, entry]) => entry);
 
@@ -4323,11 +4424,22 @@ function confirmationSectionForLabel(label) {
 
 function memberConfirmationRows() {
   return [
-    { section: "外観コンディション", rows: [{ label: "キズ、凹み、塗装剥がれは" }, { label: "欠損や破損は" }, { label: "その他は" }] },
-    { section: "光学コンディション", rows: [{ label: "ミラー部は" }, { label: "センサー部は" }, { label: "ファインダー部は" }, { label: "レンズ部は" }, { label: "その他は" }] },
-    { section: "動作コンディション", rows: [{ label: "動作確認は" }, { label: "写真撮影は" }, { label: "動画撮影は" }, { label: "ズームは" }, { label: "フラッシュは" }, { label: "コントロールホイールは" }, { label: "カーソルボタンは" }, { label: "保存は" }, { label: "その他は" }] },
-    { section: "その他", rows: [{ label: "付属品" }, { label: "備考欄" }] }
+    { section: "確認結果", rows: [
+      { label: "領収書の抜き取り" },
+      { label: "商品受品の確認" },
+      { label: "外観のチェック" },
+      { label: "通電確認" },
+      { label: "機能確認" },
+      { label: "その他" }
+    ] }
   ];
+}
+
+function isCameraOnlyConfirmationEntry(entry) {
+  const section = String(entry?.section || "").trim();
+  const label = String(entry?.label || "").trim();
+  return ["外観コンディション", "光学コンディション", "動作コンディション"].includes(section)
+    || (section === "その他" && ["付属品", "備考欄"].includes(label));
 }
 
 function feeDetailHtml(product) {

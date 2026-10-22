@@ -219,6 +219,7 @@
 
     .stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .stats.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .stats.seven { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 
     .stat-card {
       min-height: 114px;
@@ -825,6 +826,15 @@
       width: 170px;
     }
 
+    .confirmation-table tr.confirmation-required-missing td {
+      background: #fff3bf;
+    }
+
+    .confirmation-table tr.confirmation-required-missing select {
+      border-color: #d69e00;
+      box-shadow: 0 0 0 2px rgba(214, 158, 0, 0.16);
+    }
+
     .confirmation-base-toolbar {
       display: flex;
       justify-content: flex-end;
@@ -1124,7 +1134,7 @@
       }
 
       .user-area { justify-content: flex-start; }
-      .stats, .stats.four, .stats.five, .invoice-summary-grid { grid-template-columns: 1fr; }
+      .stats, .stats.four, .stats.five, .stats.seven, .invoice-summary-grid { grid-template-columns: 1fr; }
       .invoice-summary-header { align-items: stretch; flex-direction: column; }
       .invoice-summary-month { min-width: 0; }
       .invoice-summary-formula { align-items: stretch; flex-direction: column; }
@@ -1250,7 +1260,7 @@
           </div>
         </div>
 
-        <div class="stats five">
+        <div class="stats seven">
           <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
             <div class="stat-label">登録済み商品</div>
             <div id="detailRegisteredCount" class="stat-value">0</div>
@@ -1259,9 +1269,17 @@
             <div class="stat-label">調整中</div>
             <div id="detailAdjustingCount" class="stat-value">0</div>
           </div>
+          <div id="detailRepackingCard" class="stat-card clickable" onclick="setDetailView('repacking')">
+            <div class="stat-label">再梱包中</div>
+            <div id="detailRepackingCount" class="stat-value">0</div>
+          </div>
           <div id="detailStoredCard" class="stat-card clickable" onclick="setDetailView('stored')">
             <div class="stat-label">保管商品</div>
             <div id="detailStoredCount" class="stat-value">0</div>
+          </div>
+          <div id="detailShippingReadyCard" class="stat-card clickable" onclick="setDetailView('shipping_ready')">
+            <div class="stat-label">発送準備中</div>
+            <div id="detailShippingReadyCount" class="stat-value">0</div>
           </div>
           <div id="detailUnshippedCard" class="stat-card clickable" onclick="setDetailView('unshipped')">
             <div class="stat-label">未発送</div>
@@ -1822,13 +1840,17 @@
 
     const detailRegisteredCard = document.getElementById("detailRegisteredCard");
     const detailAdjustingCard = document.getElementById("detailAdjustingCard");
+    const detailRepackingCard = document.getElementById("detailRepackingCard");
     const detailStoredCard = document.getElementById("detailStoredCard");
+    const detailShippingReadyCard = document.getElementById("detailShippingReadyCard");
     const detailUnshippedCard = document.getElementById("detailUnshippedCard");
     const detailShippedCard = document.getElementById("detailShippedCard");
 
     const detailRegisteredCount = document.getElementById("detailRegisteredCount");
     const detailAdjustingCount = document.getElementById("detailAdjustingCount");
+    const detailRepackingCount = document.getElementById("detailRepackingCount");
     const detailStoredCount = document.getElementById("detailStoredCount");
+    const detailShippingReadyCount = document.getElementById("detailShippingReadyCount");
     const detailUnshippedCount = document.getElementById("detailUnshippedCount");
     const detailShippedCount = document.getElementById("detailShippedCount");
     const detailTableArea = document.getElementById("detailTableArea");
@@ -2564,13 +2586,17 @@
 
       detailRegisteredCount.textContent = groups.registered.length;
       detailAdjustingCount.textContent = groups.adjusting.length;
+      detailRepackingCount.textContent = groups.repacking.length;
       detailStoredCount.textContent = groups.stored.length;
+      detailShippingReadyCount.textContent = groups.shipping_ready.length;
       detailUnshippedCount.textContent = groupedUnshippedCount;
       detailShippedCount.textContent = groupedShippedCount;
 
       setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
       setStatCard(detailAdjustingCard, groups.adjusting.length, "warning", detailView === "adjusting");
+      setStatCard(detailRepackingCard, groups.repacking.length, "warning", detailView === "repacking");
       setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
+      setStatCard(detailShippingReadyCard, groups.shipping_ready.length, "neutral-hi", detailView === "shipping_ready");
       setStatCard(detailUnshippedCard, groupedUnshippedCount, "issue", detailView === "unshipped");
       setStatCard(detailShippedCard, groupedShippedCount, "neutral-hi", detailView === "shipped");
 
@@ -2601,7 +2627,7 @@
         return;
       }
 
-      if (detailView === "registered" || detailView === "adjusting") {
+      if (["registered", "adjusting", "repacking", "shipping_ready"].includes(detailView)) {
         detailTableArea.innerHTML = `
           <div class="table-wrap">
             <table>
@@ -2760,7 +2786,9 @@
     function getProductGroups(member) {
       const registered = [];
       const adjusting = [];
+      const repacking = [];
       const stored = [];
+      const shippingReady = [];
       const unshipped = [];
       const shipped = [];
 
@@ -2773,6 +2801,10 @@
           shipped.push(product);
         } else if (hasShippingRequest) {
           unshipped.push(product);
+        } else if (product.productStage === "repacking") {
+          repacking.push(product);
+        } else if (product.productStage === "shipping_ready") {
+          shippingReady.push(product);
         } else if (hasShootingDate) {
           stored.push(product);
         } else if (product.productStage === "adjusting") {
@@ -2794,7 +2826,9 @@
       return {
         registered: registered.sort(sorter),
         adjusting: adjusting.sort(sorter),
+        repacking: repacking.sort(sorter),
         stored: stored.sort(sorter),
+        shipping_ready: shippingReady.sort(sorter),
         unshipped: unshipped.sort(sorter),
         shipped: shipped.sort(shippedSorter)
       };
@@ -2804,12 +2838,14 @@
       if (isShippedStatus(product?.shippingStatus)) return "発送済み";
       if (hasValue(product?.shippingRequest)) return "発送手続き中";
       if (product?.productStage === "adjusting") return "調整中";
+      if (product?.productStage === "repacking") return "再梱包中";
+      if (product?.productStage === "shipping_ready") return "発送準備中";
       if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
       return "登録済み商品";
     }
 
     function adjustmentDecisionText(product) {
-      const decisions = { ship_as_is: "そのまま発送", resize_repack: "サイズ調整・再梱包", return: "返品を希望" };
+      const decisions = { ship_as_is: "そのまま発送", resize_repack: "サイズ調整・再梱包", store: "保管する", return: "返品を希望" };
       const materials = { recycle_allowed: "リサイクル材を使用可", new_material: "新品資材を指定" };
       const decision = decisions[product?.adjustmentDecision] || "未選択";
       const material = product?.adjustmentDecision === "resize_repack" ? materials[product?.packagingMaterialChoice] || "資材未選択" : "";
@@ -2817,7 +2853,11 @@
     }
 
     function packagingFitResult(product, bag) {
-      const dimensions = [Number(product?.boxLength || 0), Number(product?.boxWidth || 0), Number(product?.boxHeight || 0)];
+      const dimensions = [
+        Number(product?.repackedBoxLength || product?.boxLength || 0),
+        Number(product?.repackedBoxWidth || product?.boxWidth || 0),
+        Number(product?.repackedBoxHeight || product?.boxHeight || 0)
+      ];
       if (dimensions.some((value) => !value || value <= 0)) return { status: "未判定", detail: "箱の縦・横・高さを入力してください" };
       const margin = packagingFitSettings().margin;
       const permutations = [
@@ -2834,14 +2874,40 @@
 
     function packagingFitSummaryHtml(product) {
       const settings = packagingFitSettings();
-      const baseWeight = Number(product?.itemWeightGrams || 0);
-      const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "梱包前重量未入力";
+      const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
+      const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "重量未入力";
       const rows = [
         ["DHL フライヤー", packagingFitResult(product, settings.dhl)],
         ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)],
         ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded)]
       ];
       return `${rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="form-note">${escapeHtml(result.detail)}／見込み総重量 ${escapeHtml(weightText(settings.bagWeight))}</div></div>`).join("")}<div><strong>段ボール梱包</strong><div class="form-note">見込み総重量 ${escapeHtml(weightText(settings.cardboardWeight))}</div></div>`;
+    }
+
+    function estimatedShippingWeight(product) {
+      const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
+      if (!baseWeight) return { text: "重量未入力", detail: "" };
+      const settings = packagingFitSettings();
+      const bagResults = [packagingFitResult(product, settings.fedex), packagingFitResult(product, settings.fedexPadded)];
+      if (bagResults.some((result) => result.status === "使用可能")) {
+        return { text: `${(baseWeight + settings.bagWeight).toLocaleString("ja-JP")}g`, detail: `パック重量 ${settings.bagWeight}g 加算` };
+      }
+      if (bagResults.every((result) => result.status === "使用不可")) {
+        return { text: `${(baseWeight + settings.cardboardWeight).toLocaleString("ja-JP")}g`, detail: `段ボール重量 ${settings.cardboardWeight}g 加算` };
+      }
+      return { text: "判定要確認", detail: "梱包袋判定が確定すると自動計算されます" };
+    }
+
+    function estimatedShippingWeightHtml(product) {
+      const estimate = estimatedShippingWeight(product);
+      return `<strong>${escapeHtml(estimate.text)}</strong>${estimate.detail ? `<div class="form-note">${escapeHtml(estimate.detail)}</div>` : ""}`;
+    }
+
+    function packageWeightGrams(value) {
+      const text = String(value || "").trim().toLowerCase().replace(/,/g, "");
+      const amount = Number.parseFloat(text);
+      if (!Number.isFinite(amount) || amount <= 0) return 0;
+      return /kg|キロ/.test(text) ? Math.round(amount * 1000) : Math.round(amount);
     }
 
     function getDetailProducts(member) {
@@ -3599,6 +3665,7 @@
             const path = `products/${unit.uid}/${product.id}`;
             updates[`${path}/updatedAt`] = now;
             updates[`${path}/shippingStatus`] = status;
+            updates[`${path}/productStage`] = "shipped";
             updates[`${path}/ebayStatus`] = "shipped";
             updates[`${path}/shippedDate`] = shippedDate;
             updates[`${path}/shippingSize`] = shippingSize;
@@ -3773,6 +3840,7 @@
         const path = `products/${uid}/${item.id}`;
         updates[`${path}/updatedAt`] = now;
         updates[`${path}/shootingDate`] = item.shootingDate || item.confirmationDate;
+        updates[`${path}/productStage`] = "stored";
         updates[`${path}/shippingRequestCancelledAt`] = now;
         updates[`${path}/shippingRequestCancelledBy`] = currentUser?.uid || "";
         shippingFieldsToClear.forEach((field) => {
@@ -4187,11 +4255,20 @@
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
 
-            <div class="info-label">梱包前重量</div>
-            <div class="info-value">${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
+            <div class="info-label">再梱包後サイズ</div>
+            <div class="info-value">${escapeHtml(product.repackedPackageSize || "-")}</div>
+
+            <div class="info-label">再梱包後重量</div>
+            <div class="info-value">${escapeHtml(product.repackedPackageWeight || "-")}</div>
+
+            <div class="info-label">発送時予想重量</div>
+            <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
 
             <div class="info-label">箱の実寸</div>
             <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+
+            <div class="info-label">再梱包後の箱実寸</div>
+            <div class="info-value">${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
 
             <div class="info-label">梱包袋判定</div>
             <div class="info-value">${packagingFitSummaryHtml(product)}</div>
@@ -4553,11 +4630,20 @@
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
 
-            <div class="info-label">梱包前重量</div>
-            <div class="info-value">${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
+            <div class="info-label">再梱包後サイズ</div>
+            <div class="info-value">${escapeHtml(product.repackedPackageSize || "-")}</div>
+
+            <div class="info-label">再梱包後重量</div>
+            <div class="info-value">${escapeHtml(product.repackedPackageWeight || "-")}</div>
+
+            <div class="info-label">発送時予想重量</div>
+            <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
 
             <div class="info-label">箱の実寸</div>
             <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+
+            <div class="info-label">再梱包後の箱実寸</div>
+            <div class="info-value">${product.repackedBoxLength && product.repackedBoxWidth && product.repackedBoxHeight ? `${escapeHtml(product.repackedBoxLength)} × ${escapeHtml(product.repackedBoxWidth)} × ${escapeHtml(product.repackedBoxHeight)} cm` : "-"}</div>
 
             <div class="info-label">梱包袋判定</div>
             <div class="info-value">${packagingFitSummaryHtml(product)}</div>
@@ -4705,7 +4791,9 @@
               ${[
                 ["registered", "登録済み商品"],
                 ["adjusting", "調整中"],
-                ["stored", "保管商品"]
+                ["repacking", "再梱包中"],
+                ["stored", "保管商品"],
+                ["shipping_ready", "発送準備中"]
               ].map(([value, label]) => {
                 const currentStage = product.productStage || (hasValue(product.shootingDate) ? "stored" : hasValue(product.confirmationDate) ? "adjusting" : "registered");
                 return `<option value="${value}" ${currentStage === value ? "selected" : ""}>${label}</option>`;
@@ -4730,6 +4818,7 @@
               <button class="mini-btn" type="button" onclick="setConfirmationNotRequired()">確認不要</button>
             </div>
             ${confirmationTableHtml(product)}
+            <p class="form-note">会員の作業依頼に対して必要な項目が未選択の場合は、黄色で表示されます。</p>
           </div>
 
           <label>
@@ -4742,14 +4831,21 @@
             <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
           </label>
 
-          <label>
-            梱包前重量（g）
-            <input name="itemWeightGrams" type="number" min="0" step="1" value="${escapeAttr(product.itemWeightGrams || "")}" placeholder="例：1200" />
-          </label>
-
           <label>箱の縦（cm）<input name="boxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.boxLength || "")}" /></label>
           <label>箱の横（cm）<input name="boxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.boxWidth || "")}" /></label>
           <label>箱の高さ（cm）<input name="boxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.boxHeight || "")}" /></label>
+
+          <div class="full info-box">
+            <div class="info-box-title">再梱包後の情報</div>
+            <p class="form-note">再梱包中の商品を保管商品または発送準備中へ進める場合は、再梱包後サイズ・重量を入力してください。</p>
+            <div class="form-grid">
+              <label>再梱包後サイズ<input name="repackedPackageSize" value="${escapeAttr(product.repackedPackageSize || "")}" placeholder="例：60サイズ" /></label>
+              <label>再梱包後重量<input name="repackedPackageWeight" value="${escapeAttr(product.repackedPackageWeight || "")}" placeholder="例：1.25kg" /></label>
+              <label>再梱包後の箱・縦（cm）<input name="repackedBoxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxLength || "")}" /></label>
+              <label>再梱包後の箱・横（cm）<input name="repackedBoxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxWidth || "")}" /></label>
+              <label>再梱包後の箱・高さ（cm）<input name="repackedBoxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.repackedBoxHeight || "")}" /></label>
+            </div>
+          </div>
 
           <label class="full">
             写真URL
@@ -4782,6 +4878,10 @@
       `;
 
       editModalBackdrop.classList.add("show");
+      updateRequiredConfirmationHighlights(product);
+      editForm.querySelectorAll("[data-confirmation-form-row] select").forEach((select) => {
+        select.addEventListener("change", () => updateRequiredConfirmationHighlights(product));
+      });
     }
 
     function openStoredMemberFieldsEdit(uid, productId) {
@@ -5327,6 +5427,12 @@
             showError(appError, "保管商品へ変更する場合は確認日を入力してください。");
             return;
           }
+          const leavingRepacking = product?.productStage === "repacking" && productStage !== "repacking";
+          const repackedDimensions = ["repackedBoxLength", "repackedBoxWidth", "repackedBoxHeight"].map((key) => numberValue(getFormValue(formData, key)));
+          if (leavingRepacking && (!getFormValue(formData, "repackedPackageSize") || !getFormValue(formData, "repackedPackageWeight") || repackedDimensions.some((value) => !value))) {
+            showError(appError, "再梱包中の商品を次のステータスへ進める場合は、再梱包後サイズ・重量・箱の縦横高さを入力してください。");
+            return;
+          }
           const shouldNotifyStored = product && productStage === "stored" && product.productStage !== "stored" && !hasValue(product.shootingDate);
           const shouldCancelStoredNotification = product && productStage !== "stored" && (product.productStage === "stored" || hasValue(product.shootingDate));
           const selectedPhotoFiles = [
@@ -5342,7 +5448,9 @@
           const adminFieldUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationDate`]: confirmationDate,
-            [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: productStage === "stored" ? confirmationDate : "",
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: productStage === "stored"
+              ? confirmationDate
+              : ["repacking", "shipping_ready"].includes(productStage) ? product?.shootingDate || "" : "",
             [`products/${activeEdit.uid}/${activeEdit.productId}/productStage`]: productStage,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationResult`]: confirmationResult,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationTemplate`]: buildConfirmationTemplateData(formData),
@@ -5353,7 +5461,13 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageWeight`]: getFormValue(formData, "packageWeight"),
-            [`products/${activeEdit.uid}/${activeEdit.productId}/itemWeightGrams`]: numberValue(getFormValue(formData, "itemWeightGrams")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedPackageSize`]: getFormValue(formData, "repackedPackageSize"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedPackageWeight`]: getFormValue(formData, "repackedPackageWeight"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedBoxLength`]: numberValue(getFormValue(formData, "repackedBoxLength")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedBoxWidth`]: numberValue(getFormValue(formData, "repackedBoxWidth")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedBoxHeight`]: numberValue(getFormValue(formData, "repackedBoxHeight")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/repackedAt`]: leavingRepacking ? now : product?.repackedAt || null,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shippingReadyAt`]: productStage === "shipping_ready" ? product?.shippingReadyAt || now : null,
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxLength`]: numberValue(getFormValue(formData, "boxLength")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxWidth`]: numberValue(getFormValue(formData, "boxWidth")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxHeight`]: numberValue(getFormValue(formData, "boxHeight")),
@@ -5407,6 +5521,7 @@
           const statusUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippingStatus`]: status,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/productStage`]: isShippedStatus(status) ? "shipped" : "shipping_requested",
             [`products/${activeEdit.uid}/${activeEdit.productId}/ebayStatus`]: isShippedStatus(status) ? "shipped" : "requested",
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippedDate`]: shippedDate,
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippingSize`]: shippingSize,
@@ -7248,12 +7363,13 @@ function firstInvoiceDate(item) {
 
     function confirmationBaseGroupsForView(base, view) {
       if (view === "notRequired") {
-        return base.notRequiredGroups && base.notRequiredGroups.length
+        const groups = base.notRequiredGroups && base.notRequiredGroups.length
           ? base.notRequiredGroups
           : defaultNotRequiredConfirmationGroups(base.groups || []);
+        return groups.filter((group) => !isCameraOnlyConfirmationGroup(group));
       }
 
-      return base.groups || [];
+      return (base.groups || []).filter((group) => !isCameraOnlyConfirmationGroup(group));
     }
 
     function defaultNotRequiredConfirmationGroups(groups) {
@@ -8187,7 +8303,23 @@ function firstInvoiceDate(item) {
       const configured = (confirmationBaseCache || defaultConfirmationBase()).groups || [];
       const keys = configured.flatMap((group) => (group.rows || []).map((row) => row.key));
       const isLegacyDefault = keys.includes("contentsCheck") && !keys.includes("receiptRemoval") && !keys.includes("powerCheck");
-      return isLegacyDefault ? defaultConfirmationBase().groups : configured.length ? configured : defaultConfirmationBase().groups;
+      const groups = isLegacyDefault ? defaultConfirmationBase().groups : configured.length ? configured : defaultConfirmationBase().groups;
+      return groups.filter((group) => !isCameraOnlyConfirmationGroup(group));
+    }
+
+    function isCameraOnlyConfirmationGroup(group) {
+      const section = String(group?.section || "").trim();
+      if (["外観コンディション", "光学コンディション", "動作コンディション"].includes(section)) return true;
+      if (section !== "その他") return false;
+      const labels = (group?.rows || []).map((row) => String(row?.label || "").trim());
+      return labels.some((label) => ["付属品", "備考欄"].includes(label));
+    }
+
+    function isCameraOnlyConfirmationEntry(entry) {
+      const section = String(entry?.section || "").trim();
+      const label = String(entry?.label || "").trim();
+      return ["外観コンディション", "光学コンディション", "動作コンディション"].includes(section)
+        || (section === "その他" && ["付属品", "備考欄"].includes(label));
     }
 
     function confirmationRowsForProduct(product, includeProductNote = false) {
@@ -8248,6 +8380,22 @@ function firstInvoiceDate(item) {
       `;
     }
 
+    function requiredConfirmationLabels(workRequest) {
+      const base = ["領収書の抜き取り", "商品受品の確認"];
+      if (workRequest === "簡易検品") return [...base, "外観のチェック"];
+      if (workRequest === "詳細検品") return [...base, "外観のチェック", "通電確認", "機能確認"];
+      return base;
+    }
+
+    function updateRequiredConfirmationHighlights(product) {
+      const requiredLabels = new Set(requiredConfirmationLabels(product?.workRequest));
+      editForm.querySelectorAll("[data-confirmation-form-row]").forEach((row) => {
+        const select = row.querySelector("select");
+        const isMissing = requiredLabels.has(row.dataset.confirmationFormLabel || "") && !String(select?.value || "").trim();
+        row.classList.toggle("confirmation-required-missing", isMissing);
+      });
+    }
+
     function confirmationTableBodyHtml(groups, values = {}) {
       return groups.map((group) => `
         <tr class="confirmation-section"><td colspan="3">＜${escapeHtml(group.section)}＞</td></tr>
@@ -8277,6 +8425,7 @@ function firstInvoiceDate(item) {
       const values = product.confirmationTemplate || {};
       const savedEntries = Object.entries(values).filter(([key, entry]) => {
         if (!entry || typeof entry !== "object") return false;
+        if (isCameraOnlyConfirmationEntry(entry)) return false;
         return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
       });
 
