@@ -262,6 +262,25 @@
 
     .stat-card.neutral-hi .stat-value { color: #64748b; }
 
+    .stat-card.operator-waiting {
+      background: #fff7cc;
+      border: 2px solid #eab308;
+      box-shadow: 0 5px 16px rgba(234, 179, 8, 0.14);
+    }
+
+    .stat-card.operator-waiting .stat-label { color: #854d0e; }
+
+    .status-highlight-note {
+      margin: -10px 0 24px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #fff7cc;
+      border: 1px solid #eab308;
+      color: #713f12;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
     h2 {
       margin: 28px 0 16px;
       font-size: 24px;
@@ -1211,15 +1230,36 @@
           <div class="stat-label">会員</div>
           <div id="totalMembers" class="stat-value">0</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card operator-waiting">
           <div class="stat-label">登録済み商品</div>
           <div id="totalRegistered" class="stat-value">0</div>
         </div>
         <div class="stat-card">
+          <div class="stat-label">調整中</div>
+          <div id="totalAdjusting" class="stat-value">0</div>
+        </div>
+        <div class="stat-card operator-waiting">
+          <div class="stat-label">再梱包中</div>
+          <div id="totalRepacking" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">保管中</div>
+          <div id="totalStored" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">発送準備中</div>
+          <div id="totalShippingReady" class="stat-value">0</div>
+        </div>
+        <div class="stat-card operator-waiting">
           <div class="stat-label">未発送</div>
           <div id="totalUnshipped" class="stat-value">0</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">発送済み</div>
+          <div id="totalShipped" class="stat-value">0</div>
+        </div>
       </div>
+      <div class="status-highlight-note">黄色ハイライト ＝ おきらく便の対応待ち</div>
 
       <div class="section-title-row">
         <h2>お問い合わせ</h2>
@@ -1284,7 +1324,7 @@
         </div>
 
         <div class="stats seven">
-          <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
+          <div id="detailRegisteredCard" class="stat-card clickable operator-waiting" onclick="setDetailView('registered')">
             <div class="stat-label">登録済み商品</div>
             <div id="detailRegisteredCount" class="stat-value">0</div>
           </div>
@@ -1292,7 +1332,7 @@
             <div class="stat-label">調整中</div>
             <div id="detailAdjustingCount" class="stat-value">0</div>
           </div>
-          <div id="detailRepackingCard" class="stat-card clickable" onclick="setDetailView('repacking')">
+          <div id="detailRepackingCard" class="stat-card clickable operator-waiting" onclick="setDetailView('repacking')">
             <div class="stat-label">再梱包中</div>
             <div id="detailRepackingCount" class="stat-value">0</div>
           </div>
@@ -1304,7 +1344,7 @@
             <div class="stat-label">発送準備中</div>
             <div id="detailShippingReadyCount" class="stat-value">0</div>
           </div>
-          <div id="detailUnshippedCard" class="stat-card clickable" onclick="setDetailView('unshipped')">
+          <div id="detailUnshippedCard" class="stat-card clickable operator-waiting" onclick="setDetailView('unshipped')">
             <div class="stat-label">未発送</div>
             <div id="detailUnshippedCount" class="stat-value">0</div>
           </div>
@@ -1835,7 +1875,12 @@
 
     const totalMembers = document.getElementById("totalMembers");
     const totalRegistered = document.getElementById("totalRegistered");
+    const totalAdjusting = document.getElementById("totalAdjusting");
+    const totalRepacking = document.getElementById("totalRepacking");
+    const totalStored = document.getElementById("totalStored");
+    const totalShippingReady = document.getElementById("totalShippingReady");
     const totalUnshipped = document.getElementById("totalUnshipped");
+    const totalShipped = document.getElementById("totalShipped");
     const totalEbayRegistered = document.getElementById("totalEbayRegistered");
     const totalEbayUnshipped = document.getElementById("totalEbayUnshipped");
     const memberListBody = document.getElementById("memberListBody");
@@ -2382,13 +2427,23 @@
 
     function renderMembers() {
       const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
+      const totalAdjustingCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).adjusting.length, 0);
+      const totalRepackingCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).repacking.length, 0);
+      const totalStoredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).stored.length, 0);
+      const totalShippingReadyCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).shipping_ready.length, 0);
       const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
+      const totalShippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).shipped.length, 0);
       const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayRegisteredProduct).length, 0);
       const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayPendingProduct).length, 0);
 
       totalMembers.textContent = membersCache.length;
       totalRegistered.textContent = totalRegisteredCount;
+      totalAdjusting.textContent = totalAdjustingCount;
+      totalRepacking.textContent = totalRepackingCount;
+      totalStored.textContent = totalStoredCount;
+      totalShippingReady.textContent = totalShippingReadyCount;
       totalUnshipped.textContent = totalUnshippedCount;
+      totalShipped.textContent = totalShippedCount;
       if (totalEbayRegistered) totalEbayRegistered.textContent = totalEbayRegisteredCount;
       if (totalEbayUnshipped) totalEbayUnshipped.textContent = totalEbayUnshippedCount;
 
@@ -5575,6 +5630,10 @@
           }
           if (productStage === "stored" && !confirmationDate) {
             showError(appError, "保管商品へ変更する場合は確認日を入力してください。");
+            return;
+          }
+          if (product?.productStage === "stored" && productStage === "shipping_ready") {
+            showError(appError, "保管商品は直接発送準備中へ移動できません。先に再梱包中へ移動し、管理者記載情報（2）を入力してください。");
             return;
           }
           if (product?.productStage === "repacking" && productStage !== "repacking") {

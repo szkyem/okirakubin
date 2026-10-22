@@ -39,6 +39,9 @@ button.gss-exported:hover{background:#bbf7d0}
 .stat:hover{border-color:#bfdbfe;box-shadow:0 8px 22px rgba(37,99,235,.1);transform:translateY(-1px)}
 .stat-label{color:#6b7280;font-size:13px;font-weight:700;margin-bottom:8px}
 .stat-value{font-size:32px;font-weight:800;color:#2563eb}
+.stat.member-waiting{background:#fff7cc;border:2px solid #eab308;box-shadow:0 5px 16px rgba(234,179,8,.14)}
+.stat.member-waiting .stat-label{color:#854d0e}
+.status-highlight-note{margin:-10px 0 24px;padding:10px 14px;border-radius:8px;background:#fff7cc;border:1px solid #eab308;color:#713f12;font-size:13px;font-weight:800}
 .form{margin-top:16px}
 .form-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 .product-entry{border:1px solid #dbe3ef;border-radius:8px;background:#f8fafc;padding:12px;margin-bottom:10px}
@@ -347,13 +350,14 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
   <section class="section show" id="overview">
     <div class="grid">
       <div class="stat" onclick="goToStoredView('registered')"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
-      <div class="stat" onclick="goToStoredView('adjusting')"><div class="stat-label">調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
+      <div class="stat member-waiting" onclick="goToStoredView('adjusting')"><div class="stat-label">調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
       <div class="stat" onclick="goToStoredView('repacking')"><div class="stat-label">再梱包中</div><div class="stat-value" id="repackingCount">0</div></div>
-      <div class="stat" onclick="goToStoredView('stored')"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
-      <div class="stat" onclick="goToStoredView('shipping_ready')"><div class="stat-label">発送準備中</div><div class="stat-value" id="shippingReadyCount">0</div></div>
+      <div class="stat member-waiting" onclick="goToStoredView('stored')"><div class="stat-label">保管中</div><div class="stat-value" id="storedCount">0</div></div>
+      <div class="stat member-waiting" onclick="goToStoredView('shipping_ready')"><div class="stat-label">発送準備中</div><div class="stat-value" id="shippingReadyCount">0</div></div>
       <div class="stat" onclick="goToShippingView('unshipped')"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
       <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
     </div>
+    <div class="status-highlight-note">黄色ハイライト ＝ 会員様の対応待ち</div>
 
     <h2 style="margin-bottom:16px;">最近のお知らせ</h2>
     <div id="recentAnnouncements"></div>
@@ -2904,7 +2908,7 @@ function productRow(product, mode = "registered") {
           ${product.adjustmentDecision ? `<div class="member-meta" style="margin-top:6px;">${escapeHtml(adjustmentDecisionText(product))}</div>` : ""}
         </td>
       ` : ""}
-      ${isStored ? `<td class="mobile-full" data-label="操作"><button class="secondary compact-btn" type="button" onclick="moveStoredToShippingReady('${escapeAttr(product.id)}')">発送準備へ移動</button></td>` : ""}
+      ${isStored ? `<td class="mobile-full" data-label="操作"><button class="secondary compact-btn" type="button" onclick="moveStoredToRepacking('${escapeAttr(product.id)}')">再梱包へ移動</button></td>` : ""}
       ${isStored ? `<td data-label="撮影日">${escapeHtml(product.shootingDate || "-")}</td><td class="mobile-action" data-label="料金">${feeButtonHtml(product)}</td><td class="mobile-full" data-label="GSS出力">${gssExportButtonHtml(product)}</td>` : ""}
       ${isShipping ? shippingMetaCellsHtml(product) : ""}
     </tr>
@@ -3415,24 +3419,36 @@ window.saveAdjustmentDecision = async function(event, productId) {
   }
 };
 
-window.moveStoredToShippingReady = async function(productId) {
-  if (!ensureWritableAction("発送準備への移動")) return;
+window.moveStoredToRepacking = async function(productId) {
+  if (!ensureWritableAction("再梱包中への移動")) return;
   const product = productsCache.find((item) => item.id === productId);
   if (!product || product.productStage !== "stored" || hasValue(product.shippingRequest)) {
     showError("保管中の商品を確認できません。再読み込みしてください。");
     return;
   }
-  if (!confirm(`${product.name || "商品"}を発送準備中へ移動しますか？`)) return;
+  if (!confirm(`${product.name || "商品"}を再梱包中へ移動しますか？\n\n保管時の梱包情報は引き継がず、再梱包後に新しい寸法と重量を入力します。`)) return;
   try {
     const now = Date.now();
-    await update(ref(database, `products/${dataUid()}/${productId}`), { productStage: "shipping_ready", shippingReadyAt: now, productStageChangedAt: now, [`productStageHistory/${now}`]: stageHistoryEntry(product.productStage, "shipping_ready", now), updatedAt: now });
+    await update(ref(database, `products/${dataUid()}/${productId}`), {
+      productStage: "repacking",
+      productStageChangedAt: now,
+      [`productStageHistory/${now}`]: stageHistoryEntry(product.productStage, "repacking", now),
+      shippingReadyAt: null,
+      repackedPackageSize: null,
+      repackedPackageWeight: null,
+      repackedBoxLength: null,
+      repackedBoxWidth: null,
+      repackedBoxHeight: null,
+      repackedAt: null,
+      updatedAt: now
+    });
     await loadData();
-    storedView = "shipping_ready";
+    storedView = "repacking";
     renderStoredList();
-    showSuccess("発送準備中へ移動しました。");
+    showSuccess("再梱包中へ移動しました。");
   } catch (error) {
     console.error(error);
-    showError("発送準備への移動に失敗しました。Realtime Databaseのルールを確認してください。");
+    showError("再梱包中への移動に失敗しました。Realtime Databaseのルールを確認してください。");
   }
 };
 
