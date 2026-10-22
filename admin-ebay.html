@@ -1243,7 +1243,7 @@
           <div id="totalRegistered" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">調整中</div>
+          <div class="stat-label">サイズ調整中</div>
           <div id="totalAdjusting" class="stat-value">0</div>
         </div>
         <div class="stat-card operator-waiting">
@@ -1337,7 +1337,7 @@
             <div id="detailRegisteredCount" class="stat-value">0</div>
           </div>
           <div id="detailAdjustingCard" class="stat-card clickable" onclick="setDetailView('adjusting')">
-            <div class="stat-label">調整中</div>
+            <div class="stat-label">サイズ調整中</div>
             <div id="detailAdjustingCount" class="stat-value">0</div>
           </div>
           <div id="detailRepackingCard" class="stat-card clickable operator-waiting" onclick="setDetailView('repacking')">
@@ -2093,6 +2093,48 @@
       await loadAllData();
     });
 
+    async function migrateManualSampleProductNames(productsRaw, invoicesRaw) {
+      const targetUid = "e4Fy6cTguHS3oX8m0yZMuBgT1My2";
+      const targetProducts = productsRaw?.[targetUid] || {};
+      const renameMap = new Map([
+        ["11|1", "イラスト集"],
+        ["あz|2", "Vuitton bag"],
+        ["qq|11", "Canon カメラ"]
+      ]);
+      const normalize = (value) => String(value || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+      const updates = {};
+      const renamedProductIds = new Map();
+
+      Object.entries(targetProducts).forEach(([productId, product]) => {
+        if (product?.serviceType !== "ebay") return;
+        const key = `${normalize(product.name || product.productName)}|${normalize(product.numbering || product.orderNumber)}`;
+        const nextName = renameMap.get(key);
+        if (!nextName || product.name === nextName) return;
+        updates[`products/${targetUid}/${productId}/name`] = nextName;
+        renamedProductIds.set(productId, nextName);
+        product.name = nextName;
+      });
+
+      if (!renamedProductIds.size) return 0;
+
+      Object.entries(invoicesRaw?.[targetUid] || {}).forEach(([month, invoice]) => {
+        Object.entries(invoice?.items || {}).forEach(([itemId, item]) => {
+          const nextName = renamedProductIds.get(item?.productId);
+          if (!nextName) return;
+          updates[`ebayInvoices/${targetUid}/${month}/items/${itemId}/name`] = nextName;
+          item.name = nextName;
+        });
+      });
+
+      updates["settings/dataMigrations/manualSampleProductNames20261022"] = {
+        completedAt: Date.now(),
+        updatedBy: currentUser?.uid || "",
+        renamedCount: renamedProductIds.size
+      };
+      await update(ref(db), updates);
+      return renamedProductIds.size;
+    }
+
     async function loadAllData() {
       hideError(appError);
 
@@ -2118,7 +2160,9 @@
         const usersRaw = usersSnap.val() || {};
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
-        invoicesCache = invoicesSnap.val() || {};
+        const invoicesRaw = invoicesSnap.val() || {};
+        await migrateManualSampleProductNames(productsRaw, invoicesRaw);
+        invoicesCache = invoicesRaw;
         invoiceLocksCache = {};
         Object.values(invoicesCache).forEach((monthMap) => {
           Object.entries(monthMap || {}).forEach(([month, invoice]) => {
@@ -2731,7 +2775,7 @@
                   <tr>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
-                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td>${escapeHtml(workRequestLabel(product.workRequest))}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
                     <td>${escapeHtml(productTimestampText(product.createdAt || timestampFromId(product.id)))}</td>
@@ -2772,7 +2816,7 @@
                   <tr>
                     <td>${escapeHtml(product.name || "-")}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
-                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td>${escapeHtml(workRequestLabel(product.workRequest))}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
                     <td>${escapeHtml(product.shootingDate || "-")}</td>
@@ -2811,7 +2855,7 @@
                     <td>${shippingCellHtml(product)}</td>
                     <td>${productNameCell(product)}</td>
                     <td>${productNumberingCell(product)}</td>
-                    <td>${escapeHtml(product.workRequest || "-")}</td>
+                    <td>${escapeHtml(workRequestLabel(product.workRequest))}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${shippingInfoButtonHtml(member.uid, product)}</td>
                     <td>${shippingStatusCellHtml(product, "unshipped")}</td>
@@ -2855,7 +2899,7 @@
                   <td>${shippingCellHtml(product)}</td>
                   <td>${productNameCell(product)}</td>
                   <td>${productNumberingCell(product)}</td>
-                  <td>${escapeHtml(product.workRequest || "-")}</td>
+                  <td>${escapeHtml(workRequestLabel(product.workRequest))}</td>
                   <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                   <td>${shippingInfoButtonHtml(member.uid, product)}</td>
                   <td>${shippingStatusCellHtml(product, "shipped")}</td>
@@ -2922,7 +2966,7 @@
     function productStageText(product) {
       if (isShippedStatus(product?.shippingStatus)) return "発送済み";
       if (hasValue(product?.shippingRequest)) return "発送手続き中";
-      if (product?.productStage === "adjusting") return "調整中";
+      if (product?.productStage === "adjusting") return "サイズ調整中";
       if (product?.productStage === "repacking") return "再梱包中";
       if (product?.productStage === "shipping_ready") return "発送準備中";
       if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
@@ -2930,7 +2974,31 @@
     }
 
     function productStageLabel(stage) {
-      return ({ registered: "登録済み商品", adjusting: "調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
+      return ({ registered: "登録済み商品", adjusting: "サイズ調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
+    }
+
+    function normalizeWorkRequest(value) {
+      return String(value || "") === "そのまま発送" ? "検品不要" : String(value || "");
+    }
+
+    function workRequestLabel(value) {
+      return normalizeWorkRequest(value) || "-";
+    }
+
+    function currentProductStage(product) {
+      return product?.productStage || (hasValue(product?.shootingDate) ? "stored" : hasValue(product?.confirmationDate) ? "adjusting" : "registered");
+    }
+
+    function adminFieldStageOptions(product) {
+      const current = currentProductStage(product);
+      const allowed = {
+        registered: ["registered", "adjusting"],
+        adjusting: ["registered", "adjusting"],
+        repacking: ["adjusting", "repacking"],
+        stored: ["stored", "repacking"],
+        shipping_ready: ["shipping_ready", "repacking"]
+      }[current] || [current];
+      return allowed.map((value) => [value, productStageLabel(value)]);
     }
 
     function stageHistoryEntry(from, to, changedAt, changedBy = "admin") {
@@ -4384,7 +4452,7 @@
             <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
 
             <div class="info-label">作業依頼</div>
-            <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
+            <div class="info-value">${escapeHtml(workRequestLabel(product.workRequest))}</div>
 
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
@@ -4751,7 +4819,7 @@
             <div class="info-value">${escapeHtml(product.numbering || "-")}</div>
 
             <div class="info-label">作業依頼</div>
-            <div class="info-value">${escapeHtml(product.workRequest || "-")}</div>
+            <div class="info-value">${escapeHtml(workRequestLabel(product.workRequest))}</div>
 
             <div class="info-label">オプション</div>
             <div class="info-value">${escapeHtml(optionSummary(product))}</div>
@@ -4927,17 +4995,12 @@
           <label>
             商品ステータス
             <select name="productStage">
-              ${[
-                ["registered", "登録済み商品"],
-                ["adjusting", "調整中"],
-                ["repacking", "再梱包中"],
-                ["stored", "保管商品"],
-                ["shipping_ready", "発送準備中"]
-              ].map(([value, label]) => {
-                const currentStage = product.productStage || (hasValue(product.shootingDate) ? "stored" : hasValue(product.confirmationDate) ? "adjusting" : "registered");
+              ${adminFieldStageOptions(product).map(([value, label]) => {
+                const currentStage = currentProductStage(product);
                 return `<option value="${value}" ${currentStage === value ? "selected" : ""}>${label}</option>`;
               }).join("")}
             </select>
+            <span class="form-note">登録済み商品は、最初にサイズ調整中へ進めます。再梱包中は会員様がサイズ調整・再梱包を選択した場合のみ使用します。</span>
           </label>
 
           <div class="full info-box ${optionComment ? "highlight" : ""}">
@@ -5040,6 +5103,7 @@
           <label class="full">保存後のステータス
             <select name="repackingNextStage">
               <option value="repacking" ${product.productStage === "repacking" ? "selected" : ""}>再梱包中のまま</option>
+              <option value="adjusting">サイズ調整中へ戻す（誤操作の訂正）</option>
               <option value="stored" ${product.productStage === "stored" ? "selected" : ""}>保管商品</option>
               <option value="shipping_ready" ${product.productStage === "shipping_ready" ? "selected" : ""}>発送準備中</option>
             </select>
@@ -5081,8 +5145,8 @@
           <label>
             作業依頼
             <select name="workRequest">
-              ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((option) => `
-                <option value="${escapeAttr(option)}" ${product.workRequest === option ? "selected" : ""}>${escapeHtml(option)}</option>
+              ${["検品不要", "簡易検品", "詳細検品", "開梱して保管"].map((option) => `
+                <option value="${escapeAttr(option)}" ${normalizeWorkRequest(product.workRequest) === option ? "selected" : ""}>${escapeHtml(option)}</option>
               `).join("")}
             </select>
           </label>
@@ -5581,11 +5645,15 @@
           const dimensions = ["repackedBoxLength", "repackedBoxWidth", "repackedBoxHeight"].map((key) => numberValue(getFormValue(formData, key)));
           const repackedSize = getFormValue(formData, "repackedPackageSize");
           const repackedWeight = getFormValue(formData, "repackedPackageWeight");
-          if (!repackedSize || !repackedWeight || dimensions.some((value) => !value)) {
+          if (nextStage !== "adjusting" && (!repackedSize || !repackedWeight || dimensions.some((value) => !value))) {
             showError(appError, "再梱包後の箱サイズ・重量・縦横高さを入力してください。");
             return;
           }
-          const updates = {
+          const updates = nextStage === "adjusting" ? {
+            updatedAt: now,
+            productStage: nextStage,
+            shippingReadyAt: null
+          } : {
             updatedAt: now,
             repackedPackageSize: repackedSize,
             repackedPackageWeight: repackedWeight,
@@ -5611,6 +5679,11 @@
           const member = findMember(activeEdit.uid);
           const optionComment = String(product?.optionComment || product?.options?.comment || "").trim();
           const optionCommentReviewed = formData.get("optionCommentReviewed") === "on";
+          const allowedAdminStages = new Set(adminFieldStageOptions(product).map(([value]) => value));
+          if (!allowedAdminStages.has(productStage)) {
+            showError(appError, `${productStageLabel(currentProductStage(product))}から${productStageLabel(productStage)}へは直接変更できません。`);
+            return;
+          }
           if (confirmationDate && optionComment && !optionCommentReviewed) {
             showError(appError, "会員からのオプションコメントを確認し、確認済みのチェックを入れてください。");
             return;
@@ -5623,7 +5696,7 @@
             showError(appError, "保管商品は直接発送準備中へ移動できません。先に再梱包中へ移動し、管理者記載情報（2）を入力してください。");
             return;
           }
-          if (product?.productStage === "repacking" && productStage !== "repacking") {
+          if (currentProductStage(product) === "repacking" && !["repacking", "adjusting"].includes(productStage)) {
             showError(appError, "再梱包中から次のステータスへ進める場合は、管理者記載情報（2：再梱包後）の編集ボタンから保存してください。");
             return;
           }
@@ -6988,7 +7061,7 @@ function buildInvoiceItems(member, month) {
         shipmentGroupCount: product.shipmentGroupCount || "",
         name: product.name || "",
         numbering: product.numbering || "",
-        workRequest: product.workRequest || "",
+        workRequest: workRequestLabel(product.workRequest),
         bodyCount: product.bodyCount || "",
         lensCount: product.lensCount || "",
         accessoryCount: product.accessoryCount || "",
@@ -7151,7 +7224,7 @@ function firstInvoiceDate(item) {
         ...csvItems.map((item) => [
           item.name || "",
           item.numbering || "",
-          item.workRequest || "",
+          workRequestLabel(item.workRequest),
           item.bodyCount || "",
           item.lensCount || "",
           item.accessoryCount || "",
@@ -8174,7 +8247,7 @@ function firstInvoiceDate(item) {
           ...products.map((product) => [
             product.name || "",
             product.numbering || "",
-            product.workRequest || ""
+            workRequestLabel(product.workRequest)
           ])
         ];
 

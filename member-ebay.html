@@ -351,7 +351,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
   <section class="section show" id="overview">
     <div class="grid">
       <div class="stat" onclick="goToStoredView('registered')"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
-      <div class="stat member-waiting" onclick="goToStoredView('adjusting')"><div class="stat-label">調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
+      <div class="stat member-waiting" onclick="goToStoredView('adjusting')"><div class="stat-label">サイズ調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
       <div class="stat" onclick="goToStoredView('repacking')"><div class="stat-label">再梱包中</div><div class="stat-value" id="repackingCount">0</div></div>
       <div class="stat member-waiting" onclick="goToStoredView('stored')"><div class="stat-label">保管中</div><div class="stat-value" id="storedCount">0</div></div>
       <div class="stat member-waiting" onclick="goToStoredView('shipping_ready')"><div class="stat-label">発送準備中</div><div class="stat-value" id="shippingReadyCount">0</div></div>
@@ -391,7 +391,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
 
     <div class="ship-filter">
       <button class="ship-filter-btn" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
-      <button class="ship-filter-btn" id="adjustingStoredFilterBtn" type="button">調整中</button>
+      <button class="ship-filter-btn" id="adjustingStoredFilterBtn" type="button">サイズ調整中</button>
       <button class="ship-filter-btn" id="repackingStoredFilterBtn" type="button">再梱包中</button>
       <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
       <button class="ship-filter-btn" id="shippingReadyStoredFilterBtn" type="button">発送準備中</button>
@@ -2482,7 +2482,7 @@ function renderStoredList() {
     ? baseProducts.filter((product) => normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword))
     : baseProducts;
 
-  const emptyMessages = { registered: "登録済み商品はありません", adjusting: "調整中の商品はありません", repacking: "再梱包中の商品はありません", stored: "保管商品はありません", shipping_ready: "発送準備中の商品はありません" };
+  const emptyMessages = { registered: "登録済み商品はありません", adjusting: "サイズ調整中の商品はありません", repacking: "再梱包中の商品はありません", stored: "保管商品はありません", shipping_ready: "発送準備中の商品はありません" };
 
   document.getElementById("storedList").innerHTML =
     products.length ? productTable(products, { mode: storedView }) + (storedView === "shipping_ready" ? bulkActionBar() : "") : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : emptyMessages[storedView]);
@@ -2783,7 +2783,7 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>検品・作業内容（いずれか1つを選択） *</label>
-        ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequest_${entryCount}" data-work-request value="${label}"><span>${label}</span></label>`).join("")}
+        ${["検品不要", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequest_${entryCount}" data-work-request value="${label}"><span>${label}</span></label>`).join("")}
       </div>
 
       <div class="form-group">
@@ -3140,7 +3140,7 @@ function canEditProduct(product) {
 function productStageText(product) {
   if (isShippedStatus(product?.shippingStatus)) return "発送済み";
   if (hasValue(product?.shippingRequest)) return "発送手続き中";
-  if (product?.productStage === "adjusting") return "調整中";
+  if (product?.productStage === "adjusting") return "サイズ調整中";
   if (product?.productStage === "repacking") return "再梱包中";
   if (product?.productStage === "shipping_ready") return "発送準備中";
   if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
@@ -3148,7 +3148,7 @@ function productStageText(product) {
 }
 
 function productStageLabel(stage) {
-  return ({ registered: "登録済み商品", adjusting: "調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
+  return ({ registered: "登録済み商品", adjusting: "サイズ調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
 }
 
 function stageHistoryEntry(from, to, changedAt, changedBy = "member") {
@@ -3321,7 +3321,7 @@ window.openAdjustmentDecision = function(productId) {
   if (!ensureWritableAction("調整内容の選択")) return;
   const product = productsCache.find((item) => item.id === productId);
   if (!product || product.productStage !== "adjusting") {
-    showError("調整中の商品を確認できません。再読み込みしてください。");
+    showError("サイズ調整中の商品を確認できません。再読み込みしてください。");
     return;
   }
   openModal("調整内容を選択", `
@@ -3460,10 +3460,19 @@ function linkOrDash(value) {
 }
 
 function workRequestOptions(current) {
-  const options = ["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"];
+  const options = ["検品不要", "簡易検品", "詳細検品", "開梱して保管"];
+  const normalizedCurrent = normalizeWorkRequest(current);
   return `<option value="">選択してください</option>${options.map((option) => `
-    <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
+    <option value="${escapeAttr(option)}" ${normalizedCurrent === option ? "selected" : ""}>${escapeHtml(option)}</option>
   `).join("")}`;
+}
+
+function normalizeWorkRequest(value) {
+  return String(value || "") === "そのまま発送" ? "検品不要" : String(value || "");
+}
+
+function workRequestLabel(value) {
+  return normalizeWorkRequest(value) || "-";
 }
 
 function sortByShippingDateAndNumbering(a, b) {
@@ -3685,7 +3694,7 @@ window.openProductEdit = function(productId) {
 
         <div class="form-group full">
           <label>検品・作業内容 <span class="required">必須</span></label>
-          ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequestOption" value="${label}" ${String(product.workRequest || "") === label ? "checked" : ""}><span>${label}</span></label>`).join("")}
+          ${["検品不要", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequestOption" value="${label}" ${normalizeWorkRequest(product.workRequest) === label ? "checked" : ""}><span>${label}</span></label>`).join("")}
         </div>
 
         <div class="form-group">
@@ -3902,7 +3911,7 @@ window.downloadInvoiceCsv = function(month) {
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
-      item.workRequest || "",
+      workRequestLabel(item.workRequest),
       item.bodyCount || "",
       item.lensCount || "",
       item.accessoryCount || "",
@@ -4283,7 +4292,7 @@ function productDetailHtml(product) {
         <div class="detail-label">ステータス</div><div>${escapeHtml(productStageText(product))}</div>
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
-        <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
+        <div class="detail-label">作業依頼</div><div>${escapeHtml(workRequestLabel(product.workRequest))}</div>
         <div class="detail-label">オプション</div><div>${escapeHtml(optionSummary(product))}</div>
         <div class="detail-label">オプションコメント</div><div>${escapeHtml(product.optionComment || "-")}</div>
         <div class="detail-label">備考欄</div><div>${lineBreaks(product.note || "-")}</div>
