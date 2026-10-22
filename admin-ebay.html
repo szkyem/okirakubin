@@ -1577,6 +1577,12 @@
       remove,
       set
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+    import {
+      getStorage,
+      ref as storageRef,
+      uploadBytes,
+      getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDCBb3FK_mXoeWCCI2-BJlPIMPwwOxG-kI",
       authDomain: "okirakubin-manager.firebaseapp.com",
@@ -1723,6 +1729,7 @@
     ];
 
     const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
     const auth = getAuth(app);
     await setPersistence(auth, browserLocalPersistence);
     const provider = new GoogleAuthProvider();
@@ -4084,6 +4091,9 @@
             <div class="info-label">写真URL</div>
             <div class="info-value">${photoUrlControl(uid, productId, product)}</div>
 
+            <div class="info-label">簡易アップロード写真</div>
+            <div class="info-value">${temporaryPhotosHtml(product)}</div>
+
             <div class="info-label">サイズ</div>
             <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
 
@@ -4438,6 +4448,9 @@
             <div class="info-label">写真URL</div>
             <div class="info-value">${photoUrlControl(uid, product.id, product)}</div>
 
+            <div class="info-label">簡易アップロード写真</div>
+            <div class="info-value">${temporaryPhotosHtml(product)}</div>
+
             <div class="info-label">サイズ</div>
             <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
 
@@ -4622,6 +4635,17 @@
           <label>
             重量
             <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
+          </label>
+
+          <label class="full">
+            写真URL
+            <input name="photoUrl" type="url" value="${escapeAttr(product.photoUrl || "")}" placeholder="https://..." />
+          </label>
+
+          <label class="full">
+            簡易写真アップロード（最大2枚・各5MBまで）
+            <input name="temporaryPhotos" type="file" accept="image/*" capture="environment" multiple />
+            <span class="form-note">スマホで撮影した梱包写真を一時保存します。会員の商品詳細に表示されます。</span>
           </label>
 
           <label>
@@ -5177,6 +5201,12 @@
           }
           const shouldNotifyStored = product && productStage === "stored" && product.productStage !== "stored" && !hasValue(product.shootingDate);
           const shouldCancelStoredNotification = product && productStage !== "stored" && (product.productStage === "stored" || hasValue(product.shootingDate));
+          const selectedPhotoFiles = formData.getAll("temporaryPhotos").filter((file) => file instanceof File && file.size);
+          const existingTemporaryPhotos = (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
+            .filter((photo) => photo?.url && (!photo.expiresAt || Number(photo.expiresAt) > now));
+          const uploadedTemporaryPhotos = selectedPhotoFiles.length
+            ? await uploadTemporaryProductPhotos(activeEdit.uid, activeEdit.productId, selectedPhotoFiles)
+            : [];
 
           const adminFieldUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
@@ -5192,6 +5222,8 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageWeight`]: getFormValue(formData, "packageWeight"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/photoUrl`]: getFormValue(formData, "photoUrl"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/temporaryPhotos`]: [...existingTemporaryPhotos, ...uploadedTemporaryPhotos].slice(-2),
             [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/driveBaseUrl`]: member?.driveBaseUrl || "",
             [`products/${activeEdit.uid}/${activeEdit.productId}/folderName`]: makeFolderName(product?.numbering, product?.name)
@@ -7927,8 +7959,11 @@ function firstInvoiceDate(item) {
         groups: [{
           section: "確認結果",
           rows: [
-            { key: "contentsCheck", label: "内容物の確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "receiptRemoval", label: "領収書の抜き取り", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "receivedItemCheck", label: "商品受品の確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
             { key: "appearanceCheck", label: "外観のチェック", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "powerCheck", label: "通電確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
+            { key: "functionCheck", label: "機能確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
             { key: "otherCheck", label: "その他", options: ["確認済み", "要確認", "対象外"], defaultComment: "" }
           ]
         }]
@@ -7936,7 +7971,10 @@ function firstInvoiceDate(item) {
     }
 
     function confirmationRows() {
-      return (confirmationBaseCache || defaultConfirmationBase()).groups || defaultConfirmationBase().groups;
+      const configured = (confirmationBaseCache || defaultConfirmationBase()).groups || [];
+      const keys = configured.flatMap((group) => (group.rows || []).map((row) => row.key));
+      const isLegacyDefault = keys.includes("contentsCheck") && !keys.includes("receiptRemoval") && !keys.includes("powerCheck");
+      return isLegacyDefault ? defaultConfirmationBase().groups : configured.length ? configured : defaultConfirmationBase().groups;
     }
 
     function confirmationRowsForProduct(product, includeProductNote = false) {
@@ -8424,6 +8462,30 @@ function firstInvoiceDate(item) {
       }
 
       return `<div class="storage-action-row">${linkOrDash(photoUrl)}${button}</div>`;
+    }
+
+    function temporaryPhotosHtml(product) {
+      const now = Date.now();
+      const photos = (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
+        .filter((photo) => photo?.url && (!photo.expiresAt || Number(photo.expiresAt) > now));
+      if (!photos.length) return "-";
+      return `<div style="display:flex;gap:10px;flex-wrap:wrap;">${photos.map((photo, index) => `<a href="${escapeAttr(photo.url)}" target="_blank" rel="noopener"><img src="${escapeAttr(photo.url)}" alt="一時写真${index + 1}" style="width:120px;height:90px;object-fit:cover;border:1px solid #d1d5db;border-radius:8px;"></a>`).join("")}</div>`;
+    }
+
+    async function uploadTemporaryProductPhotos(uid, productId, files) {
+      const imageFiles = files.filter((file) => file instanceof File && file.size && String(file.type || "").startsWith("image/"));
+      if (imageFiles.length > 2) throw new Error("簡易写真は最大2枚までです。");
+      if (imageFiles.some((file) => file.size > 5 * 1024 * 1024)) throw new Error("簡易写真は1枚5MB以下にしてください。");
+      const uploadedAt = Date.now();
+      const expiresAt = uploadedAt + 7 * 24 * 60 * 60 * 1000;
+      return Promise.all(imageFiles.map(async (file, index) => {
+        const safeName = String(file.name || `photo_${index + 1}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `temporary-product-photos/${uid}/${productId}/${uploadedAt}_${index}_${safeName}`;
+        const target = storageRef(storage, path);
+        await uploadBytes(target, file, { contentType: file.type, customMetadata: { expiresAt: String(expiresAt) } });
+        const url = await getDownloadURL(target);
+        return { url, path, name: file.name || safeName, uploadedAt, expiresAt };
+      }));
     }
 
     function hasValue(value) {

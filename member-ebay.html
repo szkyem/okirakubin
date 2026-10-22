@@ -78,7 +78,7 @@ textarea{min-height:62px;resize:vertical}
 .products-table tr.bundle-middle td:first-child::after,.products-table tr.bundle-last td:first-child::after{content:"";position:absolute;left:14px;top:50%;width:12px;height:1px;background:#cbd5e1}
 .products-table tr.bundle-last td:first-child::before{bottom:50%}
 .shipping-check{width:auto}
-.checkbox-line{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:700;color:var(--ink);cursor:default}
+.checkbox-line{display:flex;align-items:center;gap:8px;margin:6px 0;font-weight:700;color:var(--ink);cursor:pointer}
 .checkbox-line span{pointer-events:none}
 .status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .status-pill.domestic{background:#dbeafe;color:#1d4ed8}
@@ -2723,7 +2723,7 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>検品・作業内容（いずれか1つを選択） *</label>
-        ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<div class="checkbox-line"><input class="shipping-check" type="radio" name="workRequest_${entryCount}" data-work-request value="${label}"><span>${label}</span></div>`).join("")}
+        ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequest_${entryCount}" data-work-request value="${label}"><span>${label}</span></label>`).join("")}
       </div>
 
       <div class="form-group">
@@ -3093,6 +3093,14 @@ function adjustmentDecisionText(product) {
   return [decision, material].filter(Boolean).join("／");
 }
 
+function temporaryPhotosHtml(product) {
+  const now = Date.now();
+  const photos = (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
+    .filter((photo) => photo?.url && (!photo.expiresAt || Number(photo.expiresAt) > now));
+  if (!photos.length) return "-";
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;">${photos.map((photo, index) => `<a href="${escapeAttr(photo.url)}" target="_blank" rel="noopener"><img src="${escapeAttr(photo.url)}" alt="梱包写真${index + 1}" style="width:120px;height:90px;object-fit:cover;border:1px solid #d1d5db;border-radius:8px;"></a>`).join("")}</div>`;
+}
+
 window.openAdjustmentDecision = function(productId) {
   if (!ensureWritableAction("調整内容の選択")) return;
   const product = productsCache.find((item) => item.id === productId);
@@ -3150,18 +3158,21 @@ window.saveAdjustmentDecision = async function(event, productId) {
     return;
   }
   try {
+    const now = Date.now();
     await update(ref(database, `products/${dataUid()}/${productId}`), {
       adjustmentDecision,
       packagingMaterialChoice,
       adjustmentDecisionMemo: String(formData.get("adjustmentDecisionMemo") || "").trim(),
-      adjustmentDecisionAt: Date.now(),
+      adjustmentDecisionAt: now,
+      adjustmentCompletedAt: now,
       returnRequestedDuringAdjustment: adjustmentDecision === "return",
-      updatedAt: Date.now()
+      productStage: "stored",
+      updatedAt: now
     });
     closeModal();
     await loadData();
     setMemberTab("stored");
-    storedView = "adjusting";
+    storedView = "stored";
     renderStoredList();
     showSuccess("調整内容を保存しました。");
   } catch (error) {
@@ -3420,7 +3431,7 @@ window.openProductEdit = function(productId) {
 
         <div class="form-group full">
           <label>検品・作業内容 <span class="required">必須</span></label>
-          ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<div class="checkbox-line"><input class="shipping-check" type="radio" name="workRequestOption" value="${label}" ${String(product.workRequest || "") === label ? "checked" : ""}><span>${label}</span></div>`).join("")}
+          ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<label class="checkbox-line"><input class="shipping-check" type="radio" name="workRequestOption" value="${label}" ${String(product.workRequest || "") === label ? "checked" : ""}><span>${label}</span></label>`).join("")}
         </div>
 
         <div class="form-group">
@@ -4032,6 +4043,7 @@ function productDetailHtml(product) {
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
         <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
+        <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
         <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
         <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
         <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>
