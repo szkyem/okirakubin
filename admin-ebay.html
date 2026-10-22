@@ -4642,11 +4642,18 @@
             <input name="photoUrl" type="url" value="${escapeAttr(product.photoUrl || "")}" placeholder="https://..." />
           </label>
 
-          <label class="full">
-            簡易写真アップロード（最大2枚・各5MBまで）
-            <input name="temporaryPhotos" type="file" accept="image/*" capture="environment" multiple />
-            <span class="form-note">スマホで撮影した梱包写真を一時保存します。会員の商品詳細に表示されます。</span>
-          </label>
+          <div class="full info-box">
+            <div class="info-box-title">簡易写真アップロード（合計最大2枚・各5MBまで）</div>
+            <label>
+              スマホのカメラで撮影
+              <input name="temporaryCameraPhoto" type="file" accept="image/*" capture="environment" />
+            </label>
+            <label style="margin-top:12px;">
+              端末に保存済みの写真を選択
+              <input name="temporaryPhotos" type="file" accept="image/*" multiple />
+            </label>
+            <span class="form-note">スマホでは「カメラで撮影」からカメラを直接起動できます。保存後、会員の商品一覧に写真ボタンが表示されます。</span>
+          </div>
 
           <label>
             保管場所
@@ -5201,7 +5208,10 @@
           }
           const shouldNotifyStored = product && productStage === "stored" && product.productStage !== "stored" && !hasValue(product.shootingDate);
           const shouldCancelStoredNotification = product && productStage !== "stored" && (product.productStage === "stored" || hasValue(product.shootingDate));
-          const selectedPhotoFiles = formData.getAll("temporaryPhotos").filter((file) => file instanceof File && file.size);
+          const selectedPhotoFiles = [
+            ...formData.getAll("temporaryCameraPhoto"),
+            ...formData.getAll("temporaryPhotos")
+          ].filter((file) => file instanceof File && file.size);
           const existingTemporaryPhotos = (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
             .filter((photo) => photo?.url && (!photo.expiresAt || Number(photo.expiresAt) > now));
           const uploadedTemporaryPhotos = selectedPhotoFiles.length

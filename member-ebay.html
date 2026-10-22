@@ -998,14 +998,6 @@ memberSettingsBtn.addEventListener("click", () => {
 
 window.addEventListener("popstate", handleMemberPopState);
 
-document.addEventListener("click", (event) => {
-  const checkboxLine = event.target.closest?.(".checkbox-line");
-  if (!checkboxLine) return;
-  if (event.target.matches?.("input[type=checkbox]")) return;
-  event.preventDefault();
-  event.stopPropagation();
-}, true);
-
 emailChangeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await requestLoginEmailChange();
@@ -2778,6 +2770,7 @@ function productTable(products, options = {}) {
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
+            <th>写真</th>
             ${isRegistered || isAdjusting ? "<th>操作</th>" : ""}
             ${isStored ? "<th>撮影日</th><th>料金</th><th>GSS出力</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
@@ -2811,6 +2804,7 @@ function productRow(product, mode = "registered") {
       <td class="mobile-action" data-label="${isShipping ? "商品情報" : "情報"}">
         <button class="secondary compact-btn" type="button" onclick="showInfo('${escapeAttr(product.id)}')">詳細</button>
       </td>
+      <td class="mobile-action" data-label="写真">${productPhotoButtonHtml(product)}</td>
       ${isRegistered ? `
         <td class="mobile-full" data-label="操作">
           <div class="inline-actions">
@@ -3100,6 +3094,41 @@ function temporaryPhotosHtml(product) {
   if (!photos.length) return "-";
   return `<div style="display:flex;gap:10px;flex-wrap:wrap;">${photos.map((photo, index) => `<a href="${escapeAttr(photo.url)}" target="_blank" rel="noopener"><img src="${escapeAttr(photo.url)}" alt="梱包写真${index + 1}" style="width:120px;height:90px;object-fit:cover;border:1px solid #d1d5db;border-radius:8px;"></a>`).join("")}</div>`;
 }
+
+function activeTemporaryPhotos(product) {
+  const now = Date.now();
+  return (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
+    .filter((photo) => photo?.url && (!photo.expiresAt || Number(photo.expiresAt) > now));
+}
+
+function productPhotoButtonHtml(product) {
+  const count = activeTemporaryPhotos(product).length;
+  if (!count && !product?.photoUrl) return '<span class="member-meta">未登録</span>';
+  return `<button class="secondary compact-btn" type="button" onclick="openProductPhotos('${escapeAttr(product.id)}')">写真${count ? `（${count}）` : ""}</button>`;
+}
+
+window.openProductPhotos = function(productId) {
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product) return;
+  const photos = activeTemporaryPhotos(product);
+  const firstUrl = photos[0]?.url || "";
+  openModal("商品写真", `
+    ${firstUrl ? `
+      <div style="background:#111827;border-radius:10px;padding:10px;text-align:center;">
+        <img id="productPhotoMain" src="${escapeAttr(firstUrl)}" alt="商品写真" style="display:block;width:100%;height:min(68vh,720px);object-fit:contain;border-radius:6px;">
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+        ${photos.map((photo, index) => `<button type="button" class="secondary" style="padding:4px;" onclick="showProductPhoto('${escapeAttr(photo.url)}')"><img src="${escapeAttr(photo.url)}" alt="写真${index + 1}" style="display:block;width:100px;height:75px;object-fit:cover;border-radius:5px;"></button>`).join("")}
+      </div>
+    ` : '<div class="empty">簡易アップロード写真はありません。</div>'}
+    ${product.photoUrl ? `<p style="margin-top:14px;"><a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">写真URL・保存先を開く</a></p>` : ""}
+  `, true);
+};
+
+window.showProductPhoto = function(url) {
+  const main = document.getElementById("productPhotoMain");
+  if (main) main.src = url;
+};
 
 window.openAdjustmentDecision = function(productId) {
   if (!ensureWritableAction("調整内容の選択")) return;
