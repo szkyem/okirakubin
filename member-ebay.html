@@ -1747,6 +1747,8 @@ registerProductsBtn.addEventListener("click", async () => {
         storageLocation: "",
         status: "registered",
         productStage: "registered",
+        productStageChangedAt: now + index,
+        productStageHistory: { [now + index]: stageHistoryEntry("", "registered", now + index) },
         createdAt: now + index,
         updatedAt: now
       });
@@ -1905,9 +1907,12 @@ shippingForm.addEventListener("submit", async (event) => {
     const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
     await Promise.all(selectedIds.map((productId) => {
+      const product = selectedProducts.find((item) => item.id === productId);
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
         productStage: "shipping_requested",
+        productStageChangedAt: now,
+        [`productStageHistory/${now}`]: stageHistoryEntry(product?.productStage, "shipping_requested", now),
         ebayStatus: "requested",
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
@@ -3155,6 +3160,20 @@ function productStageText(product) {
   return "登録済み商品";
 }
 
+function productStageLabel(stage) {
+  return ({ registered: "登録済み商品", adjusting: "調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
+}
+
+function stageHistoryEntry(from, to, changedAt, changedBy = "member") {
+  return { from: from || "", to: to || "", changedAt, changedBy };
+}
+
+function stageHistoryHtml(product) {
+  const rows = Object.values(product?.productStageHistory || {}).filter((entry) => entry?.changedAt).sort((a, b) => Number(b.changedAt) - Number(a.changedAt));
+  if (!rows.length) return product?.productStageChangedAt ? escapeHtml(new Date(Number(product.productStageChangedAt)).toLocaleString("ja-JP")) : "-";
+  return `<details><summary>履歴を見る（${rows.length}件）</summary>${rows.map((entry) => `<div class="member-meta">${escapeHtml(new Date(Number(entry.changedAt)).toLocaleString("ja-JP"))}　${escapeHtml(productStageLabel(entry.from))} → ${escapeHtml(productStageLabel(entry.to))}</div>`).join("")}</details>`;
+}
+
 function adjustmentDecisionText(product) {
   const decisions = {
     ship_as_is: "そのまま発送",
@@ -3183,11 +3202,12 @@ function packagingFitSettings() {
   };
 }
 
-function packagingFitResult(product, bag) {
+function packagingFitResult(product, bag, repacked = false) {
+  const prefix = repacked ? "repackedBox" : "box";
   const dimensions = [
-    Number(product?.repackedBoxLength || product?.boxLength || 0),
-    Number(product?.repackedBoxWidth || product?.boxWidth || 0),
-    Number(product?.repackedBoxHeight || product?.boxHeight || 0)
+    Number(product?.[`${prefix}Length`] || 0),
+    Number(product?.[`${prefix}Width`] || 0),
+    Number(product?.[`${prefix}Height`] || 0)
   ];
   if (dimensions.some((value) => !value || value <= 0)) return { status: "未判定", detail: "箱の縦・横・高さが未入力です" };
   const margin = packagingFitSettings().margin;
@@ -3203,23 +3223,22 @@ function packagingFitResult(product, bag) {
   return { status: "使用不可", detail: "袋口側または奥行き側が規定を超過" };
 }
 
-function packagingFitSummaryHtml(product) {
+function packagingFitSummaryHtml(product, repacked = false) {
   const settings = packagingFitSettings();
-  const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
-  const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "重量未入力";
   const rows = [
-    ["DHL フライヤー", packagingFitResult(product, settings.dhl)],
-    ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)],
-    ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded)]
+    ["DHL フライヤー", packagingFitResult(product, settings.dhl, repacked)],
+    ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex, repacked)],
+    ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded, repacked)]
   ];
-  return `${rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="member-meta">${escapeHtml(result.detail)}／見込み総重量 ${escapeHtml(weightText(settings.bagWeight))}</div></div>`).join("")}<div><strong>段ボール梱包</strong><div class="member-meta">見込み総重量 ${escapeHtml(weightText(settings.cardboardWeight))}</div></div>`;
+  return rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：</strong>${escapeHtml(result.status)}</div>`).join("");
 }
 
 function estimatedShippingWeight(product) {
   const baseWeight = packageWeightGrams(product?.repackedPackageWeight || product?.packageWeight);
   if (!baseWeight) return { text: "重量未入力", detail: "" };
   const settings = packagingFitSettings();
-  const bagResults = [packagingFitResult(product, settings.fedex), packagingFitResult(product, settings.fedexPadded)];
+  const useRepacked = [product?.repackedBoxLength, product?.repackedBoxWidth, product?.repackedBoxHeight].every((value) => Number(value) > 0);
+  const bagResults = [packagingFitResult(product, settings.fedex, useRepacked), packagingFitResult(product, settings.fedexPadded, useRepacked)];
   if (bagResults.some((result) => result.status === "使用可能")) {
     return { text: `${(baseWeight + settings.bagWeight).toLocaleString("ja-JP")}g`, detail: `パック重量 ${settings.bagWeight}g 加算` };
   }
@@ -3370,6 +3389,8 @@ window.saveAdjustmentDecision = async function(event, productId) {
   }
   try {
     const now = Date.now();
+    const product = productsCache.find((item) => item.id === productId);
+    const nextStage = adjustmentDecision === "resize_repack" ? "repacking" : adjustmentDecision === "store" ? "stored" : "shipping_ready";
     await update(ref(database, `products/${dataUid()}/${productId}`), {
       adjustmentDecision,
       packagingMaterialChoice,
@@ -3377,7 +3398,9 @@ window.saveAdjustmentDecision = async function(event, productId) {
       adjustmentDecisionAt: now,
       adjustmentCompletedAt: now,
       returnRequestedDuringAdjustment: adjustmentDecision === "return",
-      productStage: adjustmentDecision === "resize_repack" ? "repacking" : adjustmentDecision === "store" ? "stored" : "shipping_ready",
+      productStage: nextStage,
+      productStageChangedAt: now,
+      [`productStageHistory/${now}`]: stageHistoryEntry(product?.productStage, nextStage, now),
       updatedAt: now
     });
     closeModal();
@@ -3401,7 +3424,8 @@ window.moveStoredToShippingReady = async function(productId) {
   }
   if (!confirm(`${product.name || "商品"}を発送準備中へ移動しますか？`)) return;
   try {
-    await update(ref(database, `products/${dataUid()}/${productId}`), { productStage: "shipping_ready", shippingReadyAt: Date.now(), updatedAt: Date.now() });
+    const now = Date.now();
+    await update(ref(database, `products/${dataUid()}/${productId}`), { productStage: "shipping_ready", shippingReadyAt: now, productStageChangedAt: now, [`productStageHistory/${now}`]: stageHistoryEntry(product.productStage, "shipping_ready", now), updatedAt: now });
     await loadData();
     storedView = "shipping_ready";
     renderStoredList();
@@ -4272,6 +4296,7 @@ function productDetailHtml(product) {
       <div class="detail-heading">管理者記載情報（1：受取・確認時）</div>
       <div class="detail-grid">
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
+        <div class="detail-label">ステータス履歴</div><div>${stageHistoryHtml(product)}</div>
         <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
         <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
@@ -4291,6 +4316,7 @@ function productDetailHtml(product) {
         <div class="detail-label">自動計算サイズ</div><div>${escapeHtml(boxPackageSizeText(product, true))}</div>
         <div class="detail-label">再梱包後重量（g）</div><div>${weightGramsText(product.repackedPackageWeight)}</div>
         <div class="detail-label">発送時予想重量</div><div>${estimatedShippingWeightHtml(product)}</div>
+        <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product, true)}</div>
       </div>
     </div>
   `;
