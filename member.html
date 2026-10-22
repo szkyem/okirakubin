@@ -937,14 +937,18 @@ onAuthStateChanged(auth, async (user) => {
         return;
       }
 
-      const [targetMemberSnapshot, targetInactiveSnapshot] = await Promise.all([
+      const [targetMemberSnapshot, targetInactiveSnapshot, targetSettingsSnapshot] = await Promise.all([
         get(ref(database, `members/${proxyUid}`)),
-        get(ref(database, `inactiveMembers/${proxyUid}`)).catch(() => ({ val: () => null }))
+        get(ref(database, `inactiveMembers/${proxyUid}`)).catch(() => ({ val: () => null })),
+        get(ref(database, `memberSettings/${proxyUid}`)).catch(() => ({ exists: () => false, val: () => null }))
       ]);
-      if (targetMemberSnapshot.val() !== true && targetInactiveSnapshot.val() !== true) {
-        await signOut(auth);
+      const targetExists = targetMemberSnapshot.val() === true
+        || targetInactiveSnapshot.val() === true
+        || targetSettingsSnapshot.exists();
+      if (!targetExists) {
+        currentUser = user;
         showLoginUI();
-        showLoginError("対象会員が見つかりません。");
+        showLoginError("代理修正の対象会員が見つかりません。このタブを閉じて、管理画面の会員情報を確認してください。");
         return;
       }
 
@@ -1949,6 +1953,15 @@ function applyProxyModeBanner() {
   appArea.prepend(banner);
 }
 
+function memberPageUrl(fileName) {
+  const url = new URL(fileName, window.location.href);
+  if (isAdminProxyMode && activeMemberUid) {
+    url.searchParams.set("proxyUid", activeMemberUid);
+    url.searchParams.set("adminProxy", "1");
+  }
+  return url.href;
+}
+
 modalCloseBtn.addEventListener("click", closeModal);
 modalBackdrop.addEventListener("click", (event) => {
   if (event.target === modalBackdrop) closeModal();
@@ -1960,7 +1973,7 @@ shippingModalBackdrop.addEventListener("click", (event) => {
 });
 
 cameraServiceBtn?.addEventListener("click", () => setActiveService("camera"));
-ebayServiceBtn?.addEventListener("click", () => { window.location.href = "member-ebay.html"; });
+ebayServiceBtn?.addEventListener("click", () => { window.location.href = memberPageUrl("member-ebay.html"); });
 showEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.remove("hidden"));
 closeEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.add("hidden"));
 ebayProductForm?.addEventListener("submit", saveEbayProduct);
@@ -2050,7 +2063,7 @@ function enabledMemberServices() {
 function applyServiceAvailability() {
   const services = enabledMemberServices();
   if (!services.camera && services.ebay) {
-    window.location.replace("member-ebay.html");
+    window.location.replace(memberPageUrl("member-ebay.html"));
     return;
   }
   const hasBoth = services.camera && services.ebay;
@@ -2063,7 +2076,7 @@ function setActiveService(service) {
   const services = enabledMemberServices();
   if (!services[service]) return;
   if (service === "ebay") {
-    window.location.href = "member-ebay.html";
+    window.location.href = memberPageUrl("member-ebay.html");
     return;
   }
   activeService = service;

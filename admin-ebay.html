@@ -2470,8 +2470,15 @@
       const ok = confirm(`${member.name || member.email || uid} の代理修正モードに入りますか？`);
       if (!ok) return;
 
-      const url = `member-ebay.html?proxyUid=${encodeURIComponent(uid)}&adminProxy=1`;
-      window.open(url, "_blank", "noopener");
+      const url = new URL("member-ebay.html", window.location.href);
+      url.searchParams.set("proxyUid", uid);
+      url.searchParams.set("adminProxy", "1");
+      const proxyWindow = window.open(url.href, "_blank");
+      if (proxyWindow) {
+        proxyWindow.opener = null;
+      } else {
+        showError(appError, "代理修正画面を開けませんでした。ブラウザのポップアップを許可して、もう一度お試しください。");
+      }
     }
 
     function renderInquiries() {
