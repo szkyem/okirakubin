@@ -271,14 +271,22 @@
     .stat-card.operator-waiting .stat-label { color: #854d0e; }
 
     .status-highlight-note {
-      margin: -10px 0 24px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      background: #fff7cc;
-      border: 1px solid #eab308;
+      margin: -8px 0 24px;
       color: #713f12;
       font-size: 13px;
       font-weight: 800;
+    }
+
+    .status-highlight-note::before {
+      content: "";
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 7px;
+      vertical-align: -2px;
+      border-radius: 3px;
+      background: #fff7cc;
+      border: 1px solid #eab308;
     }
 
     h2 {
@@ -1716,7 +1724,7 @@
       inspectionOnly: 1000,
       additionalKitItem: 300,
       photoOnly: 500,
-      returnHandling: 700,
+      returnHandling: 550,
       reshoot: 500,
       video: 500,
       thanksCard: 0,
@@ -1733,7 +1741,7 @@
       inspectionOnly: 1000,
       additionalKitItem: 0,
       photoOnly: 500,
-      returnHandling: 700,
+      returnHandling: 550,
       reshoot: 500,
       video: 500,
       thanksCard: 0,
@@ -1763,7 +1771,7 @@
       {
         id: "ebay_basic_shipping",
         title: "1. 基本発送料金",
-        columns: ["内容", "料金（税抜）", "備考"],
+        columns: ["内容", "料金（税込）", "備考"],
         rows: [
           ["そのまま発送・全サイズ共通", "400円", "サイズ調整・再梱包・検品なし。荷受け時の写真、重量・サイズの測定と報告を含みます。"]
         ],
@@ -1814,7 +1822,7 @@
       {
         id: "ebay_optional_fees",
         title: "5. その他オプション",
-        columns: ["サービス", "追加料金（税抜）"],
+        columns: ["サービス", "追加料金（税込）"],
         rows: [
           ["簡易検品", "250円"],
           ["詳細検品（通電確認は対応品のみ）", "750円〜"],
@@ -1824,7 +1832,7 @@
           ["動画撮影30秒", "300円"],
           ["リサイクル梱包", "0円"],
           ["新品梱包", "100円〜"],
-          ["仕入先への返品作業", "500円〜"]
+          ["仕入先への返品作業", "550円"]
         ],
         note: "仕入先への返品作業の返送料は別途となります。"
       },
@@ -2095,7 +2103,7 @@
           get(ref(db, "loginUsers")),
           get(ref(db, "products")),
           get(ref(db, "ebayInvoices")),
-          get(ref(db, "announcements")),
+          get(ref(db, "settings/ebayAnnouncements")),
           get(ref(db, "settings/basicInfo")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "memberSettings")).catch(() => ({ val: () => ({}) })),
           get(ref(db, "settings/companyInfo")).catch(() => ({ val: () => ({}) })),
@@ -2658,7 +2666,6 @@
       detailManagementHeader.innerHTML = `
         <span class="management-pill">管理番号 ${escapeHtml(member.managementNumber || "-")}</span>
         <span class="management-pill">${member.driveBaseUrl ? "Drive 設定済み" : "Drive 未設定"}</span>
-        <span class="management-pill">${member.inspectionSheetUrl ? "GSS 設定済み" : "GSS 未設定"}</span>
         <span class="management-pill">プラン ${escapeHtml(planTypeLabel(member.planType))}</span>
       `;
 
@@ -4858,20 +4865,6 @@
             <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
           </label>
 
-          <label>
-            検品結果GSS URL
-            <input name="inspectionSheetUrl" value="${escapeAttr(member.inspectionSheetUrl || "")}" placeholder="https://docs.google.com/spreadsheets/d/..." />
-          </label>
-
-          <label>
-            検品結果GSS シート名
-            <input name="inspectionSheetName" value="${escapeAttr(member.inspectionSheetName || "検品結果")}" />
-          </label>
-
-          <label class="full">
-            商品文生成通知URL
-            <input name="inspectionGeneratorWebhookUrl" value="${escapeAttr(member.inspectionGeneratorWebhookUrl || "")}" placeholder="https://script.google.com/macros/s/.../exec" />
-          </label>
 
           <label>
             Discord Webhook URL(検品発送連絡用)
@@ -5431,9 +5424,6 @@
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
-          const inspectionSheetUrl = getFormValue(formData, "inspectionSheetUrl");
-          const inspectionSheetName = getFormValue(formData, "inspectionSheetName") || "検品結果";
-          const inspectionGeneratorWebhookUrl = getFormValue(formData, "inspectionGeneratorWebhookUrl");
           const planType = getFormValue(formData, "planType");
           const enabledServices = { camera: formData.get("serviceCamera") === "on", ebay: formData.get("serviceEbay") === "on" };
           if (!enabledServices.camera && !enabledServices.ebay) {
@@ -5447,9 +5437,6 @@
             driveBaseUrl,
             discordWebhookUrl,
             discordLabelWebhookUrl,
-            inspectionSheetUrl,
-            inspectionSheetName,
-            inspectionGeneratorWebhookUrl,
             planType,
             enabledServices,
             updatedAt: now,
@@ -5760,7 +5747,7 @@
         }
 
         if (activeEdit.type === "announcement") {
-          await update(ref(db, `announcements/${activeEdit.id}`), {
+          await update(ref(db, `settings/ebayAnnouncements/${activeEdit.id}`), {
             message: getFormValue(formData, "message"),
             updatedAt: now,
             updatedBy: currentUser?.uid || "",
@@ -7576,10 +7563,10 @@ function firstInvoiceDate(item) {
         const groups = base.notRequiredGroups && base.notRequiredGroups.length
           ? base.notRequiredGroups
           : defaultNotRequiredConfirmationGroups(base.groups || []);
-        return groups.filter((group) => !isCameraOnlyConfirmationGroup(group));
+        return filterEbayConfirmationGroups(groups);
       }
 
-      return (base.groups || []).filter((group) => !isCameraOnlyConfirmationGroup(group));
+      return filterEbayConfirmationGroups(base.groups || []);
     }
 
     function defaultNotRequiredConfirmationGroups(groups) {
@@ -7709,13 +7696,25 @@ function firstInvoiceDate(item) {
       const hasLegacyLayout = savedSections.some((section) => legacyIds.has(section?.id));
       const sections = savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS;
 
-      return sections.map((section, sectionIndex) => ({
-        id: section.id || `section_${sectionIndex}`,
-        title: section.title || "",
-        columns: Array.isArray(section.columns) && section.columns.length ? section.columns : ["区分", "価格", "備考"],
-        rows: Array.isArray(section.rows) ? section.rows : [],
-        note: section.note || ""
-      }));
+      return sections.map((section, sectionIndex) => {
+        const columns = Array.isArray(section.columns) && section.columns.length
+          ? section.columns.map((column) => String(column || "").replace(/税抜/g, "税込"))
+          : ["区分", "価格", "備考"];
+        const rows = Array.isArray(section.rows)
+          ? section.rows.map((row) => {
+              const normalized = Array.isArray(row) ? [...row] : [];
+              if (String(normalized[0] || "").includes("仕入先への返品作業")) normalized[1] = "550円";
+              return normalized;
+            })
+          : [];
+        return {
+          id: section.id || `section_${sectionIndex}`,
+          title: section.title || "",
+          columns,
+          rows,
+          note: section.note || ""
+        };
+      });
     }
 
     function adminAdjustmentPriceRows() {
@@ -8077,7 +8076,10 @@ function firstInvoiceDate(item) {
         <article class="announcement-card">
           <div class="announcement-head">
             <div class="announcement-date">${escapeHtml(formatDateOnly(item.createdAt))}</div>
-            <button class="mini-btn" onclick="openAnnouncementEdit('${escapeAttr(item.id)}')">編集</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="mini-btn" onclick="openAnnouncementEdit('${escapeAttr(item.id)}')">編集</button>
+              <button class="danger-btn" onclick="deleteAnnouncement('${escapeAttr(item.id)}')">削除</button>
+            </div>
           </div>
           <div class="announcement-message">${escapeHtml(item.message || "-")}</div>
         </article>
@@ -8108,6 +8110,21 @@ function firstInvoiceDate(item) {
       editModalBackdrop.classList.add("show");
     }
 
+    async function deleteAnnouncement(id) {
+      const announcement = announcementsCache?.[id];
+      if (!announcement) return;
+      if (!confirm("このeBay向けお知らせを削除しますか？")) return;
+
+      hideError(appError);
+      try {
+        await set(ref(db, `settings/ebayAnnouncements/${id}`), null);
+        await loadAllData();
+        setMainTab("announcements");
+      } catch (error) {
+        showError(appError, `お知らせの削除に失敗しました。${error && error.message ? error.message : error}`);
+      }
+    }
+
     async function publishAnnouncement() {
       hideError(appError);
 
@@ -8122,7 +8139,7 @@ function firstInvoiceDate(item) {
       const id = `${now}_${currentUser?.uid || "admin"}`;
 
       try {
-        await set(ref(db, `announcements/${id}`), cleanForFirebase({
+        await set(ref(db, `settings/ebayAnnouncements/${id}`), cleanForFirebase({
           id,
           message,
           createdAt: now,
@@ -8384,6 +8401,7 @@ function firstInvoiceDate(item) {
     window.setConfirmationDateToday = setConfirmationDateToday;
     window.publishAnnouncement = publishAnnouncement;
     window.openAnnouncementEdit = openAnnouncementEdit;
+    window.deleteAnnouncement = deleteAnnouncement;
 
     invoiceMonthInput.addEventListener("change", renderInvoices);
 
@@ -8500,7 +8518,6 @@ function firstInvoiceDate(item) {
           section: "確認結果",
           rows: [
             { key: "receiptRemoval", label: "領収書の抜き取り", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
-            { key: "receivedItemCheck", label: "商品受品の確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
             { key: "appearanceCheck", label: "外観のチェック", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
             { key: "powerCheck", label: "通電確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
             { key: "functionCheck", label: "機能確認", options: ["確認済み", "要確認", "対象外"], defaultComment: "" },
@@ -8515,7 +8532,18 @@ function firstInvoiceDate(item) {
       const keys = configured.flatMap((group) => (group.rows || []).map((row) => row.key));
       const isLegacyDefault = keys.includes("contentsCheck") && !keys.includes("receiptRemoval") && !keys.includes("powerCheck");
       const groups = isLegacyDefault ? defaultConfirmationBase().groups : configured.length ? configured : defaultConfirmationBase().groups;
-      return groups.filter((group) => !isCameraOnlyConfirmationGroup(group));
+      return filterEbayConfirmationGroups(groups);
+    }
+
+    function isRemovedEbayConfirmationRow(row) {
+      return row?.key === "receivedItemCheck" || String(row?.label || "").trim() === "商品受品の確認";
+    }
+
+    function filterEbayConfirmationGroups(groups) {
+      return (groups || [])
+        .filter((group) => !isCameraOnlyConfirmationGroup(group))
+        .map((group) => ({ ...group, rows: (group.rows || []).filter((row) => !isRemovedEbayConfirmationRow(row)) }))
+        .filter((group) => group.rows.length);
     }
 
     function isCameraOnlyConfirmationGroup(group) {
@@ -8592,7 +8620,7 @@ function firstInvoiceDate(item) {
     }
 
     function requiredConfirmationLabels(workRequest) {
-      const base = ["領収書の抜き取り", "商品受品の確認"];
+      const base = ["領収書の抜き取り"];
       if (workRequest === "簡易検品") return [...base, "外観のチェック"];
       if (workRequest === "詳細検品") return [...base, "外観のチェック", "通電確認", "機能確認"];
       return base;
@@ -8637,6 +8665,7 @@ function firstInvoiceDate(item) {
       const savedEntries = Object.entries(values).filter(([key, entry]) => {
         if (!entry || typeof entry !== "object") return false;
         if (isCameraOnlyConfirmationEntry(entry)) return false;
+        if (isRemovedEbayConfirmationRow({ key, label: entry.label })) return false;
         return hasValue(entry.value) || hasValue(entry.comment) || hasValue(entry.defaultComment);
       });
 
