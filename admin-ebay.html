@@ -218,6 +218,7 @@
     }
 
     .stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stats.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
     .stat-card {
       min-height: 114px;
@@ -1123,7 +1124,7 @@
       }
 
       .user-area { justify-content: flex-start; }
-      .stats, .stats.four, .invoice-summary-grid { grid-template-columns: 1fr; }
+      .stats, .stats.four, .stats.five, .invoice-summary-grid { grid-template-columns: 1fr; }
       .invoice-summary-header { align-items: stretch; flex-direction: column; }
       .invoice-summary-month { min-width: 0; }
       .invoice-summary-formula { align-items: stretch; flex-direction: column; }
@@ -1248,10 +1249,14 @@
           </div>
         </div>
 
-        <div class="stats four">
+        <div class="stats five">
           <div id="detailRegisteredCard" class="stat-card clickable" onclick="setDetailView('registered')">
             <div class="stat-label">登録済み商品</div>
             <div id="detailRegisteredCount" class="stat-value">0</div>
+          </div>
+          <div id="detailAdjustingCard" class="stat-card clickable" onclick="setDetailView('adjusting')">
+            <div class="stat-label">調整中</div>
+            <div id="detailAdjustingCount" class="stat-value">0</div>
           </div>
           <div id="detailStoredCard" class="stat-card clickable" onclick="setDetailView('stored')">
             <div class="stat-label">保管商品</div>
@@ -1775,11 +1780,13 @@
     const detailManagementHeader = document.getElementById("detailManagementHeader");
 
     const detailRegisteredCard = document.getElementById("detailRegisteredCard");
+    const detailAdjustingCard = document.getElementById("detailAdjustingCard");
     const detailStoredCard = document.getElementById("detailStoredCard");
     const detailUnshippedCard = document.getElementById("detailUnshippedCard");
     const detailShippedCard = document.getElementById("detailShippedCard");
 
     const detailRegisteredCount = document.getElementById("detailRegisteredCount");
+    const detailAdjustingCount = document.getElementById("detailAdjustingCount");
     const detailStoredCount = document.getElementById("detailStoredCount");
     const detailUnshippedCount = document.getElementById("detailUnshippedCount");
     const detailShippedCount = document.getElementById("detailShippedCount");
@@ -2494,11 +2501,13 @@
       `;
 
       detailRegisteredCount.textContent = groups.registered.length;
+      detailAdjustingCount.textContent = groups.adjusting.length;
       detailStoredCount.textContent = groups.stored.length;
       detailUnshippedCount.textContent = groupedUnshippedCount;
       detailShippedCount.textContent = groupedShippedCount;
 
       setStatCard(detailRegisteredCard, groups.registered.length, "issue", detailView === "registered");
+      setStatCard(detailAdjustingCard, groups.adjusting.length, "warning", detailView === "adjusting");
       setStatCard(detailStoredCard, groups.stored.length, "neutral-hi", detailView === "stored");
       setStatCard(detailUnshippedCard, groupedUnshippedCount, "issue", detailView === "unshipped");
       setStatCard(detailShippedCard, groupedShippedCount, "neutral-hi", detailView === "shipped");
@@ -2530,7 +2539,7 @@
         return;
       }
 
-      if (detailView === "registered") {
+      if (detailView === "registered" || detailView === "adjusting") {
         detailTableArea.innerHTML = `
           <div class="table-wrap">
             <table>
@@ -2688,6 +2697,7 @@
 
     function getProductGroups(member) {
       const registered = [];
+      const adjusting = [];
       const stored = [];
       const unshipped = [];
       const shipped = [];
@@ -2703,6 +2713,10 @@
           unshipped.push(product);
         } else if (hasShootingDate) {
           stored.push(product);
+        } else if (product.productStage === "adjusting") {
+          adjusting.push(product);
+        } else if (product.productStage === "stored") {
+          stored.push(product);
         } else {
           registered.push(product);
         }
@@ -2717,10 +2731,27 @@
 
       return {
         registered: registered.sort(sorter),
+        adjusting: adjusting.sort(sorter),
         stored: stored.sort(sorter),
         unshipped: unshipped.sort(sorter),
         shipped: shipped.sort(shippedSorter)
       };
+    }
+
+    function productStageText(product) {
+      if (isShippedStatus(product?.shippingStatus)) return "発送済み";
+      if (hasValue(product?.shippingRequest)) return "発送手続き中";
+      if (product?.productStage === "adjusting") return "調整中";
+      if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
+      return "登録済み商品";
+    }
+
+    function adjustmentDecisionText(product) {
+      const decisions = { ship_as_is: "そのまま発送", resize_repack: "サイズ調整・再梱包", return: "返品を希望" };
+      const materials = { recycle_allowed: "リサイクル材を使用可", new_material: "新品資材を指定" };
+      const decision = decisions[product?.adjustmentDecision] || "未選択";
+      const material = product?.adjustmentDecision === "resize_repack" ? materials[product?.packagingMaterialChoice] || "資材未選択" : "";
+      return [decision, material].filter(Boolean).join("／");
     }
 
     function getDetailProducts(member) {
@@ -4012,6 +4043,9 @@
             <span>会員記載情報</span>
           </div>
           <div class="info-grid">
+            <div class="info-label">ステータス</div>
+            <div class="info-value">${escapeHtml(productStageText(product))}</div>
+
             <div class="info-label">商品名</div>
             <div class="info-value">${escapeHtml(product.name || "-")}</div>
 
@@ -4050,8 +4084,17 @@
             <div class="info-label">写真URL</div>
             <div class="info-value">${photoUrlControl(uid, productId, product)}</div>
 
-            <div class="info-label">予想サイズ</div>
-            <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
+            <div class="info-label">サイズ</div>
+            <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
+
+            <div class="info-label">重量</div>
+            <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
+
+            <div class="info-label">会員の調整選択</div>
+            <div class="info-value">${escapeHtml(adjustmentDecisionText(product))}</div>
+
+            <div class="info-label">調整時の連絡事項</div>
+            <div class="info-value">${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
 
             <div class="info-label">保管場所</div>
             <div class="info-value">${escapeHtml(product.storageLocation || "-")}</div>
@@ -4395,8 +4438,17 @@
             <div class="info-label">写真URL</div>
             <div class="info-value">${photoUrlControl(uid, product.id, product)}</div>
 
-            <div class="info-label">予想サイズ</div>
-            <div class="info-value">${escapeHtml(product.expectedSize || "-")}</div>
+            <div class="info-label">サイズ</div>
+            <div class="info-value">${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
+
+            <div class="info-label">重量</div>
+            <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
+
+            <div class="info-label">会員の調整選択</div>
+            <div class="info-value">${escapeHtml(adjustmentDecisionText(product))}</div>
+
+            <div class="info-label">調整時の連絡事項</div>
+            <div class="info-value">${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
 
             <div class="info-label">保管場所</div>
             <div class="info-value">${escapeHtml(product.storageLocation || "-")}</div>
@@ -4529,6 +4581,20 @@
             <p class="form-note">確認日を入れずに保存した場合は一時保存となり、保管商品には移動しません。</p>
           </div>
 
+          <label>
+            商品ステータス
+            <select name="productStage">
+              ${[
+                ["registered", "登録済み商品"],
+                ["adjusting", "調整中"],
+                ["stored", "保管商品"]
+              ].map(([value, label]) => {
+                const currentStage = product.productStage || (hasValue(product.shootingDate) ? "stored" : hasValue(product.confirmationDate) ? "adjusting" : "registered");
+                return `<option value="${value}" ${currentStage === value ? "selected" : ""}>${label}</option>`;
+              }).join("")}
+            </select>
+          </label>
+
           <div class="full info-box ${optionComment ? "highlight" : ""}">
             <div class="info-box-title">会員からのオプションコメント</div>
             <div style="white-space:pre-wrap;line-height:1.7;">${escapeHtml(optionComment || "記載なし")}</div>
@@ -4549,8 +4615,13 @@
           </div>
 
           <label>
-            予想サイズ
-            <input name="expectedSize" value="${escapeAttr(product.expectedSize || "")}" />
+            サイズ
+            <input name="packageSize" value="${escapeAttr(product.packageSize || product.expectedSize || "")}" placeholder="例：60サイズ" />
+          </label>
+
+          <label>
+            重量
+            <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
           </label>
 
           <label>
@@ -4595,7 +4666,7 @@
           <label>
             作業依頼
             <select name="workRequest">
-              ${["検品+写真", "写真のみ", "検品のみ", "保管のみ"].map((option) => `
+              ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((option) => `
                 <option value="${escapeAttr(option)}" ${product.workRequest === option ? "selected" : ""}>${escapeHtml(option)}</option>
               `).join("")}
             </select>
@@ -4610,6 +4681,7 @@
             <div class="info-box-title" style="margin-bottom:8px;">
               <span>オプション</span>
             </div>
+            <label><input type="checkbox" name="optionPhoto" ${isOptionEnabled(product.optionPhoto) || isOptionEnabled(product.options?.photo) ? "checked" : ""} /> 写真撮影</label>
             <label><input type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) || isOptionEnabled(product.options?.video) ? "checked" : ""} /> 動画撮影</label>
             <label><input type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) || isOptionEnabled(product.options?.thanksCard) ? "checked" : ""} /> Thanksカード同梱</label>
           </div>
@@ -5042,6 +5114,7 @@
           if (!ok) return;
 
           const optionVideo = formData.get("optionVideo") === "on";
+          const optionPhoto = formData.get("optionPhoto") === "on";
           const optionThanksCard = formData.get("optionThanksCard") === "on";
           const optionOkirakuInsert = false;
           const optionLabels = [];
@@ -5067,12 +5140,14 @@
             accessoryCount,
             purchaseUrl: getFormValue(formData, "purchaseUrl"),
             optionVideo,
+            optionPhoto,
             optionThanksCard,
             optionOkirakuInsert,
             optionLabels,
             optionComment: getFormValue(formData, "optionComment"),
             options: {
               video: optionVideo,
+              photo: optionPhoto,
               thanksCard: optionThanksCard,
               okirakuInsert: optionOkirakuInsert,
               comment: getFormValue(formData, "optionComment")
@@ -5086,6 +5161,7 @@
 
         if (activeEdit.type === "adminFields") {
           const confirmationDate = getFormValue(formData, "confirmationDate");
+          const productStage = getFormValue(formData, "productStage") || "registered";
           const confirmationResult = buildConfirmationResult(formData);
           const product = findProduct(activeEdit.uid, activeEdit.productId);
           const member = findMember(activeEdit.uid);
@@ -5095,20 +5171,27 @@
             showError(appError, "会員からのオプションコメントを確認し、確認済みのチェックを入れてください。");
             return;
           }
-          const shouldNotifyStored = product && !hasValue(product.shootingDate) && hasValue(confirmationDate);
-          const shouldCancelStoredNotification = product && hasValue(product.shootingDate) && !hasValue(confirmationDate);
+          if (productStage === "stored" && !confirmationDate) {
+            showError(appError, "保管商品へ変更する場合は確認日を入力してください。");
+            return;
+          }
+          const shouldNotifyStored = product && productStage === "stored" && product.productStage !== "stored" && !hasValue(product.shootingDate);
+          const shouldCancelStoredNotification = product && productStage !== "stored" && (product.productStage === "stored" || hasValue(product.shootingDate));
 
           const adminFieldUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationDate`]: confirmationDate,
-            [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: confirmationDate,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/shootingDate`]: productStage === "stored" ? confirmationDate : "",
+            [`products/${activeEdit.uid}/${activeEdit.productId}/productStage`]: productStage,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationResult`]: confirmationResult,
             [`products/${activeEdit.uid}/${activeEdit.productId}/confirmationTemplate`]: buildConfirmationTemplateData(formData),
             [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewed`]: optionComment ? optionCommentReviewed : false,
             [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedText`]: optionComment ? optionComment : "",
             [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedAt`]: optionComment ? now : null,
             [`products/${activeEdit.uid}/${activeEdit.productId}/optionCommentReviewedBy`]: optionComment ? currentUser?.uid || "" : "",
-            [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "expectedSize"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "packageSize"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/packageSize`]: getFormValue(formData, "packageSize"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/packageWeight`]: getFormValue(formData, "packageWeight"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/driveBaseUrl`]: member?.driveBaseUrl || "",
             [`products/${activeEdit.uid}/${activeEdit.productId}/folderName`]: makeFolderName(product?.numbering, product?.name)
@@ -5125,7 +5208,10 @@
                 confirmationDate,
                 shootingDate: confirmationDate,
                 confirmationResult,
-                expectedSize: getFormValue(formData, "expectedSize")
+                expectedSize: getFormValue(formData, "packageSize"),
+                packageSize: getFormValue(formData, "packageSize"),
+                packageWeight: getFormValue(formData, "packageWeight"),
+                productStage
               }
             }));
           }
@@ -7752,6 +7838,7 @@ function firstInvoiceDate(item) {
       const optionLabels = Array.isArray(product.optionLabels) ? product.optionLabels : [];
 
       if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
+      if (isOptionEnabled(product.optionPhoto) || isOptionEnabled(optionObject.photo)) options.push("写真撮影");
       if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("Thanksカード同梱");
       optionLabels.forEach((label) => {
         if (label && !label.includes("お気楽便Thanksカード") && !options.includes(label)) options.push(label);

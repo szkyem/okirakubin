@@ -347,6 +347,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
   <section class="section show" id="overview">
     <div class="grid">
       <div class="stat" onclick="goToStoredView('registered')"><div class="stat-label">登録済み商品</div><div class="stat-value" id="productCount">0</div></div>
+      <div class="stat" onclick="goToStoredView('adjusting')"><div class="stat-label">調整中</div><div class="stat-value" id="adjustingCount">0</div></div>
       <div class="stat" onclick="goToStoredView('stored')"><div class="stat-label">保管商品</div><div class="stat-value" id="storedCount">0</div></div>
       <div class="stat" onclick="goToShippingView('unshipped')"><div class="stat-label">未発送</div><div class="stat-value" id="unshippedCount">0</div></div>
       <div class="stat" onclick="goToShippingView('shipped')"><div class="stat-label">発送済み</div><div class="stat-value" id="shippedCount">0</div></div>
@@ -383,6 +384,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
 
     <div class="ship-filter">
       <button class="ship-filter-btn active" id="storedFilterBtn" type="button">保管商品</button>
+      <button class="ship-filter-btn" id="adjustingStoredFilterBtn" type="button">調整中</button>
       <button class="ship-filter-btn" id="registeredStoredFilterBtn" type="button">登録済み商品</button>
     </div>
 
@@ -929,6 +931,7 @@ const returnPickupMemo = document.getElementById("returnPickupMemo");
 const internationalMethodSelect = document.getElementById("internationalMethodSelect");
 const internationalPickupDate = document.getElementById("internationalPickupDate");
 const registeredStoredFilterBtn = document.getElementById("registeredStoredFilterBtn");
+const adjustingStoredFilterBtn = document.getElementById("adjustingStoredFilterBtn");
 const storedFilterBtn = document.getElementById("storedFilterBtn");
 const storedSearchInput = document.getElementById("storedSearchInput");
 const unshippedFilterBtn = document.getElementById("unshippedFilterBtn");
@@ -1600,6 +1603,11 @@ registeredStoredFilterBtn.addEventListener("click", () => {
   renderStoredList();
 });
 
+adjustingStoredFilterBtn.addEventListener("click", () => {
+  storedView = "adjusting";
+  renderStoredList();
+});
+
 storedFilterBtn.addEventListener("click", () => {
   storedView = "stored";
   renderStoredList();
@@ -1660,13 +1668,14 @@ registerProductsBtn.addEventListener("click", async () => {
       lensCount: "0",
       accessoryCount: "0",
       optionVideo: entry.querySelector('[data-field="optionVideo"]').checked,
+      optionPhoto: entry.querySelector('[data-field="optionPhoto"]').checked,
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
       optionOkirakuInsert: false,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
       note: entry.querySelector('[data-field="note"]')?.value.trim() || "",
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
     };
-  }).filter((item) => item.name || item.numbering || item.note || item.purchaseUrl || item.optionVideo || item.optionThanksCard || item.optionComment);
+  }).filter((item) => item.name || item.numbering || item.note || item.purchaseUrl || item.optionVideo || item.optionPhoto || item.optionThanksCard || item.optionComment);
 
   if (!payloads.length) {
     showError("登録する商品を入力してください。");
@@ -1696,6 +1705,7 @@ registerProductsBtn.addEventListener("click", async () => {
         lensCount: item.lensCount,
         accessoryCount: item.accessoryCount,
         optionVideo: item.optionVideo,
+        optionPhoto: item.optionPhoto,
         optionThanksCard: item.optionThanksCard,
         optionOkirakuThanksCard: item.optionOkirakuInsert,
         optionFlyer: item.optionOkirakuInsert,
@@ -1703,6 +1713,7 @@ registerProductsBtn.addEventListener("click", async () => {
         optionComment: item.optionComment,
         options: {
           video: item.optionVideo,
+          photo: item.optionPhoto,
           thanksCard: item.optionThanksCard,
           okirakuThanksCard: item.optionOkirakuInsert,
           flyer: item.optionOkirakuInsert,
@@ -1723,6 +1734,7 @@ registerProductsBtn.addEventListener("click", async () => {
         shootingDate: "",
         storageLocation: "",
         status: "registered",
+        productStage: "registered",
         createdAt: now + index,
         updatedAt: now
       });
@@ -2126,12 +2138,14 @@ async function loadData() {
     applyWriteLockState();
 
     const registeredProducts = getRegisteredProducts();
+    const adjustingProducts = getAdjustingProducts();
     const storedProducts = getStoredProducts();
     const selectableIds = new Set(storedProducts.map((product) => product.id));
     selectedProductIds = new Set([...selectedProductIds].filter((id) => selectableIds.has(id)));
     selectedGssExportIds = new Set([...selectedGssExportIds].filter((id) => selectableIds.has(id)));
 
     document.getElementById("productCount").textContent = registeredProducts.length;
+    document.getElementById("adjustingCount").textContent = adjustingProducts.length;
     document.getElementById("storedCount").textContent = storedProducts.length;
     document.getElementById("unshippedCount").textContent = groupedShippingItems(productsCache.filter((product) => hasValue(product.shippingRequest) && !isShippedStatus(product.shippingStatus))).length;
     document.getElementById("shippedCount").textContent = groupedShippingItems(productsCache.filter((product) => isShippedStatus(product.shippingStatus))).length;
@@ -2392,31 +2406,32 @@ function applyWriteLockState() {
 
 function getRegisteredProducts() {
   return productsCache.filter((product) => {
-    return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate);
+    return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage !== "adjusting" && product.productStage !== "stored";
   });
+}
+
+function getAdjustingProducts() {
+  return productsCache.filter((product) => !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage === "adjusting");
 }
 
 function getStoredProducts() {
   return productsCache.filter((product) => {
-    return !hasValue(product.shippingRequest) && hasValue(product.shootingDate);
+    return !hasValue(product.shippingRequest) && (hasValue(product.shootingDate) || product.productStage === "stored");
   });
 }
 
 function renderStoredList() {
   registeredStoredFilterBtn.classList.toggle("active", storedView === "registered");
+  adjustingStoredFilterBtn.classList.toggle("active", storedView === "adjusting");
   storedFilterBtn.classList.toggle("active", storedView === "stored");
 
-  const baseProducts = storedView === "registered"
-    ? getRegisteredProducts()
-    : getStoredProducts();
+  const baseProducts = storedView === "registered" ? getRegisteredProducts() : storedView === "adjusting" ? getAdjustingProducts() : getStoredProducts();
   const searchKeyword = normalizeSearch(storedSearchInput.value);
   const products = searchKeyword
     ? baseProducts.filter((product) => normalizeSearch(`${product.name || ""} ${product.numbering || ""}`).includes(searchKeyword))
     : baseProducts;
 
-  const emptyMessage = storedView === "registered"
-    ? "登録済み商品はありません"
-    : "保管商品はありません";
+  const emptyMessage = storedView === "registered" ? "登録済み商品はありません" : storedView === "adjusting" ? "調整中の商品はありません" : "保管商品はありません";
 
   document.getElementById("storedList").innerHTML =
     products.length ? productTable(products, { mode: storedView }) + (storedView === "stored" ? gssExportActionBar() + bulkActionBar() : "") : emptyHtml(searchKeyword ? "検索条件に一致する商品はありません" : emptyMessage);
@@ -2565,29 +2580,56 @@ function simulatorPriceText(value, prefix = false, approximate = false) {
   return `${prefix ? "+" : ""}${Number(value).toLocaleString("ja-JP")}円${approximate ? "〜" : ""}`;
 }
 
+function simulatorColumnIndex(section, patterns, fallbackIndex = -1) {
+  const columns = Array.isArray(section?.columns) ? section.columns : [];
+  const index = columns.findIndex((column) => patterns.some((pattern) => pattern.test(String(column || ""))));
+  return index >= 0 ? index : fallbackIndex;
+}
+
+function simulatorSizeKey(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .replace(/梱包後|サイズ|超過|より大きい|\s/g, "")
+    .replace(/以上/g, "超")
+    .toLowerCase();
+}
+
 function simulatorRateData() {
   const sections = publicPriceSections();
   const basicSection = sections.find((section) => section.id === "ebay_basic_shipping");
   const sizeSection = sections.find((section) => section.id === "ebay_size_repacking");
   const materialSection = sections.find((section) => section.id === "ebay_packaging_materials");
   const optionSection = sections.find((section) => section.id === "ebay_optional_fees");
-  const baseFee = simulatorPriceNumber(basicSection?.rows?.[0]?.[1]) ?? 400;
+  const basicPriceIndex = simulatorColumnIndex(basicSection, [/料金/, /価格/], 1);
+  const baseFee = simulatorPriceNumber(basicSection?.rows?.[0]?.[basicPriceIndex]) ?? 400;
+  const sizeLabelIndex = simulatorColumnIndex(sizeSection, [/梱包後.*サイズ/, /サイズ/], 0);
+  const sizeAdjustmentIndex = simulatorColumnIndex(sizeSection, [/サイズ.*調整.*追加/, /調整.*料金/, /追加料金/], 2);
+  const sizeTotalIndex = simulatorColumnIndex(sizeSection, [/合計/], 3);
+  const materialSizeIndex = simulatorColumnIndex(materialSection, [/梱包後.*サイズ/, /サイズ/], 0);
+  const recycleIndex = simulatorColumnIndex(materialSection, [/リサイクル/, /再利用/], 1);
+  const newMaterialIndex = simulatorColumnIndex(materialSection, [/新品/], 2);
   const materialRows = materialSection?.rows || [];
   const sizes = (sizeSection?.rows || []).map((row) => {
-    const materialRow = materialRows.find((item) => String(item[0] || "") === String(row[0] || "")) || [];
+    const label = String(row[sizeLabelIndex] || "");
+    const materialRow = materialRows.find((item) => simulatorSizeKey(item[materialSizeIndex]) === simulatorSizeKey(label)) || [];
+    const directAdjustment = simulatorPriceNumber(row[sizeAdjustmentIndex]);
+    const totalPrice = simulatorPriceNumber(row[sizeTotalIndex]);
+    const adjustment = directAdjustment ?? (totalPrice === null ? null : Math.max(0, totalPrice - baseFee));
     return {
-    label: String(row[0] || ""),
-    sizeAdjustment: simulatorPriceNumber(row[2]),
-    sizeAdjustmentText: String(row[2] || ""),
-    recycleMaterial: simulatorPriceNumber(materialRow[1]),
-    recycleMaterialText: String(materialRow[1] || ""),
-    newMaterial: simulatorPriceNumber(materialRow[2]),
-    newMaterialText: String(materialRow[2] || "")
+    label,
+    sizeAdjustment: adjustment,
+    sizeAdjustmentText: String(row[sizeAdjustmentIndex] || row[sizeTotalIndex] || ""),
+    recycleMaterial: materialRow.length ? simulatorPriceNumber(materialRow[recycleIndex]) : 0,
+    recycleMaterialText: materialRow.length ? String(materialRow[recycleIndex] || "") : "0円",
+    newMaterial: materialRow.length ? simulatorPriceNumber(materialRow[newMaterialIndex]) : null,
+    newMaterialText: materialRow.length ? String(materialRow[newMaterialIndex] || "") : "個別見積"
   };
   }).filter((row) => row.label);
+  const optionNameIndex = simulatorColumnIndex(optionSection, [/サービス/, /内容/, /項目/], 0);
+  const optionPriceIndex = simulatorColumnIndex(optionSection, [/料金/, /価格/], 1);
   const optionValue = (keyword, fallback) => {
-    const row = (optionSection?.rows || []).find((item) => String(item[0] || "").includes(keyword));
-    return row ? { value: simulatorPriceNumber(row[1]), text: String(row[1] || "") } : { value: fallback, text: `${fallback}円` };
+    const row = (optionSection?.rows || []).find((item) => String(item[optionNameIndex] || "").includes(keyword));
+    return row ? { value: simulatorPriceNumber(row[optionPriceIndex]), text: String(row[optionPriceIndex] || "") } : { value: fallback, text: `${fallback}円` };
   };
   return { baseFee, sizes, simple: optionValue("簡易検品", 250), detail: optionValue("詳細検品（", 750) };
 }
@@ -2680,11 +2722,8 @@ function addProductEntry() {
       </div>
 
       <div class="form-group full">
-        <label>検品・作業内容（商品登録時に選択／複数選択可） *</label>
-        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="内容物の確認"><span>内容物の確認</span></div>
-        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="外観のチェック"><span>外観のチェック</span></div>
-        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="写真"><span>写真</span></div>
-        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-work-request value="確認不要"><span>確認不要</span></div>
+        <label>検品・作業内容（いずれか1つを選択） *</label>
+        ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<div class="checkbox-line"><input class="shipping-check" type="radio" name="workRequest_${entryCount}" data-work-request value="${label}"><span>${label}</span></div>`).join("")}
       </div>
 
       <div class="form-group">
@@ -2694,6 +2733,7 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>オプション</label>
+        <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionPhoto"><span>写真撮影</span></div>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionVideo"><span>動画撮影</span></div>
         <div class="checkbox-line"><input class="shipping-check" type="checkbox" data-field="optionThanksCard"><span>サンクスカード同梱</span></div>
       </div>
@@ -2710,7 +2750,8 @@ function addProductEntry() {
     if (document.querySelectorAll(".product-entry").length === 1) {
       entry.querySelectorAll("input,textarea").forEach((input) => input.value = "");
       entry.querySelectorAll('input[type="checkbox"]').forEach((input) => input.checked = false);
-      entry.querySelector("select").selectedIndex = 0;
+      const select = entry.querySelector("select");
+      if (select) select.selectedIndex = 0;
       return;
     }
 
@@ -2723,6 +2764,7 @@ function addProductEntry() {
 function productTable(products, options = {}) {
   const mode = options.mode || "registered";
   const isRegistered = mode === "registered";
+  const isAdjusting = mode === "adjusting";
   const isStored = mode === "stored";
   const isShipping = mode === "shipping";
 
@@ -2736,7 +2778,7 @@ function productTable(products, options = {}) {
             <th>ナンバリング</th>
             ${isShipping ? "<th>発送情報</th>" : ""}
             <th>${isShipping ? "商品情報" : "情報"}</th>
-            ${isRegistered ? "<th>操作</th>" : ""}
+            ${isRegistered || isAdjusting ? "<th>操作</th>" : ""}
             ${isStored ? "<th>撮影日</th><th>料金</th><th>GSS出力</th>" : ""}
             ${isShipping ? shippingMetaHeaderHtml() : ""}
           </tr>
@@ -2751,6 +2793,7 @@ function productTable(products, options = {}) {
 
 function productRow(product, mode = "registered") {
   const isRegistered = mode === "registered";
+  const isAdjusting = mode === "adjusting";
   const isStored = mode === "stored";
   const isShipping = mode === "shipping";
 
@@ -2774,6 +2817,12 @@ function productRow(product, mode = "registered") {
             <button class="secondary compact-btn" type="button" onclick="openProductEdit('${escapeAttr(product.id)}')">編集</button>
             <button class="danger compact-btn" type="button" onclick="deleteRegisteredProduct('${escapeAttr(product.id)}')">削除</button>
           </div>
+        </td>
+      ` : ""}
+      ${isAdjusting ? `
+        <td class="mobile-full" data-label="調整内容">
+          <button class="secondary compact-btn" type="button" onclick="openAdjustmentDecision('${escapeAttr(product.id)}')">${product.adjustmentDecision ? "選択内容を変更" : "対応を選択"}</button>
+          ${product.adjustmentDecision ? `<div class="member-meta" style="margin-top:6px;">${escapeHtml(adjustmentDecisionText(product))}</div>` : ""}
         </td>
       ` : ""}
       ${isStored ? `<td data-label="撮影日">${escapeHtml(product.shootingDate || "-")}</td><td class="mobile-action" data-label="料金">${feeButtonHtml(product)}</td><td class="mobile-full" data-label="GSS出力">${gssExportButtonHtml(product)}</td>` : ""}
@@ -3018,8 +3067,108 @@ function isShippedStatus(value) {
 }
 
 function canEditProduct(product) {
-  return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate);
+  return !hasValue(product.shippingRequest) && !hasValue(product.shootingDate) && product.productStage !== "adjusting" && product.productStage !== "stored";
 }
+
+function productStageText(product) {
+  if (isShippedStatus(product?.shippingStatus)) return "発送済み";
+  if (hasValue(product?.shippingRequest)) return "発送手続き中";
+  if (product?.productStage === "adjusting") return "調整中";
+  if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
+  return "登録済み商品";
+}
+
+function adjustmentDecisionText(product) {
+  const decisions = {
+    ship_as_is: "そのまま発送",
+    resize_repack: "サイズ調整・再梱包",
+    return: "返品を希望"
+  };
+  const materials = {
+    recycle_allowed: "リサイクル材を使用可",
+    new_material: "新品資材を指定"
+  };
+  const decision = decisions[product?.adjustmentDecision] || "未選択";
+  const material = product?.adjustmentDecision === "resize_repack" ? materials[product?.packagingMaterialChoice] || "資材未選択" : "";
+  return [decision, material].filter(Boolean).join("／");
+}
+
+window.openAdjustmentDecision = function(productId) {
+  if (!ensureWritableAction("調整内容の選択")) return;
+  const product = productsCache.find((item) => item.id === productId);
+  if (!product || product.productStage !== "adjusting") {
+    showError("調整中の商品を確認できません。再読み込みしてください。");
+    return;
+  }
+  openModal("調整内容を選択", `
+    <form class="modal-form" onsubmit="saveAdjustmentDecision(event, '${escapeAttr(product.id)}')">
+      <div class="form-group full">
+        <label>今後の対応 <span class="required">必須</span></label>
+        <select name="adjustmentDecision" onchange="updateAdjustmentDecisionFields(this.value)" required>
+          <option value="">選択してください</option>
+          <option value="ship_as_is" ${product.adjustmentDecision === "ship_as_is" ? "selected" : ""}>そのまま発送</option>
+          <option value="resize_repack" ${product.adjustmentDecision === "resize_repack" ? "selected" : ""}>サイズ調整・再梱包</option>
+          <option value="return" ${product.adjustmentDecision === "return" ? "selected" : ""}>返品を希望</option>
+        </select>
+      </div>
+      <div id="adjustmentMaterialFields" class="form-group full">
+        <label>梱包資材 <span class="required">必須</span></label>
+        <select name="packagingMaterialChoice">
+          <option value="">選択してください</option>
+          <option value="recycle_allowed" ${product.packagingMaterialChoice === "recycle_allowed" ? "selected" : ""}>リサイクル材を使用可</option>
+          <option value="new_material" ${product.packagingMaterialChoice === "new_material" ? "selected" : ""}>新品資材を指定</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>連絡事項（任意）</label>
+        <textarea name="adjustmentDecisionMemo" placeholder="返品方法など、管理者へ伝えたい内容を入力してください。">${escapeHtml(product.adjustmentDecisionMemo || "")}</textarea>
+      </div>
+      <button type="submit" style="width:100%;">保存する</button>
+    </form>
+  `, true);
+  updateAdjustmentDecisionFields(product.adjustmentDecision || "");
+};
+
+window.updateAdjustmentDecisionFields = function(value) {
+  const fields = document.getElementById("adjustmentMaterialFields");
+  if (!fields) return;
+  const visible = value === "resize_repack";
+  fields.style.display = visible ? "block" : "none";
+  const select = fields.querySelector("select");
+  if (select) select.required = visible;
+};
+
+window.saveAdjustmentDecision = async function(event, productId) {
+  event.preventDefault();
+  clearError();
+  if (!currentUser || !ensureWritableAction("調整内容の保存")) return;
+  const formData = new FormData(event.target);
+  const adjustmentDecision = String(formData.get("adjustmentDecision") || "");
+  const packagingMaterialChoice = adjustmentDecision === "resize_repack" ? String(formData.get("packagingMaterialChoice") || "") : "";
+  if (!adjustmentDecision || (adjustmentDecision === "resize_repack" && !packagingMaterialChoice)) {
+    showError("対応内容と梱包資材を選択してください。");
+    return;
+  }
+  try {
+    await update(ref(database, `products/${dataUid()}/${productId}`), {
+      adjustmentDecision,
+      packagingMaterialChoice,
+      adjustmentDecisionMemo: String(formData.get("adjustmentDecisionMemo") || "").trim(),
+      adjustmentDecisionAt: Date.now(),
+      returnRequestedDuringAdjustment: adjustmentDecision === "return",
+      updatedAt: Date.now()
+    });
+    closeModal();
+    await loadData();
+    setMemberTab("stored");
+    storedView = "adjusting";
+    renderStoredList();
+    showSuccess("調整内容を保存しました。");
+  } catch (error) {
+    console.error(error);
+    showError("調整内容の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+};
 
 function optionSummary(product) {
   const options = [];
@@ -3027,6 +3176,7 @@ function optionSummary(product) {
   const optionLabels = Array.isArray(product.optionLabels) ? product.optionLabels : [];
 
   if (isOptionEnabled(product.optionVideo) || isOptionEnabled(optionObject.video)) options.push("動画撮影");
+  if (isOptionEnabled(product.optionPhoto) || isOptionEnabled(optionObject.photo)) options.push("写真撮影");
   if (isOptionEnabled(product.optionThanksCard) || isOptionEnabled(optionObject.thanksCard)) options.push("サンクスカード同梱");
   optionLabels.forEach((label) => {
     if (label && !label.includes("お気楽便Thanksカード") && !options.includes(label)) options.push(label);
@@ -3045,7 +3195,7 @@ function linkOrDash(value) {
 }
 
 function workRequestOptions(current) {
-  const options = ["検品+写真", "写真のみ", "検品のみ", "保管のみ"];
+  const options = ["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"];
   return `<option value="">選択してください</option>${options.map((option) => `
     <option value="${escapeAttr(option)}" ${String(current || "") === option ? "selected" : ""}>${escapeHtml(option)}</option>
   `).join("")}`;
@@ -3269,8 +3419,8 @@ window.openProductEdit = function(productId) {
         </div>
 
         <div class="form-group full">
-          <label>作業依頼（複数選択可） <span class="required">必須</span></label>
-          ${["内容物の確認", "外観のチェック", "写真", "確認不要"].map((label) => `<div class="checkbox-line"><input class="shipping-check" type="checkbox" name="workRequestOption" value="${label}" ${String(product.workRequest || "").includes(label) ? "checked" : ""}><span>${label}</span></div>`).join("")}
+          <label>検品・作業内容 <span class="required">必須</span></label>
+          ${["そのまま発送", "簡易検品", "詳細検品", "開梱して保管"].map((label) => `<div class="checkbox-line"><input class="shipping-check" type="radio" name="workRequestOption" value="${label}" ${String(product.workRequest || "") === label ? "checked" : ""}><span>${label}</span></div>`).join("")}
         </div>
 
         <div class="form-group">
@@ -3280,6 +3430,7 @@ window.openProductEdit = function(productId) {
 
         <div class="form-group full">
           <label>オプション</label>
+          <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionPhoto" ${isOptionEnabled(product.optionPhoto) ? "checked" : ""}><span>写真撮影</span></div>
           <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionVideo" ${isOptionEnabled(product.optionVideo) ? "checked" : ""}><span>動画撮影</span></div>
           <div class="checkbox-line"><input class="shipping-check" type="checkbox" name="optionThanksCard" ${isOptionEnabled(product.optionThanksCard) ? "checked" : ""}><span>サンクスカード同梱</span></div>
         </div>
@@ -3313,6 +3464,7 @@ window.saveProductEdit = async function(event, productId) {
     lensCount: "0",
     accessoryCount: "0",
     optionVideo: formData.get("optionVideo") === "on",
+    optionPhoto: formData.get("optionPhoto") === "on",
     optionThanksCard: formData.get("optionThanksCard") === "on",
     optionOkirakuInsert: false,
     optionComment: String(formData.get("optionComment") || "").trim(),
@@ -3328,6 +3480,7 @@ window.saveProductEdit = async function(event, productId) {
 
   data.options = {
     video: data.optionVideo,
+    photo: data.optionPhoto,
     thanksCard: data.optionThanksCard,
     okirakuThanksCard: data.optionOkirakuInsert,
     flyer: data.optionOkirakuInsert,
@@ -3862,6 +4015,7 @@ function productDetailHtml(product) {
         ` : ""}
       </div>
       <div class="detail-grid">
+        <div class="detail-label">ステータス</div><div>${escapeHtml(productStageText(product))}</div>
         <div class="detail-label">商品名</div><div>${escapeHtml(product.name || "-")}</div>
         <div class="detail-label">ナンバリング</div><div>${escapeHtml(product.numbering || "-")}</div>
         <div class="detail-label">作業依頼</div><div>${escapeHtml(product.workRequest || "-")}</div>
@@ -3878,7 +4032,10 @@ function productDetailHtml(product) {
         <div class="detail-label">確認日</div><div>${escapeHtml(product.confirmationDate || "-")}</div>
         <div class="detail-label">確認結果</div><div>${confirmationResultDisplayHtml(product)}</div>
         <div class="detail-label">写真URL</div><div>${product.photoUrl ? `<a href="${escapeAttr(product.photoUrl)}" target="_blank" rel="noopener">${escapeHtml(product.photoUrl)}</a>` : "-"}</div>
-        <div class="detail-label">予想サイズ</div><div>${escapeHtml(product.expectedSize || "-")}</div>
+        <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
+        <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
+        <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>
+        <div class="detail-label">調整時の連絡事項</div><div>${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
       </div>
     </div>
   `;
