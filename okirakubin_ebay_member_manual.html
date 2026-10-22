@@ -39,7 +39,7 @@
   <details id="top"><summary>1. トップ画面</summary><section class="content">
     <p>ログイン後、商品の件数と対応状況を確認できます。黄色の項目は会員様の操作待ちです。</p>
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/01_top.png" alt="eBay会員トップ画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：01_top.png</figcaption></figure>
-    <ul><li><strong>サイズ調整中</strong>：梱包方法などの選択が必要です。</li><li><strong>保管中</strong>：発送または再梱包の判断ができます。</li><li><strong>発送準備中</strong>：発送依頼を行える商品です。</li></ul>
+    <ul><li><strong>梱包依頼</strong>：梱包方法などの選択が必要です。</li><li><strong>保管中</strong>：発送または再梱包の判断ができます。</li><li><strong>発送依頼</strong>：発送方法を指定できます。</li></ul>
   </section></details>
 
   <details id="register"><summary>2. 商品登録</summary><section class="content">
@@ -47,40 +47,43 @@
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/02_product_register.png" alt="eBay商品登録画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：02_product_register.png</figcaption></figure>
     <h3>主な入力内容</h3><ul><li>商品名</li><li>管理番号（ナンバリング）</li><li>購入先URL（任意）</li><li>作業依頼</li><li>オプションとコメント（任意）</li></ul>
     <h3>検品・作業内容</h3><ul><li>検品不要</li><li>簡易検品</li><li>詳細検品</li><li>開梱して保管</li></ul>
-    <p>オプションでは写真撮影などを指定できます。登録直後の「登録済み商品」は、管理者の確認前であれば編集・削除できます。</p>
+    <p>オプションでは写真撮影などを指定できます。登録直後の「商品確認中」は、管理者の確認前であれば編集・削除できます。</p>
     <p class="warning">商品名・管理番号・作業依頼は必須です。商品ごとに管理番号が重複しないようご確認ください。</p>
   </section></details>
 
   <details id="status"><summary>3. 商品ステータス</summary><section class="content">
-    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/03_registered_adjusting.png" alt="登録済み商品とサイズ調整中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：03_registered_adjusting.png</figcaption></figure>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/03_registered_adjusting.png" alt="商品確認中と梱包依頼画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：03_registered_adjusting.png</figcaption></figure>
     <table><thead><tr><th>ステータス</th><th>内容</th><th>主な対応者</th></tr></thead><tbody>
-      <tr><td>登録済み商品</td><td>登録後、倉庫での確認を待っている状態</td><td>お気楽便</td></tr>
-      <tr><td>サイズ調整中</td><td>計測結果を確認し、発送・再梱包・保管・返品を選択する状態</td><td>会員様</td></tr>
-      <tr><td>再梱包中</td><td>選択内容に基づいて再梱包している状態</td><td>お気楽便</td></tr>
+      <tr><td>商品確認中</td><td>登録後、倉庫での確認を待っている状態</td><td>お気楽便</td></tr>
+      <tr><td>梱包依頼</td><td>計測結果を確認し、発送・再梱包・保管・返品を選択する状態</td><td>会員様</td></tr>
+      <tr><td>再梱包作業中</td><td>選択内容に基づいて再梱包している状態</td><td>お気楽便</td></tr>
       <tr><td>保管中</td><td>倉庫で保管している状態</td><td>会員様</td></tr>
-      <tr><td>発送準備中</td><td>発送依頼を行える状態</td><td>会員様</td></tr>
-      <tr><td>未発送</td><td>発送依頼後、発送完了を待っている状態</td><td>お気楽便</td></tr>
-      <tr><td>発送済み</td><td>発送が完了した状態</td><td>―</td></tr>
+      <tr><td>発送依頼</td><td>発送方法を指定して発送依頼を行う状態</td><td>会員様</td></tr>
+      <tr><td>発送作業中</td><td>発送依頼後、発送完了を待っている状態</td><td>お気楽便</td></tr>
+      <tr><td>発送完了</td><td>発送が完了した状態</td><td>―</td></tr>
     </tbody></table>
   </section></details>
 
-  <details id="adjust"><summary>4. サイズ調整中・再梱包</summary><section class="content">
-    <p>サイズ調整中では、管理者が入力した受取時のサイズ・重量・確認結果・写真を確認し、次の対応を選択します。</p>
+  <details id="adjust"><summary>4. 梱包依頼・再梱包作業中</summary><section class="content">
+    <p>梱包依頼では、管理者が入力した受取時のサイズ・重量・確認結果・写真を確認し、次の対応を選択します。</p>
     <ul><li>そのまま発送</li><li>サイズ調整・再梱包</li><li>保管する</li><li>返品を希望</li></ul>
     <p>「サイズ調整・再梱包」を選んだ場合は、梱包資材としてリサイクル材の使用可否なども指定します。</p>
-    <p>再梱包が必要な場合は「再梱包中」へ進み、作業後に再梱包後のサイズ・重量と梱包袋の使用可否が表示されます。</p>
-    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/04_repacking.png" alt="再梱包中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：04_repacking.png</figcaption></figure>
+    <p>再梱包が必要な場合は「再梱包作業中」へ進み、作業後に再梱包後のサイズ・重量と梱包袋の使用可否が表示されます。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/04_repacking.png" alt="再梱包作業中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：04_repacking.png</figcaption></figure>
     <p class="note">写真ボタンを押すと、登録された写真を大きく表示できます。写真URLが登録されている場合はリンクから確認できます。</p>
+    <h3>保管商品へ変更する場合</h3>
+    <p>梱包依頼または再梱包作業中の商品は、「保管商品へ移動」から保管へ変更できます。</p>
+    <p class="warning">保管へ変更する前に管理者への事前連絡が必要です。確認画面で「事前に管理者へ連絡しました」と、追加料金についての確認項目にチェックを入れてください。作業の中断・開梱・保管対応と、再度発送する際の再梱包には追加料金が発生します。</p>
   </section></details>
 
   <details id="shipping"><summary>5. 発送・返品依頼</summary><section class="content">
-    <p>発送準備中の商品を選択し、発送依頼を行います。配送サービスや発送日、必要なラベルファイルを登録してください。</p>
-    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/05_storage_shipping_ready.png" alt="保管中と発送準備中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：05_storage_shipping_ready.png</figcaption></figure>
+    <p>発送依頼の商品を選択し、配送サービスや発送日、必要なラベルファイルを登録してください。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/05_storage_shipping_ready.png" alt="保管中と発送依頼画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：05_storage_shipping_ready.png</figcaption></figure>
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/06_shipping_request.png" alt="発送依頼画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：06_shipping_request.png</figcaption></figure>
     <h3>返品方法</h3><ul><li>住所を指定して返品</li><li>QRコード・バーコードを連絡して返品</li><li>集荷を依頼して返品（集荷日時を指定）</li></ul>
-    <h3>発送準備中の商品を保管へ戻す場合</h3>
-    <p>発送準備中の商品を選択し、「選択中を保管商品へ戻す」から保管商品へ移動できます。</p>
-    <p class="warning">発送準備中の商品はすでに梱包されているため、保管時に梱包を解除します。再度発送する際には再梱包作業が必要となり、再梱包料金が改めて発生します。実行前の確認画面にも同じ内容が表示されます。</p>
+    <h3>発送依頼の商品を保管へ戻す場合</h3>
+    <p>発送依頼の商品を選択し、「選択中を保管商品へ戻す」から保管商品へ移動できます。</p>
+    <p class="warning">保管へ戻す前に管理者への事前連絡が必要です。発送依頼の商品はすでに梱包されているため、保管時に梱包を解除します。作業変更の追加料金と、再度発送する際の再梱包料金が発生します。確認画面の必須項目にチェックを入れた場合のみ移動できます。</p>
     <p class="warning">依頼確定前に、選択商品・配送方法・ラベルファイルを必ず確認してください。</p>
   </section></details>
 

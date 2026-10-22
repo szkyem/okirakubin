@@ -1239,15 +1239,15 @@
           <div id="totalMembers" class="stat-value">0</div>
         </div>
         <div class="stat-card operator-waiting">
-          <div class="stat-label">登録済み商品</div>
+          <div class="stat-label">商品確認中</div>
           <div id="totalRegistered" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">サイズ調整中</div>
+          <div class="stat-label">梱包依頼</div>
           <div id="totalAdjusting" class="stat-value">0</div>
         </div>
         <div class="stat-card operator-waiting">
-          <div class="stat-label">再梱包中</div>
+          <div class="stat-label">再梱包作業中</div>
           <div id="totalRepacking" class="stat-value">0</div>
         </div>
         <div class="stat-card">
@@ -1255,15 +1255,15 @@
           <div id="totalStored" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">発送準備中</div>
+          <div class="stat-label">発送依頼</div>
           <div id="totalShippingReady" class="stat-value">0</div>
         </div>
         <div class="stat-card operator-waiting">
-          <div class="stat-label">未発送</div>
+          <div class="stat-label">発送作業中</div>
           <div id="totalUnshipped" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">発送済み</div>
+          <div class="stat-label">発送完了</div>
           <div id="totalShipped" class="stat-value">0</div>
         </div>
       </div>
@@ -1298,10 +1298,10 @@
               <th>管理番号</th>
               <th>識別名</th>
               <th>会員</th>
-              <th>登録済み商品</th>
+              <th>商品確認中</th>
               <th>保管商品</th>
-              <th>未発送</th>
-              <th>発送済み</th>
+              <th>発送作業中</th>
+              <th>発送完了</th>
               <th>最終ログイン</th>
               <th>代理修正</th>
               <th>会員状態</th>
@@ -1333,31 +1333,31 @@
 
         <div class="stats seven">
           <div id="detailRegisteredCard" class="stat-card clickable operator-waiting" onclick="setDetailView('registered')">
-            <div class="stat-label">登録済み商品</div>
+            <div class="stat-label">商品確認中</div>
             <div id="detailRegisteredCount" class="stat-value">0</div>
           </div>
           <div id="detailAdjustingCard" class="stat-card clickable" onclick="setDetailView('adjusting')">
-            <div class="stat-label">サイズ調整中</div>
+            <div class="stat-label">梱包依頼</div>
             <div id="detailAdjustingCount" class="stat-value">0</div>
           </div>
           <div id="detailRepackingCard" class="stat-card clickable operator-waiting" onclick="setDetailView('repacking')">
-            <div class="stat-label">再梱包中</div>
+            <div class="stat-label">再梱包作業中</div>
             <div id="detailRepackingCount" class="stat-value">0</div>
           </div>
           <div id="detailStoredCard" class="stat-card clickable" onclick="setDetailView('stored')">
-            <div class="stat-label">保管商品</div>
+            <div class="stat-label">保管中</div>
             <div id="detailStoredCount" class="stat-value">0</div>
           </div>
           <div id="detailShippingReadyCard" class="stat-card clickable" onclick="setDetailView('shipping_ready')">
-            <div class="stat-label">発送準備中</div>
+            <div class="stat-label">発送依頼</div>
             <div id="detailShippingReadyCount" class="stat-value">0</div>
           </div>
           <div id="detailUnshippedCard" class="stat-card clickable operator-waiting" onclick="setDetailView('unshipped')">
-            <div class="stat-label">未発送</div>
+            <div class="stat-label">発送作業中</div>
             <div id="detailUnshippedCount" class="stat-value">0</div>
           </div>
           <div id="detailShippedCard" class="stat-card clickable" onclick="setDetailView('shipped')">
-            <div class="stat-label">発送済み</div>
+            <div class="stat-label">発送完了</div>
             <div id="detailShippedCount" class="stat-value">0</div>
           </div>
         </div>
@@ -1376,7 +1376,7 @@
         <div class="table-actions">
           <input id="shippingBatchSearchInput" class="member-search" type="search" placeholder="会員・商品名・ナンバリングで検索" />
           <button class="secondary-btn" type="button" onclick="loadAllData()">再読み込み</button>
-          <button class="primary-btn" type="button" onclick="saveShippingBatch()">選択中を発送済みにする</button>
+          <button class="primary-btn" type="button" onclick="saveShippingBatch()">選択中を発送完了にする</button>
         </div>
       </div>
       <p class="form-note">今日発送する商品を選択し、送り状作成後に追跡番号を同じ画面で入力してください。同梱商品は1つの発送単位としてまとめて処理されます。</p>
@@ -2877,7 +2877,7 @@
             対象月
             <input id="exportMonth" type="month" />
           </label>
-          <button class="primary-btn" onclick="exportCurrentDetailCsv()">発送済みをExcel出力</button>
+          <button class="primary-btn" onclick="exportCurrentDetailCsv()">発送完了をExcel出力</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -2964,17 +2964,17 @@
     }
 
     function productStageText(product) {
-      if (isShippedStatus(product?.shippingStatus)) return "発送済み";
-      if (hasValue(product?.shippingRequest)) return "発送手続き中";
-      if (product?.productStage === "adjusting") return "サイズ調整中";
-      if (product?.productStage === "repacking") return "再梱包中";
-      if (product?.productStage === "shipping_ready") return "発送準備中";
-      if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管商品";
-      return "登録済み商品";
+      if (isShippedStatus(product?.shippingStatus)) return "発送完了";
+      if (hasValue(product?.shippingRequest)) return "発送作業中";
+      if (product?.productStage === "adjusting") return "梱包依頼";
+      if (product?.productStage === "repacking") return "再梱包作業中";
+      if (product?.productStage === "shipping_ready") return "発送依頼";
+      if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管中";
+      return "商品確認中";
     }
 
     function productStageLabel(stage) {
-      return ({ registered: "登録済み商品", adjusting: "サイズ調整中", repacking: "再梱包中", stored: "保管商品", shipping_ready: "発送準備中", shipping_requested: "未発送", shipped: "発送済み" })[stage] || stage || "未設定";
+      return ({ registered: "商品確認中", adjusting: "梱包依頼", repacking: "再梱包作業中", stored: "保管中", shipping_ready: "発送依頼", shipping_requested: "発送作業中", shipped: "発送完了" })[stage] || stage || "未設定";
     }
 
     function normalizeWorkRequest(value) {
@@ -3272,7 +3272,7 @@
             <td>${escapeHtml(shippingDestinationPostalCode(product))}</td>
             <td>
               <select data-shipping-batch-status="${index}" onchange="updateShippingBatchPrice(${index})">
-                <option value="shipped" ${status === "shipped" ? "selected" : ""}>発送済み</option>
+                <option value="shipped" ${status === "shipped" ? "selected" : ""}>発送完了</option>
                 <option value="cash_on_delivery" ${status === "cash_on_delivery" ? "selected" : ""}>着払い発送</option>
               </select>
             </td>
@@ -3989,7 +3989,7 @@
         return;
       }
       if (isShippedStatus(product.shippingStatus)) {
-        showError(appError, "発送済みの商品はこの操作では保管商品に戻せません。");
+        showError(appError, "発送完了の商品はこの操作では保管中に戻せません。");
         return;
       }
       if (!hasValue(product.shippingRequest)) {
@@ -4107,7 +4107,7 @@
     function shippingStatusCellHtml(product, view) {
       if (product.bundleRole === "child") return `<span class="bundle-label">同梱</span>`;
       const bundleCount = product.shipmentGroupCount > 1 ? `<span class="bundle-count">同梱 ${escapeHtml(product.shipmentGroupCount)}点</span>` : "";
-      if (view === "unshipped") return `<span class="status-pill yellow">未発送</span>${bundleCount}`;
+      if (view === "unshipped") return `<span class="status-pill yellow">発送作業中</span>${bundleCount}`;
       return `<span class="status-pill ${product.shippingStatus === "cash_on_delivery" ? "gray" : "blue"}">${shippingStatusLabel(product.shippingStatus)}</span>${product.shippedDate ? `<span class="shipped-date">${escapeHtml(product.shippedDate)}</span>` : ""}${bundleCount}`;
     }
 
@@ -4198,7 +4198,7 @@
     }
 
     function ebayStatusLabel(value) {
-      return ({ registered: "登録済み", requested: "発送依頼済み", measured: "梱包情報確認済み", label_received: "ラベル受領済み", shipped: "発送済み" })[value || "registered"] || value || "登録済み";
+      return ({ registered: "商品確認中", requested: "発送作業中", measured: "梱包情報確認済み", label_received: "ラベル受領済み", shipped: "発送完了" })[value || "registered"] || value || "商品確認中";
     }
 
     function renderEbayAdminList() {
@@ -4221,7 +4221,7 @@
           <td>${escapeHtml(product.itemWeight || "-")}</td>
           <td><span class="status-pill ${product.ebayStatus === "shipped" ? "green" : product.ebayStatus === "requested" ? "yellow" : "blue"}">${escapeHtml(ebayStatusLabel(product.ebayStatus))}</span></td>
           <td>${escapeHtml(product.packageSize || "未登録")} / ${escapeHtml(product.packageWeight || "未登録")}${product.countryOfOrigin ? `<div class="member-meta">原産国 ${escapeHtml(product.countryOfOrigin)}</div>` : ""}</td>
-          <td><div class="inline-actions"><button class="mini-btn" type="button" onclick="openEbayPackagingEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">梱包情報</button>${product.ebayStatus === "label_received" ? `<button class="primary-btn" type="button" onclick="completeEbayShipping('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">発送済み</button>` : ""}</div></td>
+          <td><div class="inline-actions"><button class="mini-btn" type="button" onclick="openEbayPackagingEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">梱包情報</button>${product.ebayStatus === "label_received" ? `<button class="primary-btn" type="button" onclick="completeEbayShipping('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">発送完了</button>` : ""}</div></td>
         </tr>
       `).join("");
     }
@@ -4247,7 +4247,7 @@
     async function completeEbayShipping(uid, productId) {
       const member = findMember(uid);
       const product = member?.ebayProducts?.find((item) => item.id === productId);
-      if (!product || !confirm(`${product.name || "この商品"} を発送済みにしますか？`)) return;
+      if (!product || !confirm(`${product.name || "この商品"} を発送完了にしますか？`)) return;
       try {
         const now = Date.now();
         await update(ref(db, `products/${uid}/${productId}`), {
@@ -4385,7 +4385,7 @@
 
     function shippingStatusLabel(value) {
       if (value === "cash_on_delivery") return "着払い発送";
-      return value === "shipped" ? "発送済み" : "未発送";
+      return value === "shipped" ? "発送完了" : "発送作業中";
     }
 
     function preferenceButton(uid, product) {
@@ -5000,7 +5000,7 @@
                 return `<option value="${value}" ${currentStage === value ? "selected" : ""}>${label}</option>`;
               }).join("")}
             </select>
-            <span class="form-note">登録済み商品は、最初にサイズ調整中へ進めます。再梱包中は会員様がサイズ調整・再梱包を選択した場合のみ使用します。</span>
+            <span class="form-note">商品確認中の商品は、確認後に梱包依頼へ進めます。再梱包作業中は会員様がサイズ調整・再梱包を選択した場合のみ使用します。</span>
           </label>
 
           <div class="full info-box ${optionComment ? "highlight" : ""}">
@@ -5102,10 +5102,10 @@
           <label>再梱包後重量（g）<input name="repackedPackageWeight" inputmode="decimal" value="${escapeAttr(packageWeightGrams(product.repackedPackageWeight) || "")}" placeholder="例：1565" /></label>
           <label class="full">保存後のステータス
             <select name="repackingNextStage">
-              <option value="repacking" ${product.productStage === "repacking" ? "selected" : ""}>再梱包中のまま</option>
-              <option value="adjusting">サイズ調整中へ戻す（誤操作の訂正）</option>
-              <option value="stored" ${product.productStage === "stored" ? "selected" : ""}>保管商品</option>
-              <option value="shipping_ready" ${product.productStage === "shipping_ready" ? "selected" : ""}>発送準備中</option>
+              <option value="repacking" ${product.productStage === "repacking" ? "selected" : ""}>再梱包作業中のまま</option>
+              <option value="adjusting">梱包依頼へ戻す（誤操作の訂正）</option>
+              <option value="stored" ${product.productStage === "stored" ? "selected" : ""}>保管中</option>
+              <option value="shipping_ready" ${product.productStage === "shipping_ready" ? "selected" : ""}>発送依頼</option>
             </select>
           </label>
         </div>
@@ -5204,8 +5204,8 @@
           <label>
             状態
             <select name="shippingStatus">
-              <option value="unshipped" ${!isShippedStatus(product.shippingStatus) ? "selected" : ""}>未発送</option>
-              <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送済み</option>
+              <option value="unshipped" ${!isShippedStatus(product.shippingStatus) ? "selected" : ""}>発送作業中</option>
+              <option value="shipped" ${product.shippingStatus === "shipped" ? "selected" : ""}>発送完了</option>
               <option value="cash_on_delivery" ${product.shippingStatus === "cash_on_delivery" ? "selected" : ""}>着払い発送</option>
             </select>
           </label>
@@ -5693,11 +5693,11 @@
             return;
           }
           if (product?.productStage === "stored" && productStage === "shipping_ready") {
-            showError(appError, "保管商品は直接発送準備中へ移動できません。先に再梱包中へ移動し、管理者記載情報（2）を入力してください。");
+            showError(appError, "保管中から直接発送依頼へ移動できません。先に再梱包作業中へ移動し、管理者記載情報（2）を入力してください。");
             return;
           }
           if (currentProductStage(product) === "repacking" && !["repacking", "adjusting"].includes(productStage)) {
-            showError(appError, "再梱包中から次のステータスへ進める場合は、管理者記載情報（2：再梱包後）の編集ボタンから保存してください。");
+            showError(appError, "再梱包作業中から次のステータスへ進める場合は、管理者記載情報（2：再梱包後）の編集ボタンから保存してください。");
             return;
           }
           const shouldNotifyStored = product && productStage === "stored" && product.productStage !== "stored" && !hasValue(product.shootingDate);
@@ -8270,7 +8270,7 @@ function firstInvoiceDate(item) {
           ])
         ];
 
-        downloadCsv(rows, `${member.name}_発送済み_${selectedMonth || "全期間"}.csv`);
+        downloadCsv(rows, `${member.name}_発送完了_${selectedMonth || "全期間"}.csv`);
       }
     }
 
