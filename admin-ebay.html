@@ -1165,6 +1165,7 @@
       <button class="tab" data-main-tab="shippingBatch">発送待ち情報</button>
       <button class="tab" data-main-tab="invoices">請求書</button>
       <button class="tab" data-main-tab="prices">価格表</button>
+      <button class="tab" data-main-tab="packagingFit">梱包袋判定設定</button>
       <button class="tab" data-main-tab="confirmationBase">確認結果ベース</button>
       <button class="tab" data-main-tab="announcements">お知らせ</button>
       <button class="tab" data-main-tab="discord">Discord通知</button>
@@ -1510,6 +1511,27 @@
       </div>
     </section>
 
+    <section id="packagingFitSection" class="section hidden">
+      <h2>梱包袋判定設定</h2>
+      <p class="form-note">袋の平置き寸法と、箱の外周へ加える合計安全余白を設定します。箱の縦・横・高さを全方向に回転して、袋口側と奥行き側の両方を満たすか判定します。</p>
+      <div class="announcement-form">
+        <div class="form-grid">
+          <label>外周へ加える合計安全余白（cm）<input id="packagingFitMargin" type="number" min="0" step="0.1" value="5"></label>
+        </div>
+        <h3 style="margin:20px 0 10px;">DHL フライヤー</h3>
+        <div class="form-grid">
+          <label>袋口幅（cm）<input id="dhlFlyerMouth" type="number" min="0" step="0.1" value="38"></label>
+          <label>奥行き（cm）<input id="dhlFlyerDepth" type="number" min="0" step="0.1" value="47"></label>
+        </div>
+        <h3 style="margin:20px 0 10px;">FedEx Extra Large Pak</h3>
+        <div class="form-grid">
+          <label>袋口幅（cm）<input id="fedexXlMouth" type="number" min="0" step="0.1" value="44"></label>
+          <label>奥行き（cm）<input id="fedexXlDepth" type="number" min="0" step="0.1" value="52"></label>
+        </div>
+        <div class="announcement-actions"><button class="primary-btn" type="button" onclick="savePackagingFitSettings()">設定を保存</button></div>
+      </div>
+    </section>
+
     <section id="announcementsSection" class="section hidden">
       <h2>お知らせ</h2>
 
@@ -1752,6 +1774,7 @@
     const invoicesSection = document.getElementById("invoicesSection");
     const companySection = document.getElementById("companySection");
     const pricesSection = document.getElementById("pricesSection");
+    const packagingFitSection = document.getElementById("packagingFitSection");
     const confirmationBaseSection = document.getElementById("confirmationBaseSection");
     const announcementsSection = document.getElementById("announcementsSection");
     const discordSection = document.getElementById("discordSection");
@@ -2759,6 +2782,28 @@
       const decision = decisions[product?.adjustmentDecision] || "未選択";
       const material = product?.adjustmentDecision === "resize_repack" ? materials[product?.packagingMaterialChoice] || "資材未選択" : "";
       return [decision, material].filter(Boolean).join("／");
+    }
+
+    function packagingFitResult(product, bag) {
+      const dimensions = [Number(product?.boxLength || 0), Number(product?.boxWidth || 0), Number(product?.boxHeight || 0)];
+      if (dimensions.some((value) => !value || value <= 0)) return { status: "未判定", detail: "箱の縦・横・高さを入力してください" };
+      const margin = packagingFitSettings().margin;
+      const permutations = [
+        [dimensions[0], dimensions[1], dimensions[2]], [dimensions[0], dimensions[2], dimensions[1]],
+        [dimensions[1], dimensions[0], dimensions[2]], [dimensions[1], dimensions[2], dimensions[0]],
+        [dimensions[2], dimensions[0], dimensions[1]], [dimensions[2], dimensions[1], dimensions[0]]
+      ];
+      const nominal = permutations.some(([length, width, height]) => width + height <= bag.mouth && length + height <= bag.depth);
+      const safe = permutations.some(([length, width, height]) => 2 * (width + height) + margin <= 2 * bag.mouth && 2 * (length + height) + margin <= 2 * bag.depth);
+      if (safe) return { status: "使用可能", detail: `外周の合計安全余白${margin}cmを確保` };
+      if (nominal) return { status: "要確認", detail: `実寸内ですが外周の合計安全余白${margin}cm未満` };
+      return { status: "使用不可", detail: "袋口側または奥行き側が規定を超過" };
+    }
+
+    function packagingFitSummaryHtml(product) {
+      const settings = packagingFitSettings();
+      const rows = [["DHL フライヤー", packagingFitResult(product, settings.dhl)], ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)]];
+      return rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="form-note">${escapeHtml(result.detail)}</div></div>`).join("");
     }
 
     function getDetailProducts(member) {
@@ -3918,6 +3963,7 @@
       invoicesSection.classList.toggle("hidden", safeTabName !== "invoices");
       companySection.classList.toggle("hidden", safeTabName !== "company");
       pricesSection.classList.toggle("hidden", safeTabName !== "prices");
+      packagingFitSection.classList.toggle("hidden", safeTabName !== "packagingFit");
       confirmationBaseSection.classList.toggle("hidden", safeTabName !== "confirmationBase");
       announcementsSection.classList.toggle("hidden", safeTabName !== "announcements");
       discordSection.classList.toggle("hidden", safeTabName !== "discord");
@@ -4099,6 +4145,12 @@
 
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
+
+            <div class="info-label">箱の実寸</div>
+            <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+
+            <div class="info-label">梱包袋判定</div>
+            <div class="info-value">${packagingFitSummaryHtml(product)}</div>
 
             <div class="info-label">会員の調整選択</div>
             <div class="info-value">${escapeHtml(adjustmentDecisionText(product))}</div>
@@ -4457,6 +4509,12 @@
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
 
+            <div class="info-label">箱の実寸</div>
+            <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+
+            <div class="info-label">梱包袋判定</div>
+            <div class="info-value">${packagingFitSummaryHtml(product)}</div>
+
             <div class="info-label">会員の調整選択</div>
             <div class="info-value">${escapeHtml(adjustmentDecisionText(product))}</div>
 
@@ -4636,6 +4694,10 @@
             重量
             <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
           </label>
+
+          <label>箱の縦（cm）<input name="boxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.boxLength || "")}" /></label>
+          <label>箱の横（cm）<input name="boxWidth" type="number" min="0" step="0.1" value="${escapeAttr(product.boxWidth || "")}" /></label>
+          <label>箱の高さ（cm）<input name="boxHeight" type="number" min="0" step="0.1" value="${escapeAttr(product.boxHeight || "")}" /></label>
 
           <label class="full">
             写真URL
@@ -5232,6 +5294,9 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageWeight`]: getFormValue(formData, "packageWeight"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/boxLength`]: numberValue(getFormValue(formData, "boxLength")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/boxWidth`]: numberValue(getFormValue(formData, "boxWidth")),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/boxHeight`]: numberValue(getFormValue(formData, "boxHeight")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/photoUrl`]: getFormValue(formData, "photoUrl"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/temporaryPhotos`]: [...existingTemporaryPhotos, ...uploadedTemporaryPhotos].slice(-2),
             [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
@@ -7326,6 +7391,59 @@ function firstInvoiceDate(item) {
       renderAdminAdjustmentPrices();
       renderPublicPriceEditor();
       renderActualShippingRateTable();
+      renderPackagingFitSettings();
+    }
+
+    function packagingFitSettings() {
+      const saved = priceTableCache.packagingFitSettings || {};
+      return {
+        margin: saved.marginMode === "total_perimeter" ? Number(saved.margin ?? 5) : 5,
+        dhl: { mouth: Number(saved.dhl?.mouth ?? 38), depth: Number(saved.dhl?.depth ?? 47) },
+        fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) }
+      };
+    }
+
+    function renderPackagingFitSettings() {
+      const settings = packagingFitSettings();
+      const values = {
+        packagingFitMargin: settings.margin,
+        dhlFlyerMouth: settings.dhl.mouth,
+        dhlFlyerDepth: settings.dhl.depth,
+        fedexXlMouth: settings.fedex.mouth,
+        fedexXlDepth: settings.fedex.depth
+      };
+      Object.entries(values).forEach(([id, value]) => {
+        const input = document.getElementById(id);
+        if (input) input.value = String(value);
+      });
+    }
+
+    async function savePackagingFitSettings() {
+      const settings = {
+        margin: Math.max(0, Number(document.getElementById("packagingFitMargin")?.value || 0)),
+        marginMode: "total_perimeter",
+        dhl: {
+          mouth: Math.max(0, Number(document.getElementById("dhlFlyerMouth")?.value || 0)),
+          depth: Math.max(0, Number(document.getElementById("dhlFlyerDepth")?.value || 0))
+        },
+        fedex: {
+          mouth: Math.max(0, Number(document.getElementById("fedexXlMouth")?.value || 0)),
+          depth: Math.max(0, Number(document.getElementById("fedexXlDepth")?.value || 0))
+        },
+        updatedAt: Date.now(),
+        updatedBy: currentUser?.uid || ""
+      };
+      if (!settings.dhl.mouth || !settings.dhl.depth || !settings.fedex.mouth || !settings.fedex.depth) {
+        showError(appError, "袋のサイズは0より大きい数値で入力してください。");
+        return;
+      }
+      try {
+        await set(ref(db, "priceTable/ebay/packagingFitSettings"), settings);
+        priceTableCache = { ...priceTableCache, packagingFitSettings: settings };
+        showError(appError, "梱包袋判定設定を保存しました。");
+      } catch (error) {
+        showError(appError, "梱包袋判定設定の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+      }
     }
 
     function renderActualShippingRateTable() {
@@ -7841,6 +7959,7 @@ function firstInvoiceDate(item) {
     window.addPublicPriceColumn = addPublicPriceColumn;
     window.removePublicPriceColumn = removePublicPriceColumn;
     window.savePublicPriceTable = savePublicPriceTable;
+    window.savePackagingFitSettings = savePackagingFitSettings;
     window.saveCompanyInfo = saveCompanyInfo;
     window.saveBasicInfo = saveBasicInfo;
     window.saveConfirmationBase = saveConfirmationBase;

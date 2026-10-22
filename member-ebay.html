@@ -3087,6 +3087,37 @@ function adjustmentDecisionText(product) {
   return [decision, material].filter(Boolean).join("／");
 }
 
+function packagingFitSettings() {
+  const saved = priceTableCache.packagingFitSettings || {};
+  return {
+    margin: saved.marginMode === "total_perimeter" ? Number(saved.margin ?? 5) : 5,
+    dhl: { mouth: Number(saved.dhl?.mouth ?? 38), depth: Number(saved.dhl?.depth ?? 47) },
+    fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) }
+  };
+}
+
+function packagingFitResult(product, bag) {
+  const dimensions = [Number(product?.boxLength || 0), Number(product?.boxWidth || 0), Number(product?.boxHeight || 0)];
+  if (dimensions.some((value) => !value || value <= 0)) return { status: "未判定", detail: "箱の縦・横・高さが未入力です" };
+  const margin = packagingFitSettings().margin;
+  const permutations = [
+    [dimensions[0], dimensions[1], dimensions[2]], [dimensions[0], dimensions[2], dimensions[1]],
+    [dimensions[1], dimensions[0], dimensions[2]], [dimensions[1], dimensions[2], dimensions[0]],
+    [dimensions[2], dimensions[0], dimensions[1]], [dimensions[2], dimensions[1], dimensions[0]]
+  ];
+  const nominal = permutations.some(([length, width, height]) => width + height <= bag.mouth && length + height <= bag.depth);
+  const safe = permutations.some(([length, width, height]) => 2 * (width + height) + margin <= 2 * bag.mouth && 2 * (length + height) + margin <= 2 * bag.depth);
+  if (safe) return { status: "使用可能", detail: `外周の合計安全余白${margin}cmを確保` };
+  if (nominal) return { status: "要確認", detail: `実寸内ですが外周の合計安全余白${margin}cm未満` };
+  return { status: "使用不可", detail: "袋口側または奥行き側が規定を超過" };
+}
+
+function packagingFitSummaryHtml(product) {
+  const settings = packagingFitSettings();
+  return [["DHL フライヤー", packagingFitResult(product, settings.dhl)], ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)]]
+    .map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="member-meta">${escapeHtml(result.detail)}</div></div>`).join("");
+}
+
 function temporaryPhotosHtml(product) {
   const now = Date.now();
   const photos = (Array.isArray(product?.temporaryPhotos) ? product.temporaryPhotos : Object.values(product?.temporaryPhotos || {}))
@@ -4075,6 +4106,8 @@ function productDetailHtml(product) {
         <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
         <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
         <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
+        <div class="detail-label">箱の実寸</div><div>${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
+        <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product)}</div>
         <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>
         <div class="detail-label">調整時の連絡事項</div><div>${lineBreaks(product.adjustmentDecisionMemo || "-")}</div>
       </div>
