@@ -1891,6 +1891,7 @@ shippingForm.addEventListener("submit", async (event) => {
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
+        ebayStatus: "requested",
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
         pickupScheduledDate,
@@ -2256,10 +2257,23 @@ function ebayStatusText(product) {
   return labels[status] || status;
 }
 
+function isEbayShippedProduct(product) {
+  return product?.ebayStatus === "shipped" || isShippedStatus(product?.shippingStatus);
+}
+
+function isEbayPendingProduct(product) {
+  const legacyStatus = product?.ebayStatus || "registered";
+  return !isEbayShippedProduct(product) && (hasValue(product?.shippingRequest) || !["registered", "shipped"].includes(legacyStatus));
+}
+
+function isEbayRegisteredProduct(product) {
+  return !isEbayShippedProduct(product) && !isEbayPendingProduct(product);
+}
+
 function renderEbayProducts() {
-  const registered = ebayProductsCache.filter((item) => (item.ebayStatus || "registered") === "registered").length;
-  const requested = ebayProductsCache.filter((item) => !["registered", "shipped"].includes(item.ebayStatus || "registered")).length;
-  const shipped = ebayProductsCache.filter((item) => item.ebayStatus === "shipped").length;
+  const registered = ebayProductsCache.filter(isEbayRegisteredProduct).length;
+  const requested = ebayProductsCache.filter(isEbayPendingProduct).length;
+  const shipped = ebayProductsCache.filter(isEbayShippedProduct).length;
   const registeredEl = document.getElementById("ebayRegisteredCount");
   const requestedEl = document.getElementById("ebayRequestedCount");
   const shippedEl = document.getElementById("ebayShippedCount");
@@ -2288,7 +2302,7 @@ function renderEbayProducts() {
         <div><span class="ebay-field-label">発送日</span>${escapeHtml(product.shippingDate || "未登録")}</div>
       </div>
       <div class="ebay-product-actions">
-        ${(product.ebayStatus || "registered") === "registered" ? `<button type="button" onclick="requestEbayShipping('${escapeAttr(product.id)}')">発送を依頼する</button>` : ""}
+        ${isEbayRegisteredProduct(product) ? `<button type="button" onclick="requestEbayShipping('${escapeAttr(product.id)}')">発送を依頼する</button>` : ""}
         ${product.ebayStatus === "measured" ? `<button type="button" onclick="openEbayLabelUpload('${escapeAttr(product.id)}')">配送情報・ラベルを送る</button>` : ""}
         <button class="secondary" type="button" onclick="showEbayProductInfo('${escapeAttr(product.id)}')">詳細</button>
       </div>
@@ -2301,7 +2315,13 @@ window.requestEbayShipping = async function(productId) {
   const product = ebayProductsCache.find((item) => item.id === productId);
   if (!product || !confirm(`${product.name || "この商品"} の発送を依頼しますか？`)) return;
   try {
-    await update(ref(database, `products/${dataUid()}/${productId}`), { ebayStatus: "requested", shippingRequestedAt: Date.now(), updatedAt: Date.now() });
+    await update(ref(database, `products/${dataUid()}/${productId}`), {
+      ebayStatus: "requested",
+      shippingRequest: "eBay発送依頼",
+      shippingStatus: "unshipped",
+      shippingRequestedAt: Date.now(),
+      updatedAt: Date.now()
+    });
     await loadData();
     setActiveService("ebay");
   } catch (error) {

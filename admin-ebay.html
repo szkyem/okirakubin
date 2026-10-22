@@ -2041,19 +2041,19 @@
           const memberSettings = memberSettingsCache[uid] || {};
           const productMap = productsRaw[uid] || {};
           const allProducts = Object.entries(productMap).map(([id, value]) => ({
-            id,
-            ...value
+            ...(value || {}),
+            id
           }));
           const ebayProducts = allProducts.filter((product) => product.serviceType === "ebay");
           const products = ebayProducts.map((product) => ({
             ...product,
-            name: product.productName || product.name || "eBay商品",
-            numbering: product.orderNumber || product.sku || product.id,
-            shippingRequest: product.ebayStatus && product.ebayStatus !== "registered" ? "eBay発送依頼" : "",
-            shippingStatus: product.ebayStatus === "shipped" ? "shipped" : "unshipped",
-            shippedDate: product.shippingDate || product.shippedDate || "",
-            shippingSize: product.packedSize || product.shippingSize || "",
-            shippingWeight: product.packedWeight || product.shippingWeight || ""
+            name: product.name || product.productName || "eBay商品",
+            numbering: product.numbering || product.orderNumber || product.sku || product.id,
+            shippingRequest: product.shippingRequest || (product.ebayStatus && product.ebayStatus !== "registered" ? "eBay発送依頼" : ""),
+            shippingStatus: product.ebayStatus === "shipped" ? "shipped" : product.shippingStatus || "unshipped",
+            shippedDate: product.shippedDate || product.shippingDate || "",
+            shippingSize: product.shippingSize || product.packedSize || "",
+            shippingWeight: product.shippingWeight || product.packedWeight || ""
           }));
 
           return {
@@ -2322,11 +2322,24 @@
       `).join("");
     }
 
+    function isEbayShippedProduct(product) {
+      return product?.ebayStatus === "shipped" || isShippedStatus(product?.shippingStatus);
+    }
+
+    function isEbayPendingProduct(product) {
+      const legacyStatus = product?.ebayStatus || "registered";
+      return !isEbayShippedProduct(product) && (hasValue(product?.shippingRequest) || !["registered", "shipped"].includes(legacyStatus));
+    }
+
+    function isEbayRegisteredProduct(product) {
+      return !isEbayShippedProduct(product) && !isEbayPendingProduct(product);
+    }
+
     function renderMembers() {
       const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
       const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
-      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
-      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => product.ebayStatus !== "shipped" && product.ebayStatus !== "registered").length, 0);
+      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayRegisteredProduct).length, 0);
+      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayPendingProduct).length, 0);
 
       totalMembers.textContent = membersCache.length;
       totalRegistered.textContent = totalRegisteredCount;
@@ -3586,6 +3599,7 @@
             const path = `products/${unit.uid}/${product.id}`;
             updates[`${path}/updatedAt`] = now;
             updates[`${path}/shippingStatus`] = status;
+            updates[`${path}/ebayStatus`] = "shipped";
             updates[`${path}/shippedDate`] = shippedDate;
             updates[`${path}/shippingSize`] = shippingSize;
             updates[`${path}/shippingPrice`] = productIndex === 0 ? shippingPrice : "0";
@@ -3751,7 +3765,8 @@
         "shippingTrackingNo",
         "shippedDate",
         "shipmentBatchProcessedAt",
-        "shipmentBatchProcessedBy"
+        "shipmentBatchProcessedBy",
+        "ebayStatus"
       ];
 
       targetProducts.forEach((item) => {
@@ -3763,6 +3778,7 @@
         shippingFieldsToClear.forEach((field) => {
           updates[`${path}/${field}`] = null;
         });
+        updates[`${path}/ebayStatus`] = "registered";
         Object.assign(updates, buildCancelDiscordNotificationUpdates({
           uid,
           productId: item.id,
@@ -5391,6 +5407,7 @@
           const statusUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippingStatus`]: status,
+            [`products/${activeEdit.uid}/${activeEdit.productId}/ebayStatus`]: isShippedStatus(status) ? "shipped" : "requested",
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippedDate`]: shippedDate,
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippingSize`]: shippingSize,
             [`products/${activeEdit.uid}/${activeEdit.productId}/shippingPrice`]: shippingPrice,

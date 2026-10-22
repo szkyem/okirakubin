@@ -2115,8 +2115,8 @@
           const memberSettings = memberSettingsCache[uid] || {};
           const productMap = productsRaw[uid] || {};
           const allProducts = Object.entries(productMap).map(([id, value]) => ({
-            id,
-            ...value
+            ...(value || {}),
+            id
           }));
           const products = allProducts.filter((product) => product.serviceType !== "ebay");
           const ebayProducts = allProducts.filter((product) => product.serviceType === "ebay");
@@ -2391,13 +2391,26 @@
       `).join("");
     }
 
+    function isEbayShippedProduct(product) {
+      return product?.ebayStatus === "shipped" || isShippedStatus(product?.shippingStatus);
+    }
+
+    function isEbayPendingProduct(product) {
+      const legacyStatus = product?.ebayStatus || "registered";
+      return !isEbayShippedProduct(product) && (hasValue(product?.shippingRequest) || !["registered", "shipped"].includes(legacyStatus));
+    }
+
+    function isEbayRegisteredProduct(product) {
+      return !isEbayShippedProduct(product) && !isEbayPendingProduct(product);
+    }
+
     function renderPortalTop() {
       const cameraMembers = membersCache.filter((member) => member.enabledServices?.camera !== false);
       const ebayMembers = membersCache.filter((member) => member.enabledServices?.ebay === true);
       const cameraRegistered = cameraMembers.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
       const cameraUnshipped = cameraMembers.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
-      const ebayRegistered = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
-      const ebayUnshipped = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => !["registered", "shipped"].includes(product.ebayStatus || "registered")).length, 0);
+      const ebayRegistered = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayRegisteredProduct).length, 0);
+      const ebayUnshipped = ebayMembers.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayPendingProduct).length, 0);
       document.getElementById("portalCameraMembers").textContent = cameraMembers.length;
       document.getElementById("portalCameraRegistered").textContent = cameraRegistered;
       document.getElementById("portalCameraUnshipped").textContent = cameraUnshipped;
@@ -2448,8 +2461,8 @@
       }
       const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
       const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
-      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => (product.ebayStatus || "registered") === "registered").length, 0);
-      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter((product) => product.ebayStatus !== "shipped" && product.ebayStatus !== "registered").length, 0);
+      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayRegisteredProduct).length, 0);
+      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayPendingProduct).length, 0);
 
       totalMembers.textContent = membersCache.length;
       totalRegistered.textContent = totalRegisteredCount;
