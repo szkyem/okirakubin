@@ -3092,7 +3092,10 @@ function packagingFitSettings() {
   return {
     margin: saved.marginMode === "total_perimeter" ? Number(saved.margin ?? 5) : 5,
     dhl: { mouth: Number(saved.dhl?.mouth ?? 38), depth: Number(saved.dhl?.depth ?? 47) },
-    fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) }
+    fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) },
+    fedexPadded: { mouth: Number(saved.fedexPadded?.mouth ?? 29), depth: Number(saved.fedexPadded?.depth ?? 37) },
+    bagWeight: Number(saved.bagWeight ?? 65),
+    cardboardWeight: Number(saved.cardboardWeight ?? 20)
   };
 }
 
@@ -3114,8 +3117,14 @@ function packagingFitResult(product, bag) {
 
 function packagingFitSummaryHtml(product) {
   const settings = packagingFitSettings();
-  return [["DHL フライヤー", packagingFitResult(product, settings.dhl)], ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)]]
-    .map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="member-meta">${escapeHtml(result.detail)}</div></div>`).join("");
+  const baseWeight = Number(product?.itemWeightGrams || 0);
+  const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "梱包前重量未入力";
+  const rows = [
+    ["DHL フライヤー", packagingFitResult(product, settings.dhl)],
+    ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)],
+    ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded)]
+  ];
+  return `${rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="member-meta">${escapeHtml(result.detail)}／見込み総重量 ${escapeHtml(weightText(settings.bagWeight))}</div></div>`).join("")}<div><strong>段ボール梱包</strong><div class="member-meta">見込み総重量 ${escapeHtml(weightText(settings.cardboardWeight))}</div></div>`;
 }
 
 function temporaryPhotosHtml(product) {
@@ -4106,6 +4115,7 @@ function productDetailHtml(product) {
         <div class="detail-label">簡易アップロード写真</div><div>${temporaryPhotosHtml(product)}</div>
         <div class="detail-label">サイズ</div><div>${escapeHtml(product.packageSize || product.expectedSize || "-")}</div>
         <div class="detail-label">重量</div><div>${escapeHtml(product.packageWeight || "-")}</div>
+        <div class="detail-label">梱包前重量</div><div>${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
         <div class="detail-label">箱の実寸</div><div>${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
         <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product)}</div>
         <div class="detail-label">調整内容</div><div>${escapeHtml(adjustmentDecisionText(product))}</div>

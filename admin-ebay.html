@@ -1528,6 +1528,16 @@
           <label>袋口幅（cm）<input id="fedexXlMouth" type="number" min="0" step="0.1" value="44"></label>
           <label>奥行き（cm）<input id="fedexXlDepth" type="number" min="0" step="0.1" value="52"></label>
         </div>
+        <h3 style="margin:20px 0 10px;">FedEx 緩衝材入りパック</h3>
+        <div class="form-grid">
+          <label>袋口幅（cm）<input id="fedexPaddedMouth" type="number" min="0" step="0.1" value="29"></label>
+          <label>奥行き（cm）<input id="fedexPaddedDepth" type="number" min="0" step="0.1" value="37"></label>
+        </div>
+        <h3 style="margin:20px 0 10px;">見込み重量設定</h3>
+        <div class="form-grid">
+          <label>袋を使用した場合の加算重量（g）<input id="packagingBagWeight" type="number" min="0" step="1" value="65"></label>
+          <label>段ボール使用時の加算重量（g）<input id="packagingCardboardWeight" type="number" min="0" step="1" value="20"></label>
+        </div>
         <div class="announcement-actions"><button class="primary-btn" type="button" onclick="savePackagingFitSettings()">設定を保存</button></div>
       </div>
     </section>
@@ -2802,8 +2812,14 @@
 
     function packagingFitSummaryHtml(product) {
       const settings = packagingFitSettings();
-      const rows = [["DHL フライヤー", packagingFitResult(product, settings.dhl)], ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)]];
-      return rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="form-note">${escapeHtml(result.detail)}</div></div>`).join("");
+      const baseWeight = Number(product?.itemWeightGrams || 0);
+      const weightText = (additional) => baseWeight > 0 ? `${(baseWeight + additional).toLocaleString("ja-JP")}g` : "梱包前重量未入力";
+      const rows = [
+        ["DHL フライヤー", packagingFitResult(product, settings.dhl)],
+        ["FedEx Extra Large Pak", packagingFitResult(product, settings.fedex)],
+        ["FedEx 緩衝材入りパック", packagingFitResult(product, settings.fedexPadded)]
+      ];
+      return `${rows.map(([name, result]) => `<div><strong>${escapeHtml(name)}：${escapeHtml(result.status)}</strong><div class="form-note">${escapeHtml(result.detail)}／見込み総重量 ${escapeHtml(weightText(settings.bagWeight))}</div></div>`).join("")}<div><strong>段ボール梱包</strong><div class="form-note">見込み総重量 ${escapeHtml(weightText(settings.cardboardWeight))}</div></div>`;
     }
 
     function getDetailProducts(member) {
@@ -4146,6 +4162,9 @@
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
 
+            <div class="info-label">梱包前重量</div>
+            <div class="info-value">${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
+
             <div class="info-label">箱の実寸</div>
             <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
 
@@ -4509,6 +4528,9 @@
             <div class="info-label">重量</div>
             <div class="info-value">${escapeHtml(product.packageWeight || "-")}</div>
 
+            <div class="info-label">梱包前重量</div>
+            <div class="info-value">${product.itemWeightGrams ? `${escapeHtml(product.itemWeightGrams)}g` : "-"}</div>
+
             <div class="info-label">箱の実寸</div>
             <div class="info-value">${product.boxLength && product.boxWidth && product.boxHeight ? `${escapeHtml(product.boxLength)} × ${escapeHtml(product.boxWidth)} × ${escapeHtml(product.boxHeight)} cm` : "-"}</div>
 
@@ -4693,6 +4715,11 @@
           <label>
             重量
             <input name="packageWeight" value="${escapeAttr(product.packageWeight || "")}" placeholder="例：1.2kg" />
+          </label>
+
+          <label>
+            梱包前重量（g）
+            <input name="itemWeightGrams" type="number" min="0" step="1" value="${escapeAttr(product.itemWeightGrams || "")}" placeholder="例：1200" />
           </label>
 
           <label>箱の縦（cm）<input name="boxLength" type="number" min="0" step="0.1" value="${escapeAttr(product.boxLength || "")}" /></label>
@@ -5294,6 +5321,7 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageSize`]: getFormValue(formData, "packageSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/packageWeight`]: getFormValue(formData, "packageWeight"),
+            [`products/${activeEdit.uid}/${activeEdit.productId}/itemWeightGrams`]: numberValue(getFormValue(formData, "itemWeightGrams")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxLength`]: numberValue(getFormValue(formData, "boxLength")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxWidth`]: numberValue(getFormValue(formData, "boxWidth")),
             [`products/${activeEdit.uid}/${activeEdit.productId}/boxHeight`]: numberValue(getFormValue(formData, "boxHeight")),
@@ -7399,7 +7427,10 @@ function firstInvoiceDate(item) {
       return {
         margin: saved.marginMode === "total_perimeter" ? Number(saved.margin ?? 5) : 5,
         dhl: { mouth: Number(saved.dhl?.mouth ?? 38), depth: Number(saved.dhl?.depth ?? 47) },
-        fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) }
+        fedex: { mouth: Number(saved.fedex?.mouth ?? 44), depth: Number(saved.fedex?.depth ?? 52) },
+        fedexPadded: { mouth: Number(saved.fedexPadded?.mouth ?? 29), depth: Number(saved.fedexPadded?.depth ?? 37) },
+        bagWeight: Number(saved.bagWeight ?? 65),
+        cardboardWeight: Number(saved.cardboardWeight ?? 20)
       };
     }
 
@@ -7410,7 +7441,11 @@ function firstInvoiceDate(item) {
         dhlFlyerMouth: settings.dhl.mouth,
         dhlFlyerDepth: settings.dhl.depth,
         fedexXlMouth: settings.fedex.mouth,
-        fedexXlDepth: settings.fedex.depth
+        fedexXlDepth: settings.fedex.depth,
+        fedexPaddedMouth: settings.fedexPadded.mouth,
+        fedexPaddedDepth: settings.fedexPadded.depth,
+        packagingBagWeight: settings.bagWeight,
+        packagingCardboardWeight: settings.cardboardWeight
       };
       Object.entries(values).forEach(([id, value]) => {
         const input = document.getElementById(id);
@@ -7430,10 +7465,16 @@ function firstInvoiceDate(item) {
           mouth: Math.max(0, Number(document.getElementById("fedexXlMouth")?.value || 0)),
           depth: Math.max(0, Number(document.getElementById("fedexXlDepth")?.value || 0))
         },
+        fedexPadded: {
+          mouth: Math.max(0, Number(document.getElementById("fedexPaddedMouth")?.value || 0)),
+          depth: Math.max(0, Number(document.getElementById("fedexPaddedDepth")?.value || 0))
+        },
+        bagWeight: Math.max(0, Number(document.getElementById("packagingBagWeight")?.value || 0)),
+        cardboardWeight: Math.max(0, Number(document.getElementById("packagingCardboardWeight")?.value || 0)),
         updatedAt: Date.now(),
         updatedBy: currentUser?.uid || ""
       };
-      if (!settings.dhl.mouth || !settings.dhl.depth || !settings.fedex.mouth || !settings.fedex.depth) {
+      if (!settings.dhl.mouth || !settings.dhl.depth || !settings.fedex.mouth || !settings.fedex.depth || !settings.fedexPadded.mouth || !settings.fedexPadded.depth) {
         showError(appError, "袋のサイズは0より大きい数値で入力してください。");
         return;
       }
