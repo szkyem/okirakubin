@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>お気楽便 eBay発送代行 会員向け使い方マニュアル</title>
+  <style>
+    :root{--green:#4f765f;--green-dark:#365744;--soft:#edf5ef;--line:#d7e1da;--text:#17211b;--muted:#64716a;--warn:#fff7d6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:"Yu Gothic","Meiryo",system-ui,sans-serif;color:var(--text);background:linear-gradient(135deg,#789582,#3f6652);line-height:1.75}
+    .page{width:min(1080px,calc(100% - 28px));margin:28px auto;padding:32px;background:#fff;border-radius:12px;box-shadow:0 18px 48px rgba(20,45,30,.18)}
+    .hero{padding-bottom:22px;border-bottom:1px solid var(--line)}h1{margin:0 0 8px;color:var(--green-dark);font-size:30px}.lead,.footer{color:var(--muted)}
+    .badge{display:inline-block;margin-top:12px;padding:5px 11px;border-radius:999px;background:var(--soft);color:var(--green-dark);font-size:13px;font-weight:800}
+    .toc{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:24px 0}.toc a{padding:11px 13px;border:1px solid var(--line);border-radius:8px;color:var(--text);text-decoration:none;font-weight:700}.toc a:hover{background:var(--soft)}
+    details{margin:14px 0;border:1px solid var(--line);border-radius:9px;overflow:hidden}summary{cursor:pointer;padding:16px 18px;background:#f7faf8;font-size:18px;font-weight:800}summary::after{content:"開く";float:right;color:var(--green-dark);font-size:12px}details[open] summary::after{content:"閉じる"}.content{padding:18px}h2{margin:0 0 10px}h3{margin:20px 0 7px;color:var(--green-dark)}p,ul,ol{margin:8px 0 12px}li{margin:4px 0}
+    .note,.warning{margin:14px 0;padding:12px 14px;border-radius:6px;font-weight:600}.note{border-left:4px solid var(--green);background:var(--soft)}.warning{border-left:4px solid #d69b00;background:var(--warn)}
+    .manual-img{display:block;width:100%;height:auto;margin:14px 0;border:1px solid var(--line);border-radius:8px}.image-pending{display:none;margin:14px 0;padding:32px;border:1px dashed #9aac9f;border-radius:8px;background:#f8faf8;color:var(--muted);text-align:center;font-weight:700}
+    table{width:100%;margin:14px 0;border-collapse:collapse;font-size:14px}th{padding:10px;background:var(--green-dark);color:#fff;text-align:left}td{padding:10px;border:1px solid var(--line);vertical-align:top}.footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:13px}
+    @media(max-width:720px){.page{width:calc(100% - 14px);margin:7px auto;padding:18px 14px}h1{font-size:24px}summary{padding:14px;font-size:16px}.content{padding:14px}}
+    @media print{body{background:#fff}.page{width:100%;margin:0;box-shadow:none}.toc{display:none}details:not([open]) .content{display:block}}
+  </style>
+</head>
+<body>
+<main class="page">
+  <header class="hero">
+    <h1>お気楽便 eBay発送代行<br>会員向け使い方マニュアル</h1>
+    <p class="lead">商品登録から梱包調整、発送依頼、請求書確認までの操作をまとめています。</p>
+    <span class="badge">eBay発送代行 会員ページ用</span>
+  </header>
+
+  <nav class="toc" aria-label="目次">
+    <a href="#top">1. トップ画面</a><a href="#register">2. 商品登録</a><a href="#status">3. 商品ステータス</a><a href="#adjust">4. 調整・再梱包</a><a href="#shipping">5. 発送・返品依頼</a><a href="#price">6. 料金確認</a><a href="#invoice">7. 請求書</a><a href="#info">8. お知らせ・基本情報</a>
+  </nav>
+
+  <details id="top" open><summary>1. トップ画面</summary><section class="content">
+    <p>ログイン後、商品の件数と対応状況を確認できます。黄色の項目は会員様の操作待ちです。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/01_top.png" alt="eBay会員トップ画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：01_top.png</figcaption></figure>
+    <ul><li><strong>調整中</strong>：梱包方法などの選択が必要です。</li><li><strong>保管中</strong>：発送または再梱包の判断ができます。</li><li><strong>発送準備中</strong>：発送依頼を行える商品です。</li></ul>
+  </section></details>
+
+  <details id="register"><summary>2. 商品登録</summary><section class="content">
+    <p>「商品登録」から、倉庫へ送る商品を登録します。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/02_product_register.png" alt="eBay商品登録画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：02_product_register.png</figcaption></figure>
+    <h3>主な入力内容</h3><ul><li>商品名</li><li>管理番号（ナンバリング）</li><li>購入先URL（任意）</li><li>作業依頼</li><li>オプションとコメント（任意）</li></ul>
+    <h3>作業依頼</h3><ul><li>そのまま発送</li><li>簡易検品</li><li>詳細検品</li><li>開梱して保管</li></ul>
+    <p>オプションでは写真撮影などを指定できます。登録直後の「登録済み商品」は、管理者の確認前であれば編集・削除できます。</p>
+    <p class="warning">商品名・管理番号・作業依頼は必須です。商品ごとに管理番号が重複しないようご確認ください。</p>
+  </section></details>
+
+  <details id="status"><summary>3. 商品ステータス</summary><section class="content">
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/03_registered_adjusting.png" alt="登録済み商品と調整中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：03_registered_adjusting.png</figcaption></figure>
+    <table><thead><tr><th>ステータス</th><th>内容</th><th>主な対応者</th></tr></thead><tbody>
+      <tr><td>登録済み商品</td><td>登録後、倉庫での確認を待っている状態</td><td>お気楽便</td></tr>
+      <tr><td>調整中</td><td>計測結果を確認し、発送・再梱包・保管・返品を選択する状態</td><td>会員様</td></tr>
+      <tr><td>再梱包中</td><td>選択内容に基づいて再梱包している状態</td><td>お気楽便</td></tr>
+      <tr><td>保管中</td><td>倉庫で保管している状態</td><td>会員様</td></tr>
+      <tr><td>発送準備中</td><td>発送依頼を行える状態</td><td>会員様</td></tr>
+      <tr><td>未発送</td><td>発送依頼後、発送完了を待っている状態</td><td>お気楽便</td></tr>
+      <tr><td>発送済み</td><td>発送が完了した状態</td><td>―</td></tr>
+    </tbody></table>
+  </section></details>
+
+  <details id="adjust"><summary>4. 調整中・再梱包</summary><section class="content">
+    <p>調整中では、管理者が入力した受取時のサイズ・重量・確認結果・写真を確認し、次の対応を選択します。</p>
+    <ul><li>そのまま発送</li><li>サイズ調整・再梱包</li><li>保管する</li><li>返品を希望</li></ul>
+    <p>「サイズ調整・再梱包」を選んだ場合は、梱包資材としてリサイクル材の使用可否なども指定します。</p>
+    <p>再梱包が必要な場合は「再梱包中」へ進み、作業後に再梱包後のサイズ・重量と梱包袋の使用可否が表示されます。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/04_repacking.png" alt="再梱包中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：04_repacking.png</figcaption></figure>
+    <p class="note">写真ボタンを押すと、登録された写真を大きく表示できます。写真URLが登録されている場合はリンクから確認できます。</p>
+  </section></details>
+
+  <details id="shipping"><summary>5. 発送・返品依頼</summary><section class="content">
+    <p>発送準備中の商品を選択し、発送依頼を行います。配送サービスや発送日、必要なラベルファイルを登録してください。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/05_storage_shipping_ready.png" alt="保管中と発送準備中画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：05_storage_shipping_ready.png</figcaption></figure>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/06_shipping_request.png" alt="発送依頼画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：06_shipping_request.png</figcaption></figure>
+    <h3>返品方法</h3><ul><li>住所を指定して返品</li><li>QRコード・バーコードを連絡して返品</li><li>集荷を依頼して返品（集荷日時を指定）</li></ul>
+    <p class="warning">依頼確定前に、選択商品・配送方法・ラベルファイルを必ず確認してください。</p>
+  </section></details>
+
+  <details id="price"><summary>6. 価格表・料金シミュレーター</summary><section class="content">
+    <p>価格表では現在の税込料金を確認できます。料金シミュレーターは、価格表に登録されている金額を参照して概算します。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/07_price_simulator.png" alt="料金シミュレーター画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：07_price_simulator.png</figcaption></figure>
+    <ol><li>サイズ調整・再梱包の有無を選択</li><li>梱包後サイズを選択</li><li>リサイクル材の使用可否を選択</li><li>検品内容を選択</li><li>表示された税込合計を確認</li></ol>
+    <p class="note">国際送料や「個別見積」と表示される作業はシミュレーターの合計に含まれません。</p>
+  </section></details>
+
+  <details id="invoice"><summary>7. 請求書ダウンロード</summary><section class="content">
+    <p>管理者が発行したeBay発送代行の請求書を月ごとに確認し、CSVまたはPDFでダウンロードできます。カメラ発送代行の請求書とは分かれています。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/08_invoice_download.png" alt="eBay請求書ダウンロード画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：08_invoice_download.png</figcaption></figure>
+    <p class="warning">未発行の月はダウンロードできません。</p>
+  </section></details>
+
+  <details id="info"><summary>8. お知らせ・基本情報</summary><section class="content">
+    <p>トップにはeBay発送代行専用のお知らせが表示されます。カメラ発送代行のお知らせとは別管理です。</p>
+    <p>「基本情報」では営業時間、発送時の注意事項、連絡方法などを確認できます。</p>
+    <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/09_basic_info.png" alt="eBay基本情報画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：09_basic_info.png</figcaption></figure>
+  </section></details>
+
+  <p class="footer">更新日: 2026年10月22日 / 対象: お気楽便 eBay発送代行 会員ページ</p>
+</main>
+</body>
+</html>

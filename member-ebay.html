@@ -344,7 +344,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
     <button class="tab" data-tab="prices" type="button">価格表</button>
     <button class="tab" data-tab="simulator" type="button">料金シミュレーター</button>
     <button class="tab" data-tab="invoices" type="button">請求書DL</button>
-    <a class="manual-tab" href="okirakubin_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
+    <a class="manual-tab" href="okirakubin_ebay_member_manual.html" target="_blank" rel="noopener">マニュアル</a>
     <button class="tab" data-tab="basicInfo" type="button">基本情報</button>
   </nav>
 
@@ -501,13 +501,13 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
         <label class="simulator-choice"><input type="radio" name="simulatorInspection" value="detail">詳細検品</label>
       </div>
       <div class="simulator-breakdown">
-        <div class="simulator-line"><span>基本発送料金</span><strong id="simulatorBaseLine">400円</strong></div>
+        <div class="simulator-line"><span>基本発送料金</span><strong id="simulatorBaseLine">440円</strong></div>
         <div class="simulator-line"><span>サイズ調整</span><strong id="simulatorSizeLine">+0円</strong></div>
         <div class="simulator-line"><span>梱包資材</span><strong id="simulatorMaterialLine">+0円</strong></div>
         <div class="simulator-line"><span>検品</span><strong id="simulatorInspectionLine">+0円</strong></div>
         <div class="simulator-total">
           <div class="simulator-total-label">合計料金（税込・国際送料別）</div>
-          <div class="simulator-total-value" id="simulatorTotal">400円</div>
+          <div class="simulator-total-value" id="simulatorTotal">440円</div>
         </div>
       </div>
     </div>
@@ -772,7 +772,7 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
     title: "1. 基本発送料金",
     columns: ["内容", "料金（税込）", "備考"],
     rows: [
-      ["そのまま発送・全サイズ共通", "400円", "サイズ調整・再梱包・検品なし。荷受け時の写真、重量・サイズの測定と報告を含みます。"]
+      ["そのまま発送・全サイズ共通", "440円", "サイズ調整・再梱包・検品なし。荷受け時の写真、重量・サイズの測定と報告を含みます。"]
     ],
     note: ""
   },
@@ -781,27 +781,27 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
     title: "2. サイズ・重量調整／再梱包の追加料金",
     columns: ["梱包後サイズ", "基本料金", "サイズ調整追加料金", "合計"],
     rows: [
-      ["60サイズ", "400円", "+100円", "500円"],
-      ["80サイズ", "400円", "+300円", "700円"],
-      ["100サイズ", "400円", "+550円", "950円"],
-      ["120サイズ", "400円", "+900円", "1,300円"],
-      ["140サイズ", "400円", "+1,200円", "1,600円"],
-      ["160サイズ", "400円", "+1,600円", "2,000円"],
-      ["160サイズ超", "400円", "個別見積", "個別見積"]
+      ["60サイズ", "440円", "+110円", "550円"],
+      ["80サイズ", "440円", "+330円", "770円"],
+      ["100サイズ", "440円", "+605円", "1,045円"],
+      ["120サイズ", "440円", "+990円", "1,430円"],
+      ["140サイズ", "440円", "+1,320円", "1,760円"],
+      ["160サイズ", "440円", "+1,760円", "2,200円"],
+      ["160サイズ超", "440円", "個別見積", "個別見積"]
     ],
-    note: "従来のサイズ別発送代行料金から、基本料金400円を差し引いた金額です。"
+    note: "サイズ調整追加料金と合計はいずれも税込です。"
   },
   {
     id: "ebay_packaging_materials",
     title: "3. 梱包資材の追加料金",
     columns: ["梱包後サイズ", "リサイクル材使用可", "新品資材を指定"],
     rows: [
-      ["60サイズ", "+0円", "+100円"],
-      ["80サイズ", "+0円", "+150円"],
-      ["100サイズ", "+0円", "+250円"],
-      ["120サイズ", "+0円", "+350円"],
-      ["140サイズ", "+0円", "+500円"],
-      ["160サイズ", "+0円", "+700円"],
+      ["60サイズ", "+0円", "+110円"],
+      ["80サイズ", "+0円", "+165円"],
+      ["100サイズ", "+0円", "+275円"],
+      ["120サイズ", "+0円", "+385円"],
+      ["140サイズ", "+0円", "+550円"],
+      ["160サイズ", "+0円", "+770円"],
       ["160サイズ超", "個別判断", "個別見積"]
     ],
     note: "「リサイクル材使用可」の場合、状態の良い再利用資材を優先し、必要に応じて新品資材を補充します。通常梱包の範囲では追加料金なしとします。"
@@ -809,28 +809,28 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
   {
     id: "ebay_inspection_options",
     title: "4. 検品範囲",
-    columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋250円）", "詳細検品（＋750円〜）"],
+    columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋275円）", "詳細検品（＋825円〜）"],
     rows: [
       ["受取商品番号照合／領収書・納品書抜き取り", "対応", "対応", "対応"],
       ["商品名・数量／外観の傷・破損", "対象外", "確認", "確認"],
       ["付属品／通電確認", "対象外", "対象外", "付属品確認・通電は対応品のみ"],
       ["詳細な機能確認", "対象外", "対象外", "別途見積"]
     ],
-    note: "詳細検品750円〜には簡易検品を含み、重複請求しません。"
+    note: "詳細検品825円〜には簡易検品を含み、重複請求しません。"
   },
   {
     id: "ebay_optional_fees",
     title: "5. その他オプション",
     columns: ["サービス", "追加料金（税込）"],
     rows: [
-      ["簡易検品", "250円"],
-      ["詳細検品（通電確認は対応品のみ）", "750円〜"],
+      ["簡易検品", "275円"],
+      ["詳細検品（通電確認は対応品のみ）", "825円〜"],
       ["詳細な機能確認", "別途見積"],
-      ["写真撮影5枚", "300円"],
-      ["追加写真", "100円／枚"],
-      ["動画撮影30秒", "300円"],
+      ["写真撮影5枚", "330円"],
+      ["追加写真", "110円／枚"],
+      ["動画撮影30秒", "330円"],
       ["リサイクル梱包", "0円"],
-      ["新品梱包", "100円〜"],
+      ["新品梱包", "110円〜"],
       ["仕入先への返品作業", "550円"]
     ],
     note: "仕入先への返品作業の返送料は別途となります。"
@@ -2589,13 +2589,7 @@ function publicPriceSections() {
     const columns = Array.isArray(section.columns) && section.columns.length
       ? section.columns.map((column) => String(column || "").replace(/税抜/g, "税込"))
       : ["区分", "価格", "備考"];
-    const rows = Array.isArray(section.rows)
-      ? section.rows.map((row) => {
-          const normalized = Array.isArray(row) ? [...row] : [];
-          if (String(normalized[0] || "").includes("仕入先への返品作業")) normalized[1] = "550円";
-          return normalized;
-        })
-      : [];
+    const rows = Array.isArray(section.rows) ? section.rows : [];
     return {
       id: section.id || `section_${sectionIndex}`,
       title: section.title || "",
@@ -2659,14 +2653,17 @@ function simulatorSizeKey(value) {
 
 function simulatorRateData() {
   const sections = publicPriceSections();
-  const basicSection = sections.find((section) => section.id === "ebay_basic_shipping");
-  const sizeSection = sections.find((section) => section.id === "ebay_size_repacking");
-  const materialSection = sections.find((section) => section.id === "ebay_packaging_materials");
-  const optionSection = sections.find((section) => section.id === "ebay_optional_fees");
+  const findSection = (id, titlePatterns, columnPatterns = []) => sections.find((section) => section.id === id)
+    || sections.find((section) => titlePatterns.some((pattern) => pattern.test(String(section.title || ""))))
+    || sections.find((section) => columnPatterns.every((pattern) => (section.columns || []).some((column) => pattern.test(String(column || "")))));
+  const basicSection = findSection("ebay_basic_shipping", [/基本.*発送.*料金/], [/内容/, /料金|価格/]);
+  const sizeSection = findSection("ebay_size_repacking", [/サイズ.*再梱包/, /サイズ.*調整/], [/サイズ/, /調整/, /合計/]);
+  const materialSection = findSection("ebay_packaging_materials", [/梱包.*資材/], [/サイズ/, /リサイクル|再利用/, /新品/]);
+  const optionSection = findSection("ebay_optional_fees", [/その他.*オプション/, /オプション.*料金/], [/サービス|内容|項目/, /料金|価格/]);
   const basicPriceIndex = simulatorColumnIndex(basicSection, [/料金/, /価格/], 1);
-  const baseFee = simulatorPriceNumber(basicSection?.rows?.[0]?.[basicPriceIndex]) ?? 400;
+  const baseFee = simulatorPriceNumber(basicSection?.rows?.[0]?.[basicPriceIndex]) ?? 440;
   const sizeLabelIndex = simulatorColumnIndex(sizeSection, [/梱包後.*サイズ/, /サイズ/], 0);
-  const sizeAdjustmentIndex = simulatorColumnIndex(sizeSection, [/サイズ.*調整.*追加/, /調整.*料金/, /追加料金/], 2);
+  const sizeAdjustmentIndex = simulatorColumnIndex(sizeSection, [/サイズ.*調整.*追加/, /調整.*料金/, /追加料金/], -1);
   const sizeTotalIndex = simulatorColumnIndex(sizeSection, [/合計/], 3);
   const materialSizeIndex = simulatorColumnIndex(materialSection, [/梱包後.*サイズ/, /サイズ/], 0);
   const recycleIndex = simulatorColumnIndex(materialSection, [/リサイクル/, /再利用/], 1);
@@ -2675,13 +2672,13 @@ function simulatorRateData() {
   const sizes = (sizeSection?.rows || []).map((row) => {
     const label = String(row[sizeLabelIndex] || "");
     const materialRow = materialRows.find((item) => simulatorSizeKey(item[materialSizeIndex]) === simulatorSizeKey(label)) || [];
-    const directAdjustment = simulatorPriceNumber(row[sizeAdjustmentIndex]);
+    const directAdjustment = sizeAdjustmentIndex >= 0 ? simulatorPriceNumber(row[sizeAdjustmentIndex]) : null;
     const totalPrice = simulatorPriceNumber(row[sizeTotalIndex]);
     const adjustment = directAdjustment ?? (totalPrice === null ? null : Math.max(0, totalPrice - baseFee));
     return {
     label,
     sizeAdjustment: adjustment,
-    sizeAdjustmentText: String(row[sizeAdjustmentIndex] || row[sizeTotalIndex] || ""),
+    sizeAdjustmentText: String((sizeAdjustmentIndex >= 0 ? row[sizeAdjustmentIndex] : "") || row[sizeTotalIndex] || ""),
     recycleMaterial: materialRow.length ? simulatorPriceNumber(materialRow[recycleIndex]) : 0,
     recycleMaterialText: materialRow.length ? String(materialRow[recycleIndex] || "") : "0円",
     newMaterial: materialRow.length ? simulatorPriceNumber(materialRow[newMaterialIndex]) : null,
@@ -2694,7 +2691,7 @@ function simulatorRateData() {
     const row = (optionSection?.rows || []).find((item) => String(item[optionNameIndex] || "").includes(keyword));
     return row ? { value: simulatorPriceNumber(row[optionPriceIndex]), text: String(row[optionPriceIndex] || "") } : { value: fallback, text: `${fallback}円` };
   };
-  return { baseFee, sizes, simple: optionValue("簡易検品", 250), detail: optionValue("詳細検品（", 750) };
+  return { baseFee, sizes, simple: optionValue("簡易検品", 275), detail: optionValue("詳細検品", 825) };
 }
 
 function renderPriceSimulator() {
