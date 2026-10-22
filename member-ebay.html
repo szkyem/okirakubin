@@ -104,6 +104,7 @@ textarea{min-height:62px;resize:vertical}
 .bulk-btn.prepaid .sub-label{display:block;font-size:12px;font-weight:700;opacity:.86;margin-top:3px}
 .bulk-btn.overseas{background:#5acb88}
 .bulk-btn.return{background:#f59e0b}
+.bulk-btn.storage{background:#6b7280;color:#fff}
 .origin-list{display:grid;gap:12px;margin-top:18px}
 .origin-card{border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fff}
 .origin-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
@@ -299,6 +300,7 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
 .bulk-btn.prepaid{background:#64748b}
 .bulk-btn.overseas{background:#5acb88}
 .bulk-btn.return{background:#f59e0b}
+.bulk-btn.storage{background:#6b7280}
 </style>
 </head>
 <body>
@@ -2957,6 +2959,7 @@ function gssExportActionBar() {
 function bulkActionBar() {
   return `
     <div class="bulk-action-bar ${selectedProductIds.size ? "show" : ""}">
+      <button type="button" class="bulk-btn storage" onclick="moveSelectedShippingReadyToStorage()">選択中を保管商品へ戻す</button>
       <button type="button" class="bulk-btn domestic" onclick="openShippingModal('国内発送')">選択中を国内発送する</button>
       <button type="button" class="bulk-btn overseas" onclick="openShippingModal('海外発送')">選択中を海外発送する</button>
       <button type="button" class="bulk-btn return" onclick="openShippingModal('返品依頼')">選択中を返品依頼する</button>
@@ -2964,6 +2967,48 @@ function bulkActionBar() {
     </div>
   `;
 }
+
+window.moveSelectedShippingReadyToStorage = async function() {
+  clearError();
+  if (!currentUser || !selectedProductIds.size) return;
+  if (!ensureWritableAction("保管商品への移動")) return;
+
+  const selectedIds = [...selectedProductIds];
+  const selectedProducts = productsCache.filter((product) => selectedProductIds.has(product.id));
+  if (!selectedProducts.length || selectedProducts.some((product) => product.productStage !== "shipping_ready" || hasValue(product.shippingRequest))) {
+    showError("発送準備中で、まだ発送依頼をしていない商品のみ保管商品へ戻せます。");
+    return;
+  }
+
+  const confirmed = confirm(
+    `選択中の${selectedProducts.length}件を保管商品へ戻します。\n\n` +
+    "発送準備中の商品はすでに梱包されているため、保管時に梱包を解除します。再度発送する際には再梱包作業が必要となり、再梱包料金が改めて発生します。\n\n" +
+    "内容を確認し、保管商品へ戻しますか？"
+  );
+  if (!confirmed) return;
+
+  try {
+    const now = Date.now();
+    await Promise.all(selectedProducts.map((product) => update(ref(database, `products/${dataUid()}/${product.id}`), {
+      productStage: "stored",
+      productStageChangedAt: now,
+      [`productStageHistory/${now}`]: stageHistoryEntry(product.productStage, "stored", now),
+      shippingReadyAt: null,
+      returnedToStorageAt: now,
+      storageReturnRequiresRepacking: true,
+      updatedAt: now
+    })));
+    selectedProductIds.clear();
+    await loadData();
+    storedView = "stored";
+    setMemberTab("stored");
+    renderStoredList();
+    alert("保管商品へ移動しました。再度発送する際は、再梱包料金が発生します。");
+  } catch (error) {
+    console.error(error);
+    showError("保管商品への移動に失敗しました。Realtime Databaseのルールを確認してください。");
+  }
+};
 
 function inquiryControl(product) {
   if (product.bundleRole === "child") return `<span class="dash-mark" aria-label="同梱"></span>`;
