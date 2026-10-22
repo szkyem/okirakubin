@@ -2100,7 +2100,12 @@ async function loadData() {
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
     const priceTableSnapshot = await get(ref(database, "priceTable/ebay")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
-    const allProducts = productsSnapshot.exists() ? Object.values(productsSnapshot.val()) : [];
+    const allProducts = productsSnapshot.exists()
+      ? Object.entries(productsSnapshot.val()).map(([id, product]) => ({
+          ...(product || {}),
+          id
+        }))
+      : [];
     productsCache = allProducts
       .filter((product) => product?.serviceType === "ebay")
       .map((product) => ({
