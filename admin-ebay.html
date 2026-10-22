@@ -4739,7 +4739,7 @@
           </label>
 
           <div class="full info-box">
-            <div class="info-box-title">簡易写真アップロード（合計最大2枚・各5MBまで）</div>
+            <div class="info-box-title">簡易写真アップロード（合計最大2枚・元画像は各25MBまで／保存時に自動縮小）</div>
             <label>
               スマホのカメラで撮影
               <input name="temporaryCameraPhoto" type="file" accept="image/*" capture="environment" />
@@ -5462,7 +5462,9 @@
           showError(appError, postSaveWarning);
         }
       } catch (error) {
-        showError(appError, "保存に失敗しました。Realtime Databaseのルールを確認してください。");
+        console.error(error);
+        const detail = String(error?.message || "").trim();
+        showError(appError, `保存に失敗しました。${detail ? ` ${detail}` : " Realtime Databaseのルールを確認してください。"}`);
       }
     });
 
@@ -8652,23 +8654,33 @@ function firstInvoiceDate(item) {
     async function uploadTemporaryProductPhotos(uid, productId, files) {
       const imageFiles = files.filter((file) => file instanceof File && file.size && String(file.type || "").startsWith("image/"));
       if (imageFiles.length > 2) throw new Error("簡易写真は最大2枚までです。");
-      if (imageFiles.some((file) => file.size > 5 * 1024 * 1024)) throw new Error("簡易写真は1枚5MB以下にしてください。");
+      if (imageFiles.some((file) => file.size > 25 * 1024 * 1024)) throw new Error("元の写真は1枚25MB以下にしてください。");
       const uploadedAt = Date.now();
       const expiresAt = uploadedAt + 7 * 24 * 60 * 60 * 1000;
       return Promise.all(imageFiles.map(async (file, index) => {
-        const safeName = String(file.name || `photo_${index + 1}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "_");
+        const safeName = String(file.name || `photo_${index + 1}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "") + ".jpg";
         const path = `temporary-product-photos/${uid}/${productId}/${uploadedAt}_${index}_${safeName}`;
+        const url = await compressTemporaryPhoto(file);
         try {
           const target = storageRef(storage, path);
-          await uploadBytes(target, file, { contentType: file.type, customMetadata: { expiresAt: String(expiresAt) } });
-          const url = await getDownloadURL(target);
-          return { url, path, name: file.name || safeName, uploadedAt, expiresAt, storageType: "firebase-storage" };
+          const compressedFile = dataUrlToBlob(url);
+          await uploadBytes(target, compressedFile, { contentType: "image/jpeg", customMetadata: { expiresAt: String(expiresAt) } });
+          const downloadUrl = await getDownloadURL(target);
+          return { url: downloadUrl, path, name: file.name || safeName, uploadedAt, expiresAt, storageType: "firebase-storage" };
         } catch (storageError) {
           console.warn("Firebase Storageへ保存できないため、一時写真をデータベース保存へ切り替えます。", storageError);
-          const url = await compressTemporaryPhoto(file);
           return { url, path: "", name: file.name || safeName, uploadedAt, expiresAt, storageType: "realtime-database" };
         }
       }));
+    }
+
+    function dataUrlToBlob(dataUrl) {
+      const [header, encoded = ""] = String(dataUrl || "").split(",", 2);
+      const mimeType = header.match(/^data:([^;]+)/)?.[1] || "image/jpeg";
+      const binary = atob(encoded);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      return new Blob([bytes], { type: mimeType });
     }
 
     function readFileAsDataUrl(file) {
@@ -8688,7 +8700,7 @@ function firstInvoiceDate(item) {
         element.onerror = () => reject(new Error("この写真形式は読み込めません。JPEGまたはPNGでお試しください。"));
         element.src = originalUrl;
       });
-      const maxSide = 1600;
+      const maxSide = 1280;
       const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
       const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
       const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
@@ -8698,7 +8710,7 @@ function firstInvoiceDate(item) {
       const context = canvas.getContext("2d");
       if (!context) throw new Error("写真の縮小処理を開始できませんでした。");
       context.drawImage(image, 0, 0, width, height);
-      return canvas.toDataURL("image/jpeg", 0.78);
+      return canvas.toDataURL("image/jpeg", 0.72);
     }
 
     function hasValue(value) {
