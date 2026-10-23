@@ -1837,6 +1837,15 @@
         note: "仕入先への返品作業の返送料は別途となります。"
       },
       {
+        id: "ebay_storage_fee",
+        title: "6. 保管料（暫定）",
+        columns: ["基準サイズ", "料金（税込）", "備考"],
+        rows: [
+          ["37.5×45×40cm", "500円", "サイズに応じて管理者が保管料を算出し、対象月の請求へ入力します。"]
+        ],
+        note: "保管料金は暫定です。自動計算は行わず、管理者が商品のサイズを確認して請求金額を入力します。"
+      },
+      {
         id: "shipping",
         title: "国内送料",
         columns: ["サイズ", "静岡", "関東・信越・北陸・東海・近畿", "東北・中国・四国", "九州", "沖縄", "北海道"],
@@ -4711,6 +4720,7 @@
         </div>
 
         <div class="billing-adjustment-actions">
+          <button class="secondary-btn" onclick="openStorageFeeAdjustment('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">保管料を入力</button>
           <button class="primary-btn" onclick="openBillingAdjustmentEdit('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">調整内容を追加</button>
         </div>
       `;
@@ -5305,6 +5315,14 @@
       bindAutoResizeTextareas(editForm);
     }
 
+    function openStorageFeeAdjustment(uid, productId) {
+      openBillingAdjustmentEdit(uid, productId);
+      const titleInput = editForm.querySelector('[name="title"]');
+      const noteInput = editForm.querySelector('[name="note"]');
+      if (titleInput) titleInput.value = "保管料";
+      if (noteInput) noteInput.value = "暫定基準：37.5×45×40cm＝500円。商品サイズをもとに管理者が算出。";
+    }
+
     function openInvoiceGlobalAdjustmentEdit(uid, month, adjustmentId = "") {
       if (!ensureInvoiceMonthUnlocked(month, "請求書全体の調整")) return;
       const invoice = invoicesCache?.[uid]?.[month];
@@ -5671,7 +5689,11 @@
           const updates = nextStage === "adjusting" ? {
             updatedAt: now,
             productStage: nextStage,
-            shippingReadyAt: null
+            shippingReadyAt: null,
+            repackingStartedAt: null,
+            activeRepackingCycleId: null,
+            activeRepackingCycleType: null,
+            activeRepackingCycleCompletedAt: null
           } : {
             updatedAt: now,
             repackedPackageSize: repackedSize,
@@ -5685,6 +5707,13 @@
             productStage: nextStage,
             shippingReadyAt: nextStage === "shipping_ready" ? product?.shippingReadyAt || now : null
           };
+          if (nextStage === "adjusting") {
+            const cycleId = product?.activeRepackingCycleId;
+            if (cycleId) {
+              updates[`billingEvents/rework_base_${cycleId}`] = null;
+              updates[`billingEvents/repacking_extra_${cycleId}`] = null;
+            }
+          }
           if (!["adjusting", "repacking"].includes(nextStage)) {
             const extraEvent = repackingExtraBillingEvent(product, repackedSize, repackedConfirmedAt);
             if (!product?.billingEvents?.[extraEvent.id]) {
@@ -5769,6 +5798,10 @@
           if (currentProductStage(product) === "registered" && ["adjusting", "stored"].includes(productStage) && !product?.billingEvents?.initial_work) {
             adminFieldUpdates[`products/${activeEdit.uid}/${activeEdit.productId}/billingEvents/initial_work`] = initialWorkBillingEvent(product, now);
             adminFieldUpdates[`products/${activeEdit.uid}/${activeEdit.productId}/initialWorkChargedAt`] = now;
+          }
+          if (currentProductStage(product) === "adjusting" && productStage === "registered") {
+            adminFieldUpdates[`products/${activeEdit.uid}/${activeEdit.productId}/billingEvents/initial_work`] = null;
+            adminFieldUpdates[`products/${activeEdit.uid}/${activeEdit.productId}/initialWorkChargedAt`] = null;
           }
           if (currentProductStage(product) === "stored" && productStage === "repacking") {
             const cycleId = `stored_${now}`;
@@ -7099,12 +7132,12 @@ function buildInvoiceItems(member, month) {
       if (!inspectionInMonth && !shippingInMonth && !billingAdjustments.length) return null;
 
       const inspectionFee = inspectionInMonth
-        ? monthlyBillingEvents.reduce((sum, event) => sum + feeValue(event.amount), 0)
+        ? monthlyBillingEvents.reduce((sum, event) => sum + billingEventAmount(event), 0)
           + (legacyInitialInMonth ? inspectionFeeFor(product, member) : 0)
         : 0;
       const billingEventText = [
         ...(legacyInitialInMonth ? [`初回作業料金 ${yen(inspectionFeeFor(product, member))}円`] : []),
-        ...monthlyBillingEvents.map((event) => `${event.title || "作業料金"} ${yen(event.amount)}円`)
+        ...monthlyBillingEvents.map((event) => `${event.title || "作業料金"} ${yen(billingEventAmount(event))}円`)
       ].join(" / ");
       const isBundledShipping = shippingInMonth && shipmentDisplayGroupKey(product) && !shippingChargeProductIds.has(product.id);
       const shippingChargeFee = shippingInMonth
@@ -7804,7 +7837,12 @@ function firstInvoiceDate(item) {
       const savedSections = Array.isArray(priceTableCache.publicSections) ? priceTableCache.publicSections : [];
       const legacyIds = new Set(["work", "options", "ebay_shipping_service", "ebay_shipping_and_packaging"]);
       const hasLegacyLayout = savedSections.some((section) => legacyIds.has(section?.id));
-      const sections = savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS;
+      const sections = [...(savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS)];
+      if (!sections.some((section) => section?.id === "ebay_storage_fee")) {
+        const storageSection = DEFAULT_PUBLIC_PRICE_SECTIONS.find((section) => section.id === "ebay_storage_fee");
+        const shippingIndex = sections.findIndex((section) => section?.id === "shipping");
+        sections.splice(shippingIndex >= 0 ? shippingIndex : sections.length, 0, storageSection);
+      }
 
       return sections.map((section, sectionIndex) => {
         const columns = Array.isArray(section.columns) && section.columns.length
@@ -7899,6 +7937,11 @@ function firstInvoiceDate(item) {
       return Object.values(product?.billingEvents || {})
         .filter((event) => event && event.targetMonth && Number.isFinite(Number(event.amount)))
         .sort((a, b) => Number(a.occurredAt || 0) - Number(b.occurredAt || 0));
+    }
+
+    function billingEventAmount(event) {
+      if (event?.type === "return_replacement") return ebayBillingRates().returnHandling;
+      return feeValue(event?.amount);
     }
 
     function initialWorkBillingEvent(product, now) {
@@ -8576,6 +8619,7 @@ function firstInvoiceDate(item) {
     window.openRepackingFieldsEdit = openRepackingFieldsEdit;
     window.openStatusEdit = openStatusEdit;
     window.openBillingAdjustmentEdit = openBillingAdjustmentEdit;
+    window.openStorageFeeAdjustment = openStorageFeeAdjustment;
     window.openInvoiceGlobalAdjustmentEdit = openInvoiceGlobalAdjustmentEdit;
     window.deleteInvoiceGlobalAdjustment = deleteInvoiceGlobalAdjustment;
     window.deleteBillingAdjustment = deleteBillingAdjustment;

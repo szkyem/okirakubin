@@ -525,25 +525,28 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
       </div>
       <div class="scenario-item">
         <strong>2. 再梱包作業が11月にまたがる</strong>
-        <div class="scenario-flow">10月に商品受取・一次報告 → 一旦保管 → 11月に再梱包して発送</div>
+        <div class="scenario-flow">10月31日に商品受取・一次報告 → 11月1日に60サイズへ再梱包 → 11月2日に発送</div>
         <div class="scenario-breakdown">
-          <div class="scenario-month"><span>10月：基本作業料金 <b id="scenarioCrossBase">440円</b> ＋ 簡易検品料 <b id="scenarioCrossInspection">275円</b></span><b id="scenarioCrossMonthOctober">715円</b></div>
-          <div class="scenario-month"><span>11月：再梱包作業費 <b id="scenarioCrossRework">330円</b> ＋ 60サイズ調整料 <b id="scenarioCrossSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioCrossMaterial">110円</b></span><b id="scenarioCrossMonthNovember">550円</b></div>
+          <div class="scenario-month"><span>10月：基本作業料金 <b id="scenarioCrossBase">440円</b> ＋ 簡易検品料 <b id="scenarioCrossInspection">275円</b></span><b id="scenarioCrossMonthOctober">715円（10月請求）</b></div>
+          <div class="scenario-month"><span>11月：60サイズ調整料 <b id="scenarioCrossSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioCrossMaterial">110円</b></span><b id="scenarioCrossMonthNovember">220円（11月請求）</b></div>
         </div>
-        <div id="scenarioCrossMonthTotal" class="scenario-price">合計 1,265円</div>
+        <div id="scenarioCrossMonthTotal" class="scenario-price">合計 935円</div>
       </div>
       <div class="scenario-item">
-        <strong>3. 一旦保管し、翌日に再梱包して発送</strong>
-        <div class="scenario-flow">商品受取・一次報告 → 保管 → 翌日に再梱包・発送（同じ請求月の場合）</div>
-        <div class="scenario-breakdown"><span>基本作業料金 <b id="scenarioStoredBase">440円</b> ＋ 簡易検品料 <b id="scenarioStoredInspection">275円</b> ＋ 再梱包作業費 <b id="scenarioStoredRework">330円</b> ＋ 60サイズ調整料 <b id="scenarioStoredSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioStoredMaterial">110円</b></span></div>
-        <div id="scenarioStoredNextDay" class="scenario-price">1,265円（同月請求）</div>
+        <strong>3. 10月に保管し、翌月に再梱包して発送</strong>
+        <div class="scenario-flow">10月に商品受取・一次報告後、正式に保管 → 11月に保管商品を再梱包して発送</div>
+        <div class="scenario-breakdown">
+          <div class="scenario-month"><span>10月：基本作業料金 <b id="scenarioStoredBase">440円</b> ＋ 簡易検品料 <b id="scenarioStoredInspection">275円</b> ＋ 管理者が算出した保管料</span><b id="scenarioStoredOctober">715円＋保管料（10月請求）</b></div>
+          <div class="scenario-month"><span>11月：保管後再梱包作業費 <b id="scenarioStoredRework">330円</b> ＋ 60サイズ調整料 <b id="scenarioStoredSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioStoredMaterial">110円</b></span><b id="scenarioStoredNovember">550円（11月請求）</b></div>
+        </div>
+        <div id="scenarioStoredNextMonth" class="scenario-price">合計 1,265円</div>
       </div>
       <div class="scenario-item">
         <strong>4. 作業途中で仕入先へ返品</strong>
         <div class="scenario-flow">返品を決めた時点が、再梱包作業の開始前か開始後かで料金が変わります。</div>
         <div class="scenario-breakdown">
-          <div class="scenario-month"><span>再梱包開始前：返品作業料 <b id="scenarioReturnBeforeFee">550円</b> ＋ 簡易検品料 <b id="scenarioReturnBeforeInspection">275円</b></span><b id="scenarioReturnBeforeRepack">825円＋返送料</b></div>
-          <div class="scenario-month"><span>再梱包開始後：基本作業料金 <b id="scenarioReturnAfterBase">440円</b> ＋ 簡易検品料 <b id="scenarioReturnAfterInspection">275円</b> ＋ 返品作業料 <b id="scenarioReturnAfterFee">550円</b></span><b id="scenarioReturnAfterRepack">1,265円＋返送料</b></div>
+          <div class="scenario-month"><span>再梱包開始前：基本作業料金・検品料は請求せず、返品作業料 <b id="scenarioReturnBeforeFee">550円</b>のみ</span><b id="scenarioReturnBeforeRepack">550円＋返送料</b></div>
+          <div class="scenario-month"><span>再梱包開始後：追加作業が発生しているため基本作業料金を請求します。基本作業料金 <b id="scenarioReturnAfterBase">440円</b> ＋ 簡易検品料 <b id="scenarioReturnAfterInspection">275円</b> ＋ 返品作業料 <b id="scenarioReturnAfterFee">550円</b></span><b id="scenarioReturnAfterRepack">1,265円＋返送料</b></div>
         </div>
       </div>
     </div>
@@ -871,6 +874,15 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       ["仕入先への返品作業", "550円"]
     ],
     note: "仕入先への返品作業の返送料は別途となります。"
+  },
+  {
+    id: "ebay_storage_fee",
+    title: "6. 保管料（暫定）",
+    columns: ["基準サイズ", "料金（税込）", "備考"],
+    rows: [
+      ["37.5×45×40cm", "500円", "サイズに応じて管理者が保管料を算出し、対象月の請求へ入力します。"]
+    ],
+    note: "保管料金は暫定です。自動計算は行わず、管理者が商品のサイズを確認して請求金額を入力します。"
   },
   {
     id: "shipping",
@@ -2359,12 +2371,6 @@ window.requestEbayShipping = async function(productId) {
   const product = ebayProductsCache.find((item) => item.id === productId);
   if (!product || !confirm(`${product.name || "この商品"} の発送を依頼しますか？`)) return;
   try {
-    const billingUpdates = adjustmentDecision === "return" ? returnBillingEventUpdates(product, now) : {};
-    const repackingCycleUpdates = adjustmentDecision === "resize_repack" ? {
-      activeRepackingCycleId: product?.activeRepackingCycleId || "initial",
-      activeRepackingCycleType: "initial",
-      repackingStartedAt: product?.repackingStartedAt || now
-    } : {};
     await update(ref(database, `products/${dataUid()}/${productId}`), {
       ebayStatus: "requested",
       shippingRequest: "eBay発送依頼",
@@ -2629,7 +2635,12 @@ function publicPriceSections() {
   const savedSections = Array.isArray(priceTableCache.publicSections) ? priceTableCache.publicSections : [];
   const legacyIds = new Set(["work", "options", "ebay_shipping_service", "ebay_shipping_and_packaging"]);
   const hasLegacyLayout = savedSections.some((section) => legacyIds.has(section?.id));
-  const sections = savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS;
+  const sections = [...(savedSections.length && !hasLegacyLayout ? savedSections : DEFAULT_PUBLIC_PRICE_SECTIONS)];
+  if (!sections.some((section) => section?.id === "ebay_storage_fee")) {
+    const storageSection = DEFAULT_PUBLIC_PRICE_SECTIONS.find((section) => section.id === "ebay_storage_fee");
+    const shippingIndex = sections.findIndex((section) => section?.id === "shipping");
+    sections.splice(shippingIndex >= 0 ? shippingIndex : sections.length, 0, storageSection);
+  }
 
   return sections.map((section, sectionIndex) => {
     const columns = Array.isArray(section.columns) && section.columns.length
@@ -2715,8 +2726,11 @@ function billingEventRecord(id, type, title, amount, occurredAt, extra = {}) {
 }
 
 function productEnteredRepacking(product) {
-  if (product?.repackingStartedAt || product?.repackedAt) return true;
-  return Object.values(product?.productStageHistory || {}).some((entry) => entry?.to === "repacking");
+  if (product?.repackedAt || product?.activeRepackingCycleCompletedAt) return true;
+  const history = Object.values(product?.productStageHistory || {});
+  const latestRepacking = Math.max(0, ...history.filter((entry) => entry?.to === "repacking").map((entry) => Number(entry.changedAt || 0)));
+  const latestCorrection = Math.max(0, ...history.filter((entry) => entry?.to === "adjusting" && Number(entry.changedAt || 0) > latestRepacking).map((entry) => Number(entry.changedAt || 0)));
+  return Boolean(product?.repackingStartedAt) && latestRepacking > latestCorrection;
 }
 
 function initialWorkOccurredAt(product, fallback) {
@@ -2730,22 +2744,6 @@ function initialWorkOccurredAt(product, fallback) {
   return Number(product?.initialWorkChargedAt || (Number.isFinite(dateValue) ? dateValue : fallback));
 }
 
-function initialWorkExtraBreakdown(product) {
-  const data = simulatorRateData();
-  const rows = [];
-  const request = String(product?.workRequest || "");
-  if (request.includes("簡易検品")) rows.push({ label: "簡易検品", amount: data.simple.value ?? 275 });
-  if (request.includes("詳細検品")) rows.push({ label: "詳細検品", amount: data.detail.value ?? 825 });
-  const optionSection = publicPriceSections().find((section) => section.id === "ebay_optional_fees");
-  const optionPrice = (keyword, fallback) => {
-    const row = (optionSection?.rows || []).find((item) => String(item?.[0] || "").includes(keyword));
-    return simulatorPriceNumber(row?.[1]) ?? fallback;
-  };
-  if (isOptionEnabled(product?.optionPhoto) || isOptionEnabled(product?.options?.photo)) rows.push({ label: "写真撮影", amount: optionPrice("写真撮影", 330) });
-  if (isOptionEnabled(product?.optionVideo) || isOptionEnabled(product?.options?.video)) rows.push({ label: "動画撮影", amount: optionPrice("動画撮影", 330) });
-  return rows;
-}
-
 function returnBillingEventUpdates(product, now) {
   const data = simulatorRateData();
   const returnFee = data.returnFee.value ?? 550;
@@ -2753,16 +2751,12 @@ function returnBillingEventUpdates(product, now) {
   const updates = {};
   if (!productEnteredRepacking(product)) {
     const occurredAt = Number(initial?.occurredAt || initialWorkOccurredAt(product, now));
-    const extraBreakdown = Array.isArray(initial?.breakdown)
-      ? initial.breakdown.filter((item) => !String(item?.label || "").includes("基本作業料金"))
-      : initialWorkExtraBreakdown(product);
-    const breakdown = [{ label: "返品作業料", amount: returnFee }, ...extraBreakdown];
-    const amount = breakdown.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const breakdown = [{ label: "返品作業料", amount: returnFee }];
     updates["billingEvents/initial_work"] = billingEventRecord(
       "initial_work",
       "return_replacement",
       "返品作業料（基本作業料金から切替）",
-      amount,
+      returnFee,
       occurredAt,
       { createdAt: Number(initial?.createdAt || occurredAt), breakdown, replacedInitialWorkFee: true, replacedAt: now }
     );
@@ -2891,35 +2885,41 @@ function updatePriceSimulator() {
   const setScenario = (id, value, suffix = "") => { const target = document.getElementById(id); if (target) target.textContent = scenarioValue(value, suffix); };
   const setScenarioParts = (ids, values) => ids.forEach((id, index) => setScenario(id, values[index]));
   const initialMonthFee = simpleFee === null ? null : data.baseFee + simpleFee;
-  const repackingMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial].some((value) => value === null)
+  const initialRepackingMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial].some((value) => value === null)
+    ? null
+    : size60.sizeAdjustment + size60.newMaterial;
+  const storedRepackingMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial].some((value) => value === null)
     ? null
     : data.reworkBaseFee + size60.sizeAdjustment + size60.newMaterial;
   const sameMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial, simpleFee].some((value) => value === null)
     ? null
     : data.baseFee + size60.sizeAdjustment + size60.newMaterial + simpleFee;
-  const storedNextDayFee = initialMonthFee === null || repackingMonthFee === null ? null : initialMonthFee + repackingMonthFee;
+  const crossMonthTotal = initialMonthFee === null || initialRepackingMonthFee === null ? null : initialMonthFee + initialRepackingMonthFee;
+  const storedNextMonthTotal = initialMonthFee === null || storedRepackingMonthFee === null ? null : initialMonthFee + storedRepackingMonthFee;
   setScenario("scenarioOctoberSameMonth", sameMonthFee, sameMonthFee === null ? "" : "（10月請求）");
-  setScenario("scenarioCrossMonthOctober", initialMonthFee);
-  setScenario("scenarioCrossMonthNovember", repackingMonthFee);
-  setScenario("scenarioCrossMonthTotal", storedNextDayFee, storedNextDayFee === null ? "" : "（合計）");
-  setScenario("scenarioStoredNextDay", storedNextDayFee, storedNextDayFee === null ? "" : "（同月請求）");
-  setScenario("scenarioReturnBeforeRepack", returnFee === null || simpleFee === null ? null : returnFee + simpleFee, returnFee === null ? "" : "＋返送料");
+  setScenario("scenarioCrossMonthOctober", initialMonthFee, initialMonthFee === null ? "" : "（10月請求）");
+  setScenario("scenarioCrossMonthNovember", initialRepackingMonthFee, initialRepackingMonthFee === null ? "" : "（11月請求）");
+  setScenario("scenarioCrossMonthTotal", crossMonthTotal, crossMonthTotal === null ? "" : "（合計）");
+  setScenario("scenarioStoredOctober", initialMonthFee, initialMonthFee === null ? "" : "＋保管料（10月請求）");
+  setScenario("scenarioStoredNovember", storedRepackingMonthFee, storedRepackingMonthFee === null ? "" : "（11月請求）");
+  setScenario("scenarioStoredNextMonth", storedNextMonthTotal, storedNextMonthTotal === null ? "" : "＋保管料（合計）");
+  setScenario("scenarioReturnBeforeRepack", returnFee, returnFee === null ? "" : "＋返送料");
   setScenario("scenarioReturnAfterRepack", returnFee === null || simpleFee === null ? null : data.baseFee + simpleFee + returnFee, returnFee === null ? "" : "＋返送料");
   setScenarioParts(
     ["scenarioSameBase", "scenarioSameSize", "scenarioSameMaterial", "scenarioSameInspection"],
     [data.baseFee, size60?.sizeAdjustment, size60?.newMaterial, simpleFee]
   );
   setScenarioParts(
-    ["scenarioCrossBase", "scenarioCrossInspection", "scenarioCrossRework", "scenarioCrossSize", "scenarioCrossMaterial"],
-    [data.baseFee, simpleFee, data.reworkBaseFee, size60?.sizeAdjustment, size60?.newMaterial]
+    ["scenarioCrossBase", "scenarioCrossInspection", "scenarioCrossSize", "scenarioCrossMaterial"],
+    [data.baseFee, simpleFee, size60?.sizeAdjustment, size60?.newMaterial]
   );
   setScenarioParts(
     ["scenarioStoredBase", "scenarioStoredInspection", "scenarioStoredRework", "scenarioStoredSize", "scenarioStoredMaterial"],
     [data.baseFee, simpleFee, data.reworkBaseFee, size60?.sizeAdjustment, size60?.newMaterial]
   );
   setScenarioParts(
-    ["scenarioReturnBeforeFee", "scenarioReturnBeforeInspection", "scenarioReturnAfterBase", "scenarioReturnAfterInspection", "scenarioReturnAfterFee"],
-    [returnFee, simpleFee, data.baseFee, simpleFee, returnFee]
+    ["scenarioReturnBeforeFee", "scenarioReturnAfterBase", "scenarioReturnAfterInspection", "scenarioReturnAfterFee"],
+    [returnFee, data.baseFee, simpleFee, returnFee]
   );
 }
 
