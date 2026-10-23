@@ -554,9 +554,9 @@ textarea{min-height:62px;resize:vertical}
         <div class="form-group full">
           <label>海外発送方法 <span class="required">必須</span></label>
           <select id="internationalMethodSelect">
-            <option value="address">住所を指定して海外発送する</option>
             <option value="label">発行済みラベルを添付して海外発送する</option>
             <option value="planned">ラベル発行予定（Discordで調整）</option>
+            <option value="address">住所を指定して海外発送する</option>
           </select>
         </div>
       </div>
@@ -2978,7 +2978,7 @@ window.openShippingModal = function(type) {
   shippingRequestType.value = type;
 
   if (returnMethodSelect) returnMethodSelect.value = "address";
-  if (internationalMethodSelect) internationalMethodSelect.value = "address";
+  if (internationalMethodSelect) internationalMethodSelect.value = "label";
   updateShippingFormVisibility();
   shippingModalBackdrop.classList.add("show");
 };
