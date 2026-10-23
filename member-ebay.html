@@ -165,7 +165,7 @@ textarea{min-height:62px;resize:vertical}
 .simulator-total{margin-top:16px;padding:14px;border-radius:12px;background:#f3f6f4}
 .simulator-total-label{color:#6b7280;font-size:13px}
 .simulator-total-value{font-size:32px;font-weight:900;color:#263f34;margin-top:3px}
-.scenario-list{display:grid;gap:10px;margin-top:22px;max-width:760px}.scenario-item{padding:14px;border:1px solid #dbe3df;border-radius:10px;background:#f8faf9}.scenario-item strong{display:block;margin-bottom:5px;color:#263f34}.scenario-price{margin-top:6px;font-weight:900;color:#3f6652}
+.scenario-list{display:grid;gap:12px;margin-top:22px;max-width:860px}.scenario-item{padding:16px;border:1px solid #dbe3df;border-radius:10px;background:#f8faf9}.scenario-item strong{display:block;margin-bottom:7px;color:#263f34}.scenario-flow{font-size:13px;color:#4b5563;margin-bottom:8px}.scenario-breakdown{display:grid;gap:4px;font-size:13px}.scenario-price{margin-top:8px;font-weight:900;color:#3f6652}.scenario-month{display:flex;justify-content:space-between;gap:16px;padding:5px 0;border-bottom:1px solid #e5e7eb}.scenario-month:last-child{border-bottom:0}
 .service-switch{display:flex;justify-content:center;gap:8px;margin:-8px 0 22px;padding:6px;background:#f1f5f9;border-radius:10px}
 .service-switch.hidden{display:none}
 .service-switch button{min-width:180px;background:transparent;color:#64748b}
@@ -516,11 +516,36 @@ body{background:linear-gradient(135deg,#6f927c 0%,#3f6652 100%)}
     </div>
     <div class="scenario-list">
       <h3>シチュエーション別の料金例</h3>
-      <div class="scenario-item"><strong>そのまま発送・簡易検品</strong><span>基本作業料金440円＋簡易検品</span><div id="scenarioAsIs" class="scenario-price">715円</div></div>
-      <div class="scenario-item"><strong>初回に60サイズへ調整・リサイクル材使用可・簡易検品</strong><span>基本作業料金＋60サイズ調整＋梱包資材＋簡易検品</span><div id="scenarioInitialRepack" class="scenario-price">825円</div></div>
-      <div class="scenario-item"><strong>保管後、60サイズへ再梱包</strong><span>再梱包作業費330円＋60サイズ調整＋新品梱包資材</span><div id="scenarioStoredRepack" class="scenario-price">550円</div></div>
-      <div class="scenario-item"><strong>梱包依頼中に返品</strong><span>基本作業料金440円を返品作業料へ切り替え</span><div id="scenarioReturnBeforeRepack" class="scenario-price">550円＋返送料</div></div>
-      <div class="scenario-item"><strong>再梱包作業開始後に返品</strong><span>確定済み基本作業料金440円＋返品作業料</span><div id="scenarioReturnAfterRepack" class="scenario-price">990円＋返送料</div></div>
+      <p class="member-meta">共通条件：60サイズ・簡易検品あり・新品梱包材を使用。金額は価格表の現在値から自動計算します。</p>
+      <div class="scenario-item">
+        <strong>1. 10月中に通常どおり再梱包して発送完了</strong>
+        <div class="scenario-flow">商品受取 → 一次報告・梱包依頼 → 60サイズへ再梱包 → 10月中に発送</div>
+        <div class="scenario-breakdown"><span>10月：基本作業料金 <b id="scenarioSameBase">440円</b> ＋ 60サイズ調整料 <b id="scenarioSameSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioSameMaterial">110円</b> ＋ 簡易検品料 <b id="scenarioSameInspection">275円</b></span></div>
+        <div id="scenarioOctoberSameMonth" class="scenario-price">935円（10月請求）</div>
+      </div>
+      <div class="scenario-item">
+        <strong>2. 再梱包作業が11月にまたがる</strong>
+        <div class="scenario-flow">10月に商品受取・一次報告 → 一旦保管 → 11月に再梱包して発送</div>
+        <div class="scenario-breakdown">
+          <div class="scenario-month"><span>10月：基本作業料金 <b id="scenarioCrossBase">440円</b> ＋ 簡易検品料 <b id="scenarioCrossInspection">275円</b></span><b id="scenarioCrossMonthOctober">715円</b></div>
+          <div class="scenario-month"><span>11月：再梱包作業費 <b id="scenarioCrossRework">330円</b> ＋ 60サイズ調整料 <b id="scenarioCrossSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioCrossMaterial">110円</b></span><b id="scenarioCrossMonthNovember">550円</b></div>
+        </div>
+        <div id="scenarioCrossMonthTotal" class="scenario-price">合計 1,265円</div>
+      </div>
+      <div class="scenario-item">
+        <strong>3. 一旦保管し、翌日に再梱包して発送</strong>
+        <div class="scenario-flow">商品受取・一次報告 → 保管 → 翌日に再梱包・発送（同じ請求月の場合）</div>
+        <div class="scenario-breakdown"><span>基本作業料金 <b id="scenarioStoredBase">440円</b> ＋ 簡易検品料 <b id="scenarioStoredInspection">275円</b> ＋ 再梱包作業費 <b id="scenarioStoredRework">330円</b> ＋ 60サイズ調整料 <b id="scenarioStoredSize">110円</b> ＋ 新品梱包資材料 <b id="scenarioStoredMaterial">110円</b></span></div>
+        <div id="scenarioStoredNextDay" class="scenario-price">1,265円（同月請求）</div>
+      </div>
+      <div class="scenario-item">
+        <strong>4. 作業途中で仕入先へ返品</strong>
+        <div class="scenario-flow">返品を決めた時点が、再梱包作業の開始前か開始後かで料金が変わります。</div>
+        <div class="scenario-breakdown">
+          <div class="scenario-month"><span>再梱包開始前：返品作業料 <b id="scenarioReturnBeforeFee">550円</b> ＋ 簡易検品料 <b id="scenarioReturnBeforeInspection">275円</b></span><b id="scenarioReturnBeforeRepack">825円＋返送料</b></div>
+          <div class="scenario-month"><span>再梱包開始後：基本作業料金 <b id="scenarioReturnAfterBase">440円</b> ＋ 簡易検品料 <b id="scenarioReturnAfterInspection">275円</b> ＋ 返品作業料 <b id="scenarioReturnAfterFee">550円</b></span><b id="scenarioReturnAfterRepack">1,265円＋返送料</b></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -786,7 +811,7 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       ["初回作業（受取・確認から発送準備まで）", "440円", "荷受け時の写真、重量・サイズの測定と報告を含みます。"],
       ["保管後の再梱包作業費", "330円", "保管後にあらためて再梱包を開始する場合の作業料金です。サイズ調整料と新品梱包資材料は別途加算します。"]
     ],
-    note: ""
+    note: "料金確定タイミング：商品受取後、お気楽便が確認・一次報告を行い、商品ステータスが「梱包依頼」または「保管中」へ移行した時点で基本作業料金が確定します。発送日ではなく、作業開始・一次報告を行った月の請求対象です。\n保管後にあらためて再梱包する場合は、再梱包を開始した月に再梱包作業費が確定し、サイズ調整料・梱包資材料は再梱包後の確認日に確定します。"
   },
   {
     id: "ebay_size_repacking",
@@ -2612,10 +2637,15 @@ function publicPriceSections() {
       : ["区分", "価格", "備考"];
     let rows = Array.isArray(section.rows) ? section.rows.map((row) => [...row]) : [];
     let title = section.title || "";
+    let note = section.note || "";
     if (section.id === "ebay_basic_shipping") {
       title = String(title).replace("基本発送料金", "基本作業料金");
       if (!rows.some((row) => String(row?.[0] || "").includes("再梱包作業費"))) {
         rows.push(["保管後の再梱包作業費", "330円", "保管後にあらためて再梱包を開始する場合の作業料金です。サイズ調整料と新品梱包資材料は別途加算します。"]);
+      }
+      if (!String(note).includes("料金確定タイミング")) {
+        const timingNote = "料金確定タイミング：商品受取後、お気楽便が確認・一次報告を行い、商品ステータスが「梱包依頼」または「保管中」へ移行した時点で基本作業料金が確定します。発送日ではなく、作業開始・一次報告を行った月の請求対象です。\n保管後にあらためて再梱包する場合は、再梱包を開始した月に再梱包作業費が確定し、サイズ調整料・梱包資材料は再梱包後の確認日に確定します。";
+        note = [note, timingNote].filter(Boolean).join("\n");
       }
     }
     return {
@@ -2623,7 +2653,7 @@ function publicPriceSections() {
       title,
       columns,
       rows,
-      note: section.note || ""
+      note
     };
   });
 }
@@ -2859,11 +2889,38 @@ function updatePriceSimulator() {
   const returnFee = data.returnFee.value;
   const scenarioValue = (value, suffix = "") => value === null || value === undefined ? "個別見積" : `${Number(value).toLocaleString("ja-JP")}円${suffix}`;
   const setScenario = (id, value, suffix = "") => { const target = document.getElementById(id); if (target) target.textContent = scenarioValue(value, suffix); };
-  setScenario("scenarioAsIs", simpleFee === null ? null : data.baseFee + simpleFee);
-  setScenario("scenarioInitialRepack", !size60 || [size60.sizeAdjustment, size60.recycleMaterial, simpleFee].some((value) => value === null) ? null : data.baseFee + size60.sizeAdjustment + size60.recycleMaterial + simpleFee);
-  setScenario("scenarioStoredRepack", !size60 || [size60.sizeAdjustment, size60.newMaterial].some((value) => value === null) ? null : data.reworkBaseFee + size60.sizeAdjustment + size60.newMaterial);
-  setScenario("scenarioReturnBeforeRepack", returnFee, returnFee === null ? "" : "＋返送料");
-  setScenario("scenarioReturnAfterRepack", returnFee === null ? null : data.baseFee + returnFee, returnFee === null ? "" : "＋返送料");
+  const setScenarioParts = (ids, values) => ids.forEach((id, index) => setScenario(id, values[index]));
+  const initialMonthFee = simpleFee === null ? null : data.baseFee + simpleFee;
+  const repackingMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial].some((value) => value === null)
+    ? null
+    : data.reworkBaseFee + size60.sizeAdjustment + size60.newMaterial;
+  const sameMonthFee = !size60 || [size60.sizeAdjustment, size60.newMaterial, simpleFee].some((value) => value === null)
+    ? null
+    : data.baseFee + size60.sizeAdjustment + size60.newMaterial + simpleFee;
+  const storedNextDayFee = initialMonthFee === null || repackingMonthFee === null ? null : initialMonthFee + repackingMonthFee;
+  setScenario("scenarioOctoberSameMonth", sameMonthFee, sameMonthFee === null ? "" : "（10月請求）");
+  setScenario("scenarioCrossMonthOctober", initialMonthFee);
+  setScenario("scenarioCrossMonthNovember", repackingMonthFee);
+  setScenario("scenarioCrossMonthTotal", storedNextDayFee, storedNextDayFee === null ? "" : "（合計）");
+  setScenario("scenarioStoredNextDay", storedNextDayFee, storedNextDayFee === null ? "" : "（同月請求）");
+  setScenario("scenarioReturnBeforeRepack", returnFee === null || simpleFee === null ? null : returnFee + simpleFee, returnFee === null ? "" : "＋返送料");
+  setScenario("scenarioReturnAfterRepack", returnFee === null || simpleFee === null ? null : data.baseFee + simpleFee + returnFee, returnFee === null ? "" : "＋返送料");
+  setScenarioParts(
+    ["scenarioSameBase", "scenarioSameSize", "scenarioSameMaterial", "scenarioSameInspection"],
+    [data.baseFee, size60?.sizeAdjustment, size60?.newMaterial, simpleFee]
+  );
+  setScenarioParts(
+    ["scenarioCrossBase", "scenarioCrossInspection", "scenarioCrossRework", "scenarioCrossSize", "scenarioCrossMaterial"],
+    [data.baseFee, simpleFee, data.reworkBaseFee, size60?.sizeAdjustment, size60?.newMaterial]
+  );
+  setScenarioParts(
+    ["scenarioStoredBase", "scenarioStoredInspection", "scenarioStoredRework", "scenarioStoredSize", "scenarioStoredMaterial"],
+    [data.baseFee, simpleFee, data.reworkBaseFee, size60?.sizeAdjustment, size60?.newMaterial]
+  );
+  setScenarioParts(
+    ["scenarioReturnBeforeFee", "scenarioReturnBeforeInspection", "scenarioReturnAfterBase", "scenarioReturnAfterInspection", "scenarioReturnAfterFee"],
+    [returnFee, simpleFee, data.baseFee, simpleFee, returnFee]
+  );
 }
 
 document.querySelectorAll('input[name="simulatorRepack"], input[name="simulatorInspection"], #simulatorRecycle, #simulatorSize').forEach((input) => {
@@ -4130,18 +4187,14 @@ window.downloadInvoiceCsv = function(month) {
     ["会員", invoice.memberName || ""],
     ["管理番号", invoice.managementNumber || ""],
     [],
-    ["商品名", "ナンバリング", "作業内容", "ボディの本数", "レンズの本数", "検品確認が必要な周辺機器本数", "オプション", "作業確定日／月", "作業料金", "発送作業代", "発送日", "発送料金", "調整", "調整内容", "合計"],
+    ["商品名", "管理番号", "作業内容", "オプション", "料金確定日", "作業料金", "発送日", "国内配送料・返送料", "調整金", "調整内容", "合計"],
     ...items.map((item) => [
       item.name || "",
       item.numbering || "",
       workRequestLabel(item.workRequest),
-      item.bodyCount || "",
-      item.lensCount || "",
-      item.accessoryCount || "",
       invoiceOptionsForDisplay(item.options, invoice),
       item.inspectionDate || "-",
       item.inspectionFee ?? "-",
-      itemHasShippingCharge(item) ? itemShippingWorkFee(item) : "-",
       item.shippingDate || "-",
       itemHasShippingCharge(item) && item.shippingFee !== "-" ? itemShippingFareFee(item) : "-",
       item.adjustmentFee ?? "-",
@@ -4160,9 +4213,7 @@ window.downloadInvoiceCsv = function(month) {
     ]),
     [],
     ["作業料金合計", invoice.totalInspectionFee || 0],
-    ["発送作業件数", invoiceShippingWorkCount(invoice)],
-    ["発送作業代合計", invoiceShippingWorkFee(invoice)],
-    ["発送料金合計", invoiceShippingFareFee(invoice)],
+    ["国内配送料・返送料合計", invoiceShippingFareFee(invoice)],
     ["商品別調整合計", invoiceAdjustmentFee(invoice)],
     ["請求書全体調整", invoiceGlobalAdjustmentFee(invoice)],
     ["請求書全体調整内容", invoiceGlobalAdjustmentNoteText(invoice) || "-"],
@@ -4200,7 +4251,6 @@ window.downloadInvoicePdf = function(month) {
       <td>${escapeHtml(row.date || "-")}</td>
       <td>${escapeHtml(row.numbering || "-")}</td>
       <td class="num">${row.hasInspection ? yen(row.inspectionFee) : "-"}</td>
-      <td class="num">${row.hasShippingWork ? yen(row.shippingWorkFee) : "-"}</td>
       <td class="num">${row.hasShipping ? yen(row.shippingFee) : "-"}</td>
       <td class="num">${row.hasAdjustment ? yen(row.adjustmentFee) : "-"}</td>
       <td class="num">${yen(row.total)}</td>
@@ -4263,7 +4313,7 @@ window.downloadInvoicePdf = function(month) {
         <div class="head">
           <div class="client">
             <div class="client-name">${escapeHtml(invoice.memberName || "-")} 様</div>
-            <div>件名：お気楽便 ${escapeHtml(invoice.month || "-")} ご利用分</div>
+            <div>件名：お気楽便 eBay発送代行 ${escapeHtml(invoice.month || "-")} ご利用分</div>
           </div>
           <div>
             <div class="meta-right">
@@ -4284,10 +4334,9 @@ window.downloadInvoicePdf = function(month) {
           <tr>
             <th>日付</th>
             <th>管理番号</th>
-            <th>検品</th>
-            <th>発送作業代</th>
-            <th>送料</th>
-            <th>調整</th>
+            <th>作業料金</th>
+            <th>国内配送料・返送料</th>
+            <th>調整金</th>
             <th>合計</th>
             <th>税率</th>
             <th>適用</th>
@@ -4370,6 +4419,8 @@ function buildPdfInvoiceRows(items, invoice = {}) {
       const adjustmentFee = hasAdjustment ? feeValue(item.adjustmentFee) : 0;
       const dates = [item.inspectionDate, item.shippingDate].filter((date) => hasValue(date) && date !== "-").sort();
       const noteParts = [`${item.name || "-"} / ${item.numbering || "-"}`];
+      const workText = workRequestLabel(item.workRequest);
+      if (workText && workText !== "-") noteParts.push(workText);
       if (item.shippingNote) noteParts.push(item.shippingNote);
       const optionText = invoiceOptionsForDisplay(item.options, invoice);
       if (optionText && optionText !== "-") noteParts.push(optionText);
