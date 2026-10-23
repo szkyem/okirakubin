@@ -47,8 +47,11 @@
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/02_product_register.png" alt="eBay商品登録画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：02_product_register.png</figcaption></figure>
     <h3>主な入力内容</h3><ul><li>商品名</li><li>管理番号（ナンバリング）</li><li>購入先URL（任意）</li><li>作業依頼</li><li>オプションとコメント（任意）</li></ul>
     <h3>検品・作業内容</h3><ul><li>検品不要</li><li>簡易検品</li><li>詳細検品</li><li>開梱して保管</li></ul>
-    <p>オプションでは写真撮影などを指定できます。登録直後の「商品確認中」は、管理者の確認前であれば編集・削除できます。</p>
-    <p class="warning">商品名・管理番号・作業依頼は必須です。商品ごとに管理番号が重複しないようご確認ください。登録後に検品などの追加作業が発生した場合は、別途作業料金が発生することがあります。</p>
+    <p>オプションでは写真撮影（5枚程度）・動画撮影（30秒程度）などを指定できます。登録直後の「商品確認中」は、管理者の確認前であれば編集・削除できます。</p>
+    <div class="warning">
+      <p><strong>登録時の注意：</strong>商品名・管理番号・作業依頼は必須です。商品ごとに管理番号が重複しないようご確認ください。</p>
+      <p><strong>追加作業について：</strong>商品確認後に検品や返品などの追加作業が発生した場合は、別途作業料金が発生することがあります。</p>
+    </div>
   </section></details>
 
   <details id="status"><summary>3. 商品ステータス</summary><section class="content">
@@ -85,7 +88,8 @@
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/06_shipping_request.png" alt="発送依頼画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：06_shipping_request.png</figcaption></figure>
     <h3>海外発送方法</h3><ol><li>発行済みラベルを添付して海外発送する</li><li>ラベル発行予定（管理者と調整）</li><li>住所を指定して海外発送する</li></ol>
     <h3>国内配送</h3>
-    <p>不良在庫を国内で販売した場合や、国内の配送先へ送る場合は、必要に応じて「国内配送」を選択し、配送先を指定してください。国内配送は基本的にゆうパックで対応します。配送料はお気楽便が一時的に立て替え、後日請求書にて請求します。</p>
+    <p>不良在庫を国内で販売した場合や、国内の配送先へ送る場合は、必要に応じて「国内配送」を選択し、配送先を指定してください。国内配送は基本的にゆうパックで対応します。</p>
+    <ul><li><strong>国内発送：</strong>配送料はお気楽便が一時的に立て替え、後日請求書にて請求します。</li><li><strong>送料会員事前負担で国内発送：</strong>会員様が事前に送料を負担して発送する場合に選択してください。</li></ul>
     <h3>返品方法</h3><ul><li>住所を指定して返品</li><li>QRコード・バーコードを連絡して返品</li><li>集荷を依頼して返品（集荷日時を指定）</li></ul>
     <h3>発送依頼の商品を保管へ戻す場合</h3>
     <p>発送依頼の商品を選択し、「選択中を保管商品へ戻す」から保管商品へ移動できます。</p>
@@ -97,6 +101,17 @@
     <p>価格表には、各作業の料金と検品範囲を記載しています。実際の送料や作業料金の概算は、価格表の金額を参照する料金シミュレーターで確認してください。</p>
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/07_price_simulator.png" alt="料金シミュレーター画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：07_price_simulator.png</figcaption></figure>
     <ol><li>サイズ調整・再梱包の有無を選択</li><li>梱包後サイズを選択</li><li>リサイクル材の使用可否を選択</li><li>検品内容を選択</li><li>表示された税込合計を確認</li></ol>
+    <h3>作業の流れと料金の確定タイミング</h3>
+    <table><thead><tr><th>タイミング</th><th>確定する料金</th><th>請求月</th></tr></thead><tbody>
+      <tr><td>商品確認中から梱包依頼へ移動</td><td>初回の基本作業料金440円、指定した検品・撮影オプション</td><td>ステータスを変更した月</td></tr>
+      <tr><td>保管中から再梱包作業中へ移動</td><td>保管後の再梱包作業費330円</td><td>再梱包を開始した月</td></tr>
+      <tr><td>再梱包完了</td><td>サイズ調整追加料金、新品梱包資材料金</td><td>再梱包を完了した月</td></tr>
+      <tr><td>返品を確定</td><td>梱包依頼中は440円を返品作業料550円へ切替。再梱包開始後は440円に550円を追加</td><td>各作業を確定した月</td></tr>
+      <tr><td>発送完了</td><td>国内送料など、発送時に発生する料金</td><td>発送完了月</td></tr>
+    </tbody></table>
+    <h3>60サイズ・リサイクル材使用可・簡易検品の例</h3>
+    <ul><li>初回に60サイズへ調整：440円＋110円＋0円＋275円＝<strong>825円</strong></li><li>保管後に60サイズへ再梱包：330円＋110円＋新品資材110円＝<strong>550円</strong></li><li>梱包依頼中に返品：基本作業料金を返品作業料へ切り替え、<strong>550円＋返送料</strong></li><li>再梱包開始後に返品：440円＋550円＝<strong>990円＋返送料</strong></li></ul>
+    <p class="note">料金は作業を確定した時点で記録されます。後から商品ステータスが変わっても、確定済みの料金を最終状態だけで再計算して上書きすることはありません。</p>
     <p class="note">国際送料や「個別見積」と表示される作業はシミュレーターの合計に含まれません。</p>
   </section></details>
 
@@ -107,7 +122,7 @@
   </section></details>
 
   <details id="info"><summary>8. お知らせ・基本情報</summary><section class="content">
-    <p>トップには、運用に関するお知らせが表示されます。</p>
+    <p>「最近のお知らせ」には管理者からのお知らせを表示しますので、随時状況をご確認ください。</p>
     <p>「基本情報」では営業時間、発送時の注意事項、連絡方法などを確認できます。</p>
     <figure><img class="manual-img" src="okirakubin_ebay_manual_assets/09_basic_info.png" alt="eBay基本情報画面" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><figcaption class="image-pending">画像準備中：09_basic_info.png</figcaption></figure>
   </section></details>
