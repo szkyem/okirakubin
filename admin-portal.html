@@ -260,6 +260,83 @@
 
     .stat-card.neutral-hi .stat-value { color: #64748b; }
 
+    .service-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .service-overview-card {
+      display: block;
+      padding: 20px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: inherit;
+      text-decoration: none;
+      background: var(--white);
+      transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .service-overview-card:hover,
+    .service-overview-card:focus-visible {
+      transform: translateY(-2px);
+      border-color: var(--blue);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, .12);
+      outline: none;
+    }
+
+    .service-overview-card.ebay:hover,
+    .service-overview-card.ebay:focus-visible {
+      border-color: #4f765f;
+      box-shadow: 0 10px 24px rgba(79, 118, 95, .14);
+    }
+
+    .service-overview-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .service-overview-title h3 { margin: 0; color: var(--blue); }
+    .service-overview-card.ebay .service-overview-title h3 { color: #4f765f; }
+    .service-overview-open { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .service-overview-card .stats { margin-top: 0; gap: 10px; }
+    .service-overview-card .stat-card { min-height: 96px; padding: 15px; }
+
+    .member-service-group {
+      margin-top: 18px;
+      border: 2px solid var(--border);
+      border-radius: 11px;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .member-service-group.both { border-color: #e79a9a; }
+    .member-service-group.camera { border-color: #8eb7f4; }
+    .member-service-group.ebay { border-color: #91c7a4; }
+    .member-service-group .table-wrap { border: 0; border-radius: 0; }
+
+    .member-service-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 16px;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .member-service-group.both .member-service-heading { color: #9f2525; background: #fff0f0; }
+    .member-service-group.camera .member-service-heading { color: #1d5fbf; background: #eef5ff; }
+    .member-service-group.ebay .member-service-heading { color: #317047; background: #eef8f1; }
+    .service-type-pill { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    .service-type-pill.both { color: #9f2525; background: #ffe1e1; }
+    .service-type-pill.camera { color: #1d5fbf; background: #deebff; }
+    .service-type-pill.ebay { color: #317047; background: #dff2e5; }
+
     h2 {
       margin: 28px 0 16px;
       font-size: 24px;
@@ -1123,7 +1200,7 @@
       }
 
       .user-area { justify-content: flex-start; }
-      .stats, .stats.four, .invoice-summary-grid { grid-template-columns: 1fr; }
+      .stats, .stats.four, .invoice-summary-grid, .service-overview-grid { grid-template-columns: 1fr; }
       .invoice-summary-header { align-items: stretch; flex-direction: column; }
       .invoice-summary-month { min-width: 0; }
       .invoice-summary-formula { align-items: stretch; flex-direction: column; }
@@ -1166,23 +1243,25 @@
 
     <section id="portalTopSection" class="section">
       <div class="section-title-row">
-        <div><h2>サービス状況</h2><p class="muted">カメラとeBay発送代行を分けて確認できます。</p></div>
-        <div class="inline-actions">
-          <a class="primary-btn" href="admin.html" target="_blank" rel="noopener" style="text-decoration:none;">カメラ管理を新しいタブで開く</a>
-          <a class="secondary-btn" href="admin-ebay.html" target="_blank" rel="noopener" style="text-decoration:none;">eBay管理を新しいタブで開く</a>
-        </div>
+        <div><h2>サービス状況</h2><p class="muted">確認したいサービスの枠を押すと、管理画面が新しいタブで開きます。</p></div>
       </div>
-      <h3 style="margin:22px 0 12px;color:var(--blue);">カメラ発送代行</h3>
-      <div class="stats">
-        <div class="stat-card"><div class="stat-label">カメラ会員</div><div id="portalCameraMembers" class="stat-value">0</div></div>
-        <div class="stat-card"><div class="stat-label">カメラ 登録商品</div><div id="portalCameraRegistered" class="stat-value">0</div></div>
-        <div class="stat-card"><div class="stat-label">カメラ 未発送商品</div><div id="portalCameraUnshipped" class="stat-value">0</div></div>
-      </div>
-      <h3 style="margin:26px 0 12px;color:var(--blue);">eBay発送代行</h3>
-      <div class="stats">
-        <div class="stat-card"><div class="stat-label">eBay会員</div><div id="portalEbayMembers" class="stat-value">0</div></div>
-        <div class="stat-card"><div class="stat-label">eBay 登録商品</div><div id="portalEbayRegistered" class="stat-value">0</div></div>
-        <div class="stat-card"><div class="stat-label">eBay 未発送商品</div><div id="portalEbayUnshipped" class="stat-value">0</div></div>
+      <div class="service-overview-grid">
+        <a class="service-overview-card camera" href="admin.html" target="_blank" rel="noopener" aria-label="カメラ発送代行の管理画面を新しいタブで開く">
+          <div class="service-overview-title"><h3>カメラ発送代行</h3><span class="service-overview-open">管理画面を開く ↗</span></div>
+          <div class="stats">
+            <div class="stat-card"><div class="stat-label">カメラ会員</div><div id="portalCameraMembers" class="stat-value">0</div></div>
+            <div class="stat-card"><div class="stat-label">登録商品</div><div id="portalCameraRegistered" class="stat-value">0</div></div>
+            <div class="stat-card"><div class="stat-label">未発送商品</div><div id="portalCameraUnshipped" class="stat-value">0</div></div>
+          </div>
+        </a>
+        <a class="service-overview-card ebay" href="admin-ebay.html" target="_blank" rel="noopener" aria-label="eBay発送代行の管理画面を新しいタブで開く">
+          <div class="service-overview-title"><h3>eBay発送代行</h3><span class="service-overview-open">管理画面を開く ↗</span></div>
+          <div class="stats">
+            <div class="stat-card"><div class="stat-label">eBay会員</div><div id="portalEbayMembers" class="stat-value">0</div></div>
+            <div class="stat-card"><div class="stat-label">登録商品</div><div id="portalEbayRegistered" class="stat-value">0</div></div>
+            <div class="stat-card"><div class="stat-label">未発送商品</div><div id="portalEbayUnshipped" class="stat-value">0</div></div>
+          </div>
+        </a>
       </div>
       <div class="section-title-row" style="margin-top:30px;"><h2>請求状況</h2><span id="portalInvoiceMonth" class="role-pill"></span></div>
       <div class="stats">
@@ -1196,19 +1275,17 @@
         <h2>会員一覧</h2>
         <input id="memberSearchInput" class="member-search" type="search" placeholder="管理番号・識別名・会員氏名で検索" />
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>会員番号</th>
-              <th>識別名</th>
-              <th>会員</th>
-              <th>利用区分</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="memberListBody"></tbody>
-        </table>
+      <div class="member-service-group both">
+        <div class="member-service-heading"><span>両会員</span><span id="bothMemberCount">0名</span></div>
+        <div class="table-wrap"><table><thead><tr><th>会員番号</th><th>識別名</th><th>会員</th><th>利用区分</th><th>操作</th></tr></thead><tbody id="bothMemberListBody"></tbody></table></div>
+      </div>
+      <div class="member-service-group camera">
+        <div class="member-service-heading"><span>カメラ会員</span><span id="cameraMemberCount">0名</span></div>
+        <div class="table-wrap"><table><thead><tr><th>会員番号</th><th>識別名</th><th>会員</th><th>利用区分</th><th>操作</th></tr></thead><tbody id="cameraMemberListBody"></tbody></table></div>
+      </div>
+      <div class="member-service-group ebay">
+        <div class="member-service-heading"><span>eBay会員</span><span id="ebayMemberCount">0名</span></div>
+        <div class="table-wrap"><table><thead><tr><th>会員番号</th><th>識別名</th><th>会員</th><th>利用区分</th><th>操作</th></tr></thead><tbody id="ebayMemberListBody"></tbody></table></div>
       </div>
     </section>
 
@@ -1871,7 +1948,9 @@
     const totalUnshipped = document.getElementById("totalUnshipped");
     const totalEbayRegistered = document.getElementById("totalEbayRegistered");
     const totalEbayUnshipped = document.getElementById("totalEbayUnshipped");
-    const memberListBody = document.getElementById("memberListBody");
+    const bothMemberListBody = document.getElementById("bothMemberListBody");
+    const cameraMemberListBody = document.getElementById("cameraMemberListBody");
+    const ebayMemberListBody = document.getElementById("ebayMemberListBody");
     const inactiveMemberListBody = document.getElementById("inactiveMemberListBody");
     const inquiryListBody = document.getElementById("inquiryListBody");
     const pendingMemberForm = document.getElementById("pendingMemberForm");
@@ -2435,86 +2514,44 @@
     }
 
     function renderMembers() {
-      if (!memberListBody) return;
-      {
+      if (!bothMemberListBody || !cameraMemberListBody || !ebayMemberListBody) return;
       const searchKeyword = normalizeSearch(memberSearchInput?.value || "");
       const displayMembers = searchKeyword
         ? membersCache.filter((member) => normalizeSearch(`${member.managementNumber || ""} ${member.adminDisplayName || ""} ${member.name || ""}`).includes(searchKeyword))
         : membersCache;
-      if (!displayMembers.length) {
-        memberListBody.innerHTML = `<tr><td colspan="5"><div class="empty">${membersCache.length ? "検索条件に一致する会員がいません。" : "会員が登録されていません。"}</div></td></tr>`;
-        return;
-      }
-      memberListBody.innerHTML = displayMembers.map((member) => {
+
+      const memberType = (member) => {
         const camera = member.enabledServices?.camera !== false;
         const ebay = member.enabledServices?.ebay === true;
-        const serviceType = camera && ebay ? "両会員" : ebay ? "eBay会員" : "カメラ会員";
+        return camera && ebay ? "both" : ebay ? "ebay" : "camera";
+      };
+      const typeLabel = { both: "両会員", camera: "カメラ会員", ebay: "eBay会員" };
+      const renderRows = (members, type) => {
+        if (!members.length) {
+          const message = searchKeyword ? "検索条件に一致する会員はいません。" : `${typeLabel[type]}はいません。`;
+          return `<tr><td colspan="5"><div class="empty">${message}</div></td></tr>`;
+        }
+        return members.map((member) => {
         return `<tr>
           <td><strong>${escapeHtml(member.managementNumber || "-")}</strong></td>
           <td>${escapeHtml(member.adminDisplayName || "-")}</td>
           <td><div class="member-name">${escapeHtml(member.name || "-")}</div><div class="member-meta">${escapeHtml(member.email || "-")}</div></td>
-          <td><span class="role-pill">${serviceType}</span></td>
+          <td><span class="service-type-pill ${type}">${typeLabel[type]}</span></td>
           <td><button class="mini-btn" type="button" onclick="openMemberManagementEdit('${escapeAttr(member.uid)}')">会員設定</button></td>
         </tr>`;
-      }).join("");
-      return;
-      }
-      const totalRegisteredCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).registered.length, 0);
-      const totalUnshippedCount = membersCache.reduce((sum, member) => sum + getProductGroups(member).unshipped.length, 0);
-      const totalEbayRegisteredCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayRegisteredProduct).length, 0);
-      const totalEbayUnshippedCount = membersCache.reduce((sum, member) => sum + (member.ebayProducts || []).filter(isEbayPendingProduct).length, 0);
-
-      totalMembers.textContent = membersCache.length;
-      totalRegistered.textContent = totalRegisteredCount;
-      totalUnshipped.textContent = totalUnshippedCount;
-      if (totalEbayRegistered) totalEbayRegistered.textContent = totalEbayRegisteredCount;
-      if (totalEbayUnshipped) totalEbayUnshipped.textContent = totalEbayUnshippedCount;
-
-      if (!membersCache.length) {
-        memberListBody.innerHTML = `<tr><td colspan="10"><div class="empty">会員が登録されていません。</div></td></tr>`;
-        return;
-      }
-
-      const searchKeyword = normalizeSearch(memberSearchInput.value);
-      const displayMembers = searchKeyword
-        ? membersCache.filter((member) => {
-            const target = normalizeSearch(`${member.managementNumber || ""} ${member.adminDisplayName || ""} ${member.name || ""}`);
-            return target.includes(searchKeyword);
-          })
-        : membersCache;
-
-      if (!displayMembers.length) {
-        memberListBody.innerHTML = `<tr><td colspan="10"><div class="empty">検索条件に一致する会員がいません。</div></td></tr>`;
-        return;
-      }
-
-      memberListBody.innerHTML = displayMembers.map((member) => {
-        const groups = getProductGroups(member);
-
-        return `
-          <tr class="member-row" onclick="selectMember('${escapeAttr(member.uid)}')">
-            <td>
-              <div class="management-cell">
-                <strong>${escapeHtml(member.managementNumber || "-")}</strong>
-                <button class="mini-btn" onclick="event.stopPropagation(); openMemberManagementEdit('${escapeAttr(member.uid)}')">編集</button>
-              </div>
-            </td>
-            <td>${escapeHtml(member.adminDisplayName || "-")}</td>
-            <td>
-              <div class="member-name">${escapeHtml(member.name || "-")}</div>
-              <div class="member-meta">${escapeHtml(member.email || "-")}</div>
-              <div class="member-meta">${escapeHtml(member.uid)}</div>
-            </td>
-            <td>${countPill(groups.registered.length, "issue")}</td>
-            <td>${countPill(groups.stored.length, "neutral-hi")}</td>
-            <td>${countPill(groups.unshipped.length, "issue")}</td>
-            <td>${countPill(groups.shipped.length, "neutral-hi")}</td>
-            <td>${formatDateTime(member.lastLoginAt)}</td>
-            <td><button class="mini-btn" onclick="event.stopPropagation(); openMemberProxyEdit('${escapeAttr(member.uid)}')">修正モード</button></td>
-            <td><button class="danger-mini-btn" onclick="event.stopPropagation(); deactivateMember('${escapeAttr(member.uid)}')">非会員化</button></td>
-          </tr>
-        `;
-      }).join("");
+        }).join("");
+      };
+      const grouped = {
+        both: displayMembers.filter((member) => memberType(member) === "both"),
+        camera: displayMembers.filter((member) => memberType(member) === "camera"),
+        ebay: displayMembers.filter((member) => memberType(member) === "ebay")
+      };
+      bothMemberListBody.innerHTML = renderRows(grouped.both, "both");
+      cameraMemberListBody.innerHTML = renderRows(grouped.camera, "camera");
+      ebayMemberListBody.innerHTML = renderRows(grouped.ebay, "ebay");
+      document.getElementById("bothMemberCount").textContent = `${grouped.both.length}名`;
+      document.getElementById("cameraMemberCount").textContent = `${grouped.camera.length}名`;
+      document.getElementById("ebayMemberCount").textContent = `${grouped.ebay.length}名`;
     }
 
     function renderInactiveMembers() {
