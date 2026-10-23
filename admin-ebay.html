@@ -1087,6 +1087,14 @@
       vertical-align: middle;
     }
 
+    .price-table textarea[data-price-cell] {
+      width: 100%;
+      min-width: 120px;
+      min-height: 38px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
     .price-edit-section {
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -1769,13 +1777,13 @@
     const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       {
         id: "ebay_basic_shipping",
-        title: "1. 基本作業料金",
+        title: "1. 基本料金",
         columns: ["内容", "料金（税込）", "備考"],
         rows: [
-          ["初回作業（受取・確認から発送準備まで）", "440円", "荷受け時の写真、重量・サイズの測定と報告を含みます。"],
-          ["保管後の再梱包作業費", "330円", "保管後にあらためて再梱包を開始する場合の作業料金です。サイズ調整料と新品梱包資材料は別途加算します。"]
+          ["月額利用料", "0円", "月額固定費はかかりません。"],
+          ["基本作業料金（全サイズ共通）", "440円", "荷受け時の写真、重量・サイズの測定と報告、発送準備を含みます。"]
         ],
-        note: "料金確定タイミング：商品受取後、お気楽便が確認・一次報告を行い、商品ステータスが「梱包依頼」または「保管中」へ移行した時点で基本作業料金が確定します。発送日ではなく、作業開始・一次報告を行った月の請求対象です。\n保管後にあらためて再梱包する場合は、再梱包を開始した月に再梱包作業費が確定し、サイズ調整料・梱包資材料は再梱包後の確認日に確定します。"
+        note: "料金確定タイミング：商品受取後、お気楽便が確認・一次報告を行い、商品ステータスが「梱包依頼」または「保管中」へ移行した時点で基本作業料金が確定します。発送日ではなく、作業開始・一次報告を行った月の請求対象です。"
       },
       {
         id: "ebay_size_repacking",
@@ -1808,8 +1816,17 @@
         note: "「リサイクル材使用可」の場合、状態の良い再利用資材を優先し、必要に応じて新品資材を補充します。通常梱包の範囲では追加料金なしとします。"
       },
       {
+        id: "ebay_storage_rework",
+        title: "4. 保管後の再作業料金",
+        columns: ["内容", "料金（税込）", "備考"],
+        rows: [
+          ["保管後の再梱包作業費", "330円", "正式に保管した商品を後日あらためて再梱包する場合に発生します。サイズ調整料と新品梱包資材料は別途加算します。"]
+        ],
+        note: "通常の受取後すぐの発送では発生しません。保管中の商品を再梱包作業中へ移した時点で料金が確定します。"
+      },
+      {
         id: "ebay_inspection_options",
-        title: "4. 検品範囲",
+        title: "5. 検品範囲",
         columns: ["確認・作業", "発送のみ（0円）", "簡易検品（＋275円）", "詳細検品（＋825円〜）"],
         rows: [
           ["受取商品番号照合／領収書・納品書抜き取り", "対応", "対応", "対応"],
@@ -1821,7 +1838,7 @@
       },
       {
         id: "ebay_optional_fees",
-        title: "5. その他オプション",
+        title: "6. その他オプション",
         columns: ["サービス", "追加料金（税込）"],
         rows: [
           ["簡易検品", "275円"],
@@ -1838,7 +1855,7 @@
       },
       {
         id: "ebay_storage_fee",
-        title: "6. 保管料（暫定）",
+        title: "7. 保管料（月額・暫定）",
         columns: ["基準サイズ", "料金（税込）", "備考"],
         rows: [
           ["37.5×45×40cm", "500円", "サイズに応じて管理者が保管料を算出し、対象月の請求へ入力します。"]
@@ -1847,7 +1864,7 @@
       },
       {
         id: "shipping",
-        title: "国内送料",
+        title: "8. 国内送料",
         columns: ["サイズ", "静岡", "関東・信越・北陸・東海・近畿", "東北・中国・四国", "九州", "沖縄", "北海道"],
         rows: [
           ["60", "1,000円", "1,050円", "1,150円", "1,250円", "1,450円", "1,550円"],
@@ -7731,7 +7748,7 @@ function firstInvoiceDate(item) {
     }
 
     function bindAutoResizeTextareas(scope = document) {
-      scope.querySelectorAll("textarea[data-confirmation-row-comment], textarea[data-confirmation-form-comment]").forEach((textarea) => {
+      scope.querySelectorAll("textarea[data-confirmation-row-comment], textarea[data-confirmation-form-comment], textarea[data-price-cell]").forEach((textarea) => {
         autoResizeTextarea(textarea);
         textarea.addEventListener("input", () => autoResizeTextarea(textarea));
       });
@@ -8184,11 +8201,10 @@ function firstInvoiceDate(item) {
                     <tr data-price-row="${rowIndex}">
                       ${section.columns.map((column, cellIndex) => `
                         <td>
-                          <input
+                          <textarea
                             data-price-cell="${sectionIndex}:${rowIndex}:${cellIndex}"
-                            value="${escapeAttr(row[cellIndex] || "")}"
                             placeholder="${escapeAttr(column)}"
-                          >
+                          >${escapeHtml(row[cellIndex] || "")}</textarea>
                         </td>
                       `).join("")}
                       <td><button class="danger-btn" type="button" onclick="removePublicPriceRow(${sectionIndex}, ${rowIndex})">削除</button></td>
@@ -8205,6 +8221,7 @@ function firstInvoiceDate(item) {
           </div>
         `;
       }).join("");
+      bindAutoResizeTextareas(editor);
     }
 
     function collectPublicPriceSectionsFromEditor() {
