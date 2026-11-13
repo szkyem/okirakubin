@@ -1975,6 +1975,54 @@
       await loadAllData();
     });
 
+    const SHIPPING_DESTINATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+    function shippedTimestampForPrivacy(product) {
+      const timestamp = Number(product?.shippedAt || product?.shipmentBatchProcessedAt || 0);
+      if (timestamp > 0) return timestamp;
+      const shippedDate = String(product?.shippedDate || "").slice(0, 10);
+      const parsed = shippedDate ? new Date(`${shippedDate}T00:00:00`).getTime() : NaN;
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function shippingDestinationContainsPersonalData(destination) {
+      if (!destination || typeof destination !== "object") return false;
+      return Object.entries(destination).some(([key, value]) => !["postalCode", "zip"].includes(key) && hasValue(value));
+    }
+
+    async function purgeExpiredShippingDestinationData(productsRaw) {
+      const now = Date.now();
+      const updates = {};
+      const localChanges = [];
+      Object.entries(productsRaw || {}).forEach(([uid, productMap]) => {
+        Object.entries(productMap || {}).forEach(([productId, product]) => {
+          const shippedAt = shippedTimestampForPrivacy(product);
+          if (!shippedAt || now - shippedAt < SHIPPING_DESTINATION_RETENTION_MS) return;
+          const destination = product?.shippingDestination;
+          if (product?.shippingPersonalDataPurgedAt && !shippingDestinationContainsPersonalData(destination)) return;
+          const postalCode = String(destination?.postalCode || destination?.zip || "").trim();
+          const retainedDestination = postalCode ? { postalCode } : null;
+          const path = `products/${uid}/${productId}`;
+          updates[`${path}/shippingDestination`] = retainedDestination;
+          updates[`${path}/shippingPersonalDataPurgedAt`] = now;
+          updates[`${path}/shippingPersonalDataRetention`] = "postalCodeOnly";
+          localChanges.push({ product, retainedDestination });
+        });
+      });
+      if (Object.keys(updates).length) {
+        try {
+          await update(ref(db), updates);
+          localChanges.forEach(({ product, retainedDestination }) => {
+            product.shippingDestination = retainedDestination;
+            product.shippingPersonalDataPurgedAt = now;
+            product.shippingPersonalDataRetention = "postalCodeOnly";
+          });
+        } catch (error) {
+          console.warn("発送先個人情報の自動削除に失敗しました。", error);
+        }
+      }
+    }
+
     async function loadAllData() {
       hideError(appError);
 
@@ -2000,6 +2048,7 @@
         const usersRaw = usersSnap.val() || {};
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
+        await purgeExpiredShippingDestinationData(productsRaw);
         invoicesCache = invoicesSnap.val() || {};
         invoiceLocksCache = {};
         Object.values(invoicesCache).forEach((monthMap) => {
@@ -2036,6 +2085,7 @@
             lastLoginAt: user.lastLoginAt || "",
             managementNumber: memberSettings.managementNumber || user.managementNumber || "",
             adminDisplayName: memberSettings.adminDisplayName || "",
+            memberPreferences: memberSettings.memberPreferences || "",
             driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
             discordWebhookUrl: memberSettings.discordWebhookUrl || "",
             discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
@@ -2555,6 +2605,16 @@
       openStoredMemberFieldsEdit(storedEditButton.dataset.uid, storedEditButton.dataset.productId);
     }
 
+    function registeredAdjustmentCellHtml(uid, product) {
+      const adjustments = billingAdjustmentsForProduct(product);
+      const total = adjustments.reduce((sum, adjustment) => sum + feeValue(adjustment.amount), 0);
+      const label = adjustments.length
+        ? `${adjustments.length}件 / ${total >= 0 ? "+" : ""}${yen(total)}円`
+        : "調整金を追加";
+      const action = adjustments.length ? "openFeeDetailModal" : "openBillingAdjustmentEdit";
+      return `<button class="mini-btn" type="button" onclick="${action}('${escapeAttr(uid)}','${escapeAttr(product.id)}')">${label}</button>`;
+    }
+
     function renderDetailTable(member, groups) {
       const products = getDisplayProductsForDetail(member);
 
@@ -2581,6 +2641,7 @@
                   <th>作業依頼</th>
                   <th>情報</th>
                   <th>こだわり欄</th>
+                  <th>調整金</th>
                   <th>登録日時</th>
                 </tr>
               </thead>
@@ -2592,6 +2653,7 @@
                     <td>${escapeHtml(product.workRequest || "-")}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
                     <td>${preferenceButton(member.uid, product)}</td>
+                    <td>${registeredAdjustmentCellHtml(member.uid, product)}</td>
                     <td>${escapeHtml(productTimestampText(product.createdAt || timestampFromId(product.id)))}</td>
                   </tr>
                 `).join("")}
@@ -4049,6 +4111,18 @@
       return findMember(uid)?.products.find((product) => product.id === productId);
     }
 
+    function memberPreferencesInfoBox(member) {
+      return `
+        <div class="info-box">
+          <div class="info-box-title">
+            <span>会員のこだわり</span>
+            <span class="management-pill">閲覧のみ</span>
+          </div>
+          <div class="info-value">${lineBreaks(member?.memberPreferences || "未登録")}</div>
+        </div>
+      `;
+    }
+
     function openInfoModal(uid, productId) {
       const product = findProduct(uid, productId);
       const member = findMember(uid);
@@ -4057,6 +4131,8 @@
 
       infoModalTitle.textContent = "商品情報";
       infoModalBody.innerHTML = `
+        ${memberPreferencesInfoBox(member)}
+
         <div class="info-box">
           <div class="info-box-title">
             <span>会員記載情報</span>
@@ -4519,6 +4595,11 @@
             <input name="adminDisplayName" value="${escapeAttr(member.adminDisplayName || "")}" />
           </label>
 
+          <label class="full">
+            会員のこだわり
+            <textarea name="memberPreferences" rows="5" placeholder="例：梱包方法、検品時に特に確認する点、写真撮影時の注意点など">${escapeHtml(member.memberPreferences || "")}</textarea>
+          </label>
+
           <label>
             Google Drive URL置き場
             <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
@@ -4796,7 +4877,7 @@
         <div class="form-grid">
           <label>
             調整内容
-            <input name="title" value="${escapeAttr(adjustment.title || "")}" placeholder="例：追加相談対応" required />
+            <input name="title" value="${escapeAttr(adjustment.title || "")}" placeholder="例：立替分、追加相談対応" required />
           </label>
 
           <label>
@@ -5011,6 +5092,7 @@
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
+          const memberPreferences = getFormValue(formData, "memberPreferences");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
@@ -5027,6 +5109,7 @@
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
             adminDisplayName,
+            memberPreferences,
             driveBaseUrl,
             discordWebhookUrl,
             discordLabelWebhookUrl,

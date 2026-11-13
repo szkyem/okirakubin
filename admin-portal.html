@@ -2147,6 +2147,54 @@
       await loadAllData();
     });
 
+    const SHIPPING_DESTINATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+    function shippedTimestampForPrivacy(product) {
+      const timestamp = Number(product?.shippedAt || product?.shipmentBatchProcessedAt || 0);
+      if (timestamp > 0) return timestamp;
+      const shippedDate = String(product?.shippedDate || "").slice(0, 10);
+      const parsed = shippedDate ? new Date(`${shippedDate}T00:00:00`).getTime() : NaN;
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function shippingDestinationContainsPersonalData(destination) {
+      if (!destination || typeof destination !== "object") return false;
+      return Object.entries(destination).some(([key, value]) => !["postalCode", "zip"].includes(key) && hasValue(value));
+    }
+
+    async function purgeExpiredShippingDestinationData(productsRaw) {
+      const now = Date.now();
+      const updates = {};
+      const localChanges = [];
+      Object.entries(productsRaw || {}).forEach(([uid, productMap]) => {
+        Object.entries(productMap || {}).forEach(([productId, product]) => {
+          const shippedAt = shippedTimestampForPrivacy(product);
+          if (!shippedAt || now - shippedAt < SHIPPING_DESTINATION_RETENTION_MS) return;
+          const destination = product?.shippingDestination;
+          if (product?.shippingPersonalDataPurgedAt && !shippingDestinationContainsPersonalData(destination)) return;
+          const postalCode = String(destination?.postalCode || destination?.zip || "").trim();
+          const retainedDestination = postalCode ? { postalCode } : null;
+          const path = `products/${uid}/${productId}`;
+          updates[`${path}/shippingDestination`] = retainedDestination;
+          updates[`${path}/shippingPersonalDataPurgedAt`] = now;
+          updates[`${path}/shippingPersonalDataRetention`] = "postalCodeOnly";
+          localChanges.push({ product, retainedDestination });
+        });
+      });
+      if (Object.keys(updates).length) {
+        try {
+          await update(ref(db), updates);
+          localChanges.forEach(({ product, retainedDestination }) => {
+            product.shippingDestination = retainedDestination;
+            product.shippingPersonalDataPurgedAt = now;
+            product.shippingPersonalDataRetention = "postalCodeOnly";
+          });
+        } catch (error) {
+          console.warn("発送先個人情報の自動削除に失敗しました。", error);
+        }
+      }
+    }
+
     async function loadAllData() {
       hideError(appError);
 
@@ -2172,6 +2220,7 @@
         const usersRaw = usersSnap.val() || {};
         loginUsersCache = usersRaw;
         const productsRaw = productsSnap.val() || {};
+        await purgeExpiredShippingDestinationData(productsRaw);
         invoicesCache = invoicesSnap.val() || {};
         ebayInvoicesCache = (await get(ref(db, "ebayInvoices")).catch(() => ({ val: () => ({}) }))).val() || {};
         invoiceLocksCache = {};
@@ -2209,6 +2258,7 @@
             lastLoginAt: user.lastLoginAt || "",
             managementNumber: memberSettings.managementNumber || user.managementNumber || "",
             adminDisplayName: memberSettings.adminDisplayName || "",
+            memberPreferences: memberSettings.memberPreferences || "",
             driveBaseUrl: memberSettings.driveBaseUrl || user.driveBaseUrl || "",
             discordWebhookUrl: memberSettings.discordWebhookUrl || "",
             discordLabelWebhookUrl: memberSettings.discordLabelWebhookUrl || memberSettings.discordWebhookUrl || "",
@@ -4710,6 +4760,11 @@
             <input name="adminDisplayName" value="${escapeAttr(member.adminDisplayName || "")}" />
           </label>
 
+          <label class="full">
+            会員のこだわり
+            <textarea name="memberPreferences" rows="5" placeholder="例：梱包方法、検品時に特に確認する点、写真撮影時の注意点など">${escapeHtml(member.memberPreferences || "")}</textarea>
+          </label>
+
           <label>
             Google Drive URL置き場
             <input name="driveBaseUrl" value="${escapeAttr(member.driveBaseUrl || "")}" />
@@ -5202,6 +5257,7 @@
         if (activeEdit.type === "memberManagement") {
           const managementNumber = getFormValue(formData, "managementNumber");
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
+          const memberPreferences = getFormValue(formData, "memberPreferences");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
           const discordWebhookUrl = getFormValue(formData, "discordWebhookUrl");
           const discordLabelWebhookUrl = getFormValue(formData, "discordLabelWebhookUrl");
@@ -5218,6 +5274,7 @@
           await update(ref(db, `memberSettings/${activeEdit.uid}`), {
             managementNumber,
             adminDisplayName,
+            memberPreferences,
             driveBaseUrl,
             discordWebhookUrl,
             discordLabelWebhookUrl,

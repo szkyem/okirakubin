@@ -2148,6 +2148,52 @@ showEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classLis
 closeEbayRegisterBtn?.addEventListener("click", () => ebayRegisterPanel?.classList.add("hidden"));
 ebayProductForm?.addEventListener("submit", saveEbayProduct);
 
+const SHIPPING_DESTINATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+function shippedTimestampForPrivacy(product) {
+  const timestamp = Number(product?.shippedAt || product?.shipmentBatchProcessedAt || 0);
+  if (timestamp > 0) return timestamp;
+  const shippedDate = String(product?.shippedDate || "").slice(0, 10);
+  const parsed = shippedDate ? new Date(`${shippedDate}T00:00:00`).getTime() : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function shippingDestinationContainsPersonalData(destination) {
+  if (!destination || typeof destination !== "object") return false;
+  return Object.entries(destination).some(([key, value]) => !["postalCode", "zip"].includes(key) && hasValue(value));
+}
+
+async function purgeOwnExpiredShippingDestinationData(productMap) {
+  const now = Date.now();
+  const updates = {};
+  const localChanges = [];
+  Object.entries(productMap || {}).forEach(([productId, product]) => {
+    const shippedAt = shippedTimestampForPrivacy(product);
+    if (!shippedAt || now - shippedAt < SHIPPING_DESTINATION_RETENTION_MS) return;
+    const destination = product?.shippingDestination;
+    if (product?.shippingPersonalDataPurgedAt && !shippingDestinationContainsPersonalData(destination)) return;
+    const postalCode = String(destination?.postalCode || destination?.zip || "").trim();
+    const retainedDestination = postalCode ? { postalCode } : null;
+    const path = `products/${dataUid()}/${productId}`;
+    updates[`${path}/shippingDestination`] = retainedDestination;
+    updates[`${path}/shippingPersonalDataPurgedAt`] = now;
+    updates[`${path}/shippingPersonalDataRetention`] = "postalCodeOnly";
+    localChanges.push({ product, retainedDestination });
+  });
+  if (Object.keys(updates).length) {
+    try {
+      await update(ref(database), updates);
+      localChanges.forEach(({ product, retainedDestination }) => {
+        product.shippingDestination = retainedDestination;
+        product.shippingPersonalDataPurgedAt = now;
+        product.shippingPersonalDataRetention = "postalCodeOnly";
+      });
+    } catch (error) {
+      console.warn("発送先個人情報の自動削除に失敗しました。", error);
+    }
+  }
+}
+
 async function loadData() {
   if (!currentUser) return;
 
@@ -2162,8 +2208,10 @@ async function loadData() {
     const companyInfoSnapshot = await get(ref(database, "settings/companyInfo")).catch(() => ({ exists: () => false, val: () => ({}) }));
     const priceTableSnapshot = await get(ref(database, "priceTable/ebay")).catch(() => ({ exists: () => false, val: () => ({}) }));
 
-    const allProducts = productsSnapshot.exists()
-      ? Object.entries(productsSnapshot.val()).map(([id, product]) => ({
+    const productMap = productsSnapshot.exists() ? productsSnapshot.val() : {};
+    await purgeOwnExpiredShippingDestinationData(productMap);
+    const allProducts = Object.keys(productMap).length
+      ? Object.entries(productMap).map(([id, product]) => ({
           ...(product || {}),
           id
         }))
