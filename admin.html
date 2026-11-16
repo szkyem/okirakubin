@@ -3734,6 +3734,11 @@
         "labelAdjustmentRequested",
         "prepaidLabelDiscordSentAt",
         "prepaidLabelDiscordError",
+        "prepaidLabelBackupFileId",
+        "prepaidLabelBackupFileUrl",
+        "prepaidLabelBackupSavedAt",
+        "prepaidLabelBackupExpiresAt",
+        "prepaidLabelBackupError",
         "shippingRequestedAt",
         "shippingRequestAt",
         "shipmentRequestedAt",
@@ -4198,7 +4203,7 @@
             <div class="info-value">${escapeHtml(folderStatusText(product))}</div>
 
             <div class="info-label">作成予定名</div>
-            <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
+            <div class="info-value">${escapeHtml(product.folderName || makeFolderName(product.numbering, product.name) || "-")}</div>
           </div>
         </div>
       `;
@@ -4285,7 +4290,7 @@
           <div class="info-box-title">
             <span>${isReturnLabel ? "返品ラベル" : isInternationalLabel ? "海外発送ラベル" : isInternationalLabelPlanned ? "ラベル調整" : "発送先"}</span>
           </div>
-          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}` : formatShippingInfo(product.shippingDestination)}</div>
+          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}${product.prepaidLabelBackupFileUrl ? `<br><a href="${escapeAttr(product.prepaidLabelBackupFileUrl)}" target="_blank" rel="noopener">一時保存PDFを開く</a><br>自動削除予定：${escapeHtml(formatDateTime(product.prepaidLabelBackupExpiresAt))}` : product.prepaidLabelBackupError ? `<br>Drive保存：失敗（${escapeHtml(product.prepaidLabelBackupError)}）` : "<br>Drive保存：未保存"}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">
@@ -4552,7 +4557,7 @@
             <div class="info-value">${escapeHtml(folderStatusText(product))}</div>
 
             <div class="info-label">作成予定名</div>
-            <div class="info-value">${escapeHtml(makeFolderName(product.numbering, product.name) || "-")}</div>
+            <div class="info-value">${escapeHtml(product.folderName || makeFolderName(product.numbering, product.name) || "-")}</div>
           </div>
         </div>
       `).join("");
@@ -5278,7 +5283,7 @@
             [`products/${activeEdit.uid}/${activeEdit.productId}/expectedSize`]: getFormValue(formData, "expectedSize"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/storageLocation`]: getFormValue(formData, "storageLocation"),
             [`products/${activeEdit.uid}/${activeEdit.productId}/driveBaseUrl`]: member?.driveBaseUrl || "",
-            [`products/${activeEdit.uid}/${activeEdit.productId}/folderName`]: makeFolderName(product?.numbering, product?.name)
+            [`products/${activeEdit.uid}/${activeEdit.productId}/folderName`]: product?.folderName || makeFolderName(product?.numbering, product?.name)
           };
 
           if (shouldNotifyStored) {
@@ -7955,8 +7960,8 @@ function firstInvoiceDate(item) {
       return "-";
     }
 
-    function makeFolderName(numbering, name) {
-      return sanitizeName(`${numbering || ""}_${name || ""}`);
+    function makeFolderName(numbering, name, createdDate = todayString()) {
+      return sanitizeName(`${numbering || ""}_${name || ""}_${createdDate || ""}`);
     }
 
     function sanitizeName(value) {

@@ -3912,6 +3912,11 @@
         "labelAdjustmentRequested",
         "prepaidLabelDiscordSentAt",
         "prepaidLabelDiscordError",
+        "prepaidLabelBackupFileId",
+        "prepaidLabelBackupFileUrl",
+        "prepaidLabelBackupSavedAt",
+        "prepaidLabelBackupExpiresAt",
+        "prepaidLabelBackupError",
         "shippingRequestedAt",
         "shippingRequestAt",
         "shipmentRequestedAt",
@@ -4450,7 +4455,7 @@
           <div class="info-box-title">
             <span>${isReturnLabel ? "返品ラベル" : isInternationalLabel ? "海外発送ラベル" : isInternationalLabelPlanned ? "ラベル調整" : "発送先"}</span>
           </div>
-          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}` : formatShippingInfo(product.shippingDestination)}</div>
+          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}${product.prepaidLabelBackupFileUrl ? `<br><a href="${escapeAttr(product.prepaidLabelBackupFileUrl)}" target="_blank" rel="noopener">一時保存PDFを開く</a><br>自動削除予定：${escapeHtml(formatDateTime(product.prepaidLabelBackupExpiresAt))}` : product.prepaidLabelBackupError ? `<br>Drive保存：失敗（${escapeHtml(product.prepaidLabelBackupError)}）` : "<br>Drive保存：未保存"}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">
