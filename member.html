@@ -624,6 +624,14 @@ textarea{min-height:62px;resize:vertical}
         </div>
       </div>
 
+      <div id="yuPacketPreferenceSection" class="form-group full" style="display:none; margin-bottom:16px;">
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+          <input id="preferYuPacket" type="checkbox" style="width:auto;">
+          <span>可能な限りゆうパケットで発送する</span>
+        </label>
+        <p class="member-meta" style="margin:6px 0 0;">荷物のサイズ・重量などにより利用できない場合は、通常の国内配送で発送します。</p>
+      </div>
+
       <div id="prepaidLabelSection" style="display:none;">
         <div class="modal-section-title">QRコード・バーコード・ラベル画像</div>
         <div class="form-grid">
@@ -636,7 +644,7 @@ textarea{min-height:62px;resize:vertical}
             <textarea id="prepaidLabelMemo" required placeholder="発送場所を必ず指定してください。例：郵便局から発送 / セブンイレブンから発送 / ファミマから発送"></textarea>
           </div>
         </div>
-        <p class="member-meta" id="prepaidLabelHelp" style="margin-bottom:12px;">画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。</p>
+        <p class="member-meta" id="prepaidLabelHelp" style="margin-bottom:12px;">画像本体はDiscordへ送信し、Google Driveへ7日間一時保存します。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。</p>
       </div>
 
       <div id="labelAdjustmentSection" style="display:none;">
@@ -759,6 +767,13 @@ const DEFAULT_PUBLIC_PRICE_SECTIONS = [
       ["120", "1,900円", "1,950円", "2,000円", "2,100円", "2,650円", "2,650円"],
       ["140以上", "2,750円", "2,800円", "3,300円", "3,400円", "4,400円", "4,950円"]
     ]
+  },
+  {
+    id: "yu_packet_shipping",
+    title: "ゆうパケット送料",
+    columns: ["配送方法", "送料", "発送手数料", "合計"],
+    rows: [["ゆうパケット", "360円", "500円", "860円"]],
+    note: "サイズ・重量などの利用条件を満たす場合に限ります。"
   }
 ];
 
@@ -1698,6 +1713,7 @@ shippingForm.addEventListener("submit", async (event) => {
   if (!ensureWritableAction("発送依頼")) return;
 
   const requestType = shippingRequestType.value;
+  const preferYuPacket = requestType === "国内発送" && document.getElementById("preferYuPacket")?.checked === true;
   const isPrepaidLabel = requestType === PREPAID_LABEL_REQUEST;
   const isReturnRequest = requestType === "返品依頼";
   const isInternationalRequest = requestType === "海外発送";
@@ -1783,6 +1799,7 @@ shippingForm.addEventListener("submit", async (event) => {
     await Promise.all(selectedIds.map((productId) => {
       return update(ref(database, `products/${dataUid()}/${productId}`), {
         shippingRequest: requestType,
+        preferYuPacket,
         returnMethod: isReturnRequest ? returnMethod : "",
         internationalMethod: isInternationalRequest ? internationalMethod : "",
         pickupScheduledDate,
@@ -2492,9 +2509,15 @@ function renderInvoiceList() {
 }
 
 function publicPriceSections() {
-  const sections = Array.isArray(priceTableCache.publicSections)
+  const sections = (Array.isArray(priceTableCache.publicSections)
     ? priceTableCache.publicSections
-    : DEFAULT_PUBLIC_PRICE_SECTIONS;
+    : DEFAULT_PUBLIC_PRICE_SECTIONS).map((section) => ({ ...section, rows: Array.isArray(section.rows) ? section.rows.map((row) => [...row]) : [] }));
+
+  if (!sections.some((section) => section?.id === "yu_packet_shipping")) {
+    const yuPacketSection = DEFAULT_PUBLIC_PRICE_SECTIONS.find((section) => section.id === "yu_packet_shipping");
+    const shippingIndex = sections.findIndex((section) => section?.id === "shipping");
+    sections.splice(shippingIndex >= 0 ? shippingIndex + 1 : sections.length, 0, { ...yuPacketSection, rows: yuPacketSection.rows.map((row) => [...row]) });
+  }
 
   return sections.map((section, sectionIndex) => ({
     id: section.id || `section_${sectionIndex}`,
@@ -3019,6 +3042,7 @@ window.openShippingModal = function(type) {
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
   const isReturnRequest = type === "返品依頼";
   const isInternationalRequest = type === "海外発送";
+  const isDomesticRequest = type === "国内発送";
   if (!isPrepaidLabel && !isReturnRequest && !isInternationalRequest && !originsCache.length) {
     showError("発送元を先に登録してください。");
     document.querySelector('[data-tab="origins"]').click();
@@ -3059,6 +3083,10 @@ function updateShippingFormVisibility() {
   const internationalPickupSection = document.getElementById("internationalPickupSection");
   if (internationalPickupSection) internationalPickupSection.style.display = isInternationalRequest ? "" : "none";
   if (internationalPickupDate) internationalPickupDate.required = isInternationalRequest;
+  const yuPacketPreferenceSection = document.getElementById("yuPacketPreferenceSection");
+  if (yuPacketPreferenceSection) yuPacketPreferenceSection.style.display = isDomesticRequest ? "" : "none";
+  const preferYuPacketInput = document.getElementById("preferYuPacket");
+  if (preferYuPacketInput && !isDomesticRequest) preferYuPacketInput.checked = false;
 
   ["destName", "destPostalCode", "destPrefecture", "destAddress"].forEach((id) => {
     const input = document.getElementById(id);
@@ -3093,8 +3121,8 @@ function updateShippingFormVisibility() {
   const prepaidLabelHelp = document.getElementById("prepaidLabelHelp");
   if (prepaidLabelHelp) {
     prepaidLabelHelp.textContent = isInternationalLabel
-      ? "PDFまたは画像ファイルをDiscordへ送信し、システム内には保存しません。発送メモは必要な場合のみ入力してください。"
-      : "画像本体はDiscordへ送信し、システム内には保存しません。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。";
+      ? "PDFまたは画像ファイルをDiscordへ送信し、Google Driveへ7日間一時保存します。発送メモは必要な場合のみ入力してください。"
+      : "画像本体はDiscordへ送信し、Google Driveへ7日間一時保存します。メモには、郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず入力してください。";
   }
 
   if (isInternationalRequest || isAddresslessRequest) {
@@ -4524,6 +4552,7 @@ function shippingDetailHtml(product) {
       <div class="detail-heading">発送内容</div>
       <div class="detail-grid">
         <div class="detail-label">発送種別</div><div>${escapeHtml(product.shippingRequest || "-")}</div>
+        ${product.shippingRequest === "国内発送" ? `<div class="detail-label">ゆうパケット希望</div><div>${product.preferYuPacket ? "可能な限りゆうパケットで発送" : "希望なし"}</div>` : ""}
         ${returnMethodText ? `<div class="detail-label">返品方法</div><div>${escapeHtml(returnMethodText)}</div>` : ""}
         ${isReturnPickup ? `<div class="detail-label">集荷依頼日時</div><div>${escapeHtml(formatPickupDateTime(product.returnPickupDateTime))}</div>` : ""}
         ${isReturnPickup ? `<div class="detail-label">集荷メモ</div><div>${lineBreaks(product.returnPickupMemo || "-")}</div>` : ""}

@@ -1910,6 +1910,13 @@
           ["120", "1,900円", "1,950円", "2,000円", "2,100円", "2,650円", "2,650円"],
           ["140以上", "2,750円", "2,800円", "3,300円", "3,400円", "4,400円", "4,950円"]
         ]
+      },
+      {
+        id: "yu_packet_shipping",
+        title: "ゆうパケット送料",
+        columns: ["配送方法", "送料", "発送手数料", "合計"],
+        rows: [["ゆうパケット", "360円", "500円", "860円"]],
+        note: "サイズ・重量などの利用条件を満たす場合に限ります。"
       }
     ];
 
@@ -3895,6 +3902,7 @@
       const updates = {};
       const shippingFieldsToClear = [
         "shippingRequest",
+        "preferYuPacket",
         "returnMethod",
         "internationalMethod",
         "pickupScheduledDate",
@@ -4455,6 +4463,7 @@
           <div class="info-box-title">
             <span>${isReturnLabel ? "返品ラベル" : isInternationalLabel ? "海外発送ラベル" : isInternationalLabelPlanned ? "ラベル調整" : "発送先"}</span>
           </div>
+          ${!isLabelWorkflow && product.shippingRequest === "国内発送" ? `<div class="info-grid" style="margin-bottom:12px;"><div class="info-label">ゆうパケット希望</div><div class="info-value">${product.preferYuPacket ? "ゆうパケットを希望する" : "－"}</div></div>` : ""}
           <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}${product.prepaidLabelBackupFileUrl ? `<br><a href="${escapeAttr(product.prepaidLabelBackupFileUrl)}" target="_blank" rel="noopener">一時保存PDFを開く</a><br>自動削除予定：${escapeHtml(formatDateTime(product.prepaidLabelBackupExpiresAt))}` : product.prepaidLabelBackupError ? `<br>Drive保存：失敗（${escapeHtml(product.prepaidLabelBackupError)}）` : "<br>Drive保存：未保存"}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
@@ -6566,6 +6575,7 @@ function itemActualShippingFee(item, invoice) {
 
   const product = invoice?.uid && item?.productId ? findProduct(invoice.uid, item.productId) : null;
   const rawSize = String(item?.shippingSize || product?.shippingSize || "").trim();
+  if (rawSize === "ゆうパケット") return yuPacketPriceParts().fare;
   if (!rawSize || rawSize === "海外発送") return requestKey === "international" ? 0 : billedFare;
 
   const sizeNumber = Number((rawSize.match(/\d+/) || [""])[0]);
@@ -6779,6 +6789,7 @@ function buildInvoiceItems(member, month) {
 }
 
 function shippingWorkFeeFor(product) {
+  if (String(product?.shippingSize || "").trim() === "ゆうパケット") return yuPacketPriceParts().workFee;
   return shippingKey(product?.shippingRequest) === "prepaidLabel" ? PREPAID_LABEL_WORK_FEE : 0;
 }
 
@@ -6852,6 +6863,7 @@ function firstInvoiceDate(item) {
 
       const normalizedSize = String(size || "").trim();
       if (!normalizedSize) return "";
+      if (normalizedSize === "ゆうパケット") return yuPacketPriceParts().total;
       if (normalizedSize === "海外発送") {
         return priceTableForMember(member).overseasHandling;
       }
@@ -6861,6 +6873,14 @@ function firstInvoiceDate(item) {
       if (!rates || !region || !hasValue(rates[region])) return "";
 
       return rates[region];
+    }
+
+    function yuPacketPriceParts() {
+      const section = publicPriceSections().find((item) => item.id === "yu_packet_shipping");
+      const row = section?.rows?.[0] || [];
+      const fare = hasValue(row[1]) ? feeValue(row[1]) : 360;
+      const workFee = hasValue(row[2]) ? feeValue(row[2]) : 500;
+      return { fare, workFee, total: fare + workFee };
     }
 
     function priceTableForMember(member) {
@@ -7454,9 +7474,15 @@ function firstInvoiceDate(item) {
     }
 
     function publicPriceSections() {
-      const sections = Array.isArray(priceTableCache.publicSections)
+      const sections = (Array.isArray(priceTableCache.publicSections)
         ? priceTableCache.publicSections
-        : DEFAULT_PUBLIC_PRICE_SECTIONS;
+        : DEFAULT_PUBLIC_PRICE_SECTIONS).map((section) => ({ ...section, rows: Array.isArray(section.rows) ? section.rows.map((row) => [...row]) : [] }));
+
+      if (!sections.some((section) => section?.id === "yu_packet_shipping")) {
+        const yuPacketSection = DEFAULT_PUBLIC_PRICE_SECTIONS.find((section) => section.id === "yu_packet_shipping");
+        const shippingIndex = sections.findIndex((section) => section?.id === "shipping");
+        sections.splice(shippingIndex >= 0 ? shippingIndex + 1 : sections.length, 0, { ...yuPacketSection, rows: yuPacketSection.rows.map((row) => [...row]) });
+      }
 
       return sections.map((section, sectionIndex) => ({
         id: section.id || `section_${sectionIndex}`,
@@ -8028,7 +8054,7 @@ function firstInvoiceDate(item) {
     invoiceMonthInput.addEventListener("change", renderInvoices);
 
     function shippingSizeOptions(current) {
-      const options = ["60", "80", "100", "120", "140", "海外発送"];
+      const options = ["ゆうパケット", "60", "80", "100", "120", "140", "海外発送"];
       const currentValue = String(current || "");
       return `
         <option value="" ${currentValue ? "" : "selected"}>選択してください</option>
