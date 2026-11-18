@@ -659,6 +659,7 @@ textarea{min-height:62px;resize:vertical}
         <select id="originSelect" required></select>
       </div>
 
+      <div class="error" id="shippingFormError" role="alert"></div>
       <button id="shippingSubmitBtn" type="submit" style="width:100%;">発送依頼を作成する</button>
     </form>
   </div>
@@ -812,6 +813,7 @@ const memberBadge = document.getElementById("memberBadge");
 const memberSettingsBtn = document.getElementById("memberSettingsBtn");
 const loginError = document.getElementById("loginError");
 const errorMessage = document.getElementById("errorMessage");
+const shippingFormError = document.getElementById("shippingFormError");
 const productForm = document.getElementById("productForm");
 const productEntries = document.getElementById("productEntries");
 const addEntryBtn = document.getElementById("addEntryBtn");
@@ -1707,9 +1709,17 @@ internationalMethodSelect.addEventListener("change", updateShippingFormVisibilit
 shippingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
+  clearShippingError();
 
   if (isShippingRequestSubmitting) return;
-  if (!currentUser || !selectedProductIds.size) return;
+  if (!currentUser) {
+    showShippingError("ログイン情報を確認できません。再度ログインしてください。");
+    return;
+  }
+  if (!selectedProductIds.size) {
+    showShippingError("発送する商品を選択してください。");
+    return;
+  }
   if (!ensureWritableAction("発送依頼")) return;
 
   const requestType = shippingRequestType.value;
@@ -1726,29 +1736,29 @@ shippingForm.addEventListener("submit", async (event) => {
   const isFileLabelRequest = isPrepaidLabel || isReturnLabel || isInternationalLabel;
   const isAddresslessRequest = isFileLabelRequest || isInternationalLabelPlanned || isReturnPickup;
   if (isReturnRequest && !returnMethod) {
-    showError("返品方法を選択してください。");
+    showShippingError("返品方法を選択してください。");
     return;
   }
   if (isInternationalRequest && !internationalMethod) {
-    showError("海外発送方法を選択してください。");
+    showShippingError("海外発送方法を選択してください。");
     return;
   }
   const pickupScheduledDate = isInternationalRequest ? internationalPickupDate.value : "";
   if (isInternationalRequest && !pickupScheduledDate) {
-    showError("集荷予定日を入力してください。");
+    showShippingError("集荷予定日を入力してください。");
     internationalPickupDate.focus();
     return;
   }
   const returnPickupDateTimeValue = isReturnPickup ? String(returnPickupDateTime?.value || "").trim() : "";
   const returnPickupMemoValue = isReturnPickup ? String(returnPickupMemo?.value || "").trim() : "";
   if (isReturnPickup && !returnPickupDateTimeValue) {
-    showError("集荷依頼日時を入力してください。");
+    showShippingError("集荷依頼日時を入力してください。");
     returnPickupDateTime?.focus();
     return;
   }
   const selectedOrigin = originsCache.find((origin) => origin.id === originSelect.value);
   if (!isAddresslessRequest && !selectedOrigin) {
-    showError("発送元を選択してください。");
+    showShippingError("発送元を選択してください。");
     return;
   }
 
@@ -1765,18 +1775,18 @@ shippingForm.addEventListener("submit", async (event) => {
   };
 
   if (!isAddresslessRequest && (!destination.name || !destination.postalCode || !destination.prefecture || !destination.address)) {
-    showError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
+    showShippingError("発送先の宛名、郵便番号、都道府県、住所は必須です。");
     return;
   }
 
   const labelFile = document.getElementById("prepaidLabelFile")?.files?.[0] || null;
   const labelMemo = document.getElementById("prepaidLabelMemo")?.value.trim() || "";
   if (isFileLabelRequest && !labelFile) {
-    showError("QRコード・バーコード・ラベル画像を選択してください。");
+    showShippingError("QRコード・バーコード・ラベル画像を選択してください。");
     return;
   }
   if ((isPrepaidLabel || isReturnLabel) && !labelMemo) {
-    showError("ラベル発送メモを入力してください。郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず指定してください。");
+    showShippingError("ラベル発送メモを入力してください。郵便局・セブンイレブン・ファミマなど、どこから発送すべきかを必ず指定してください。");
     return;
   }
 
@@ -1791,13 +1801,17 @@ shippingForm.addEventListener("submit", async (event) => {
     const now = Date.now();
     const selectedIds = [...selectedProductIds];
     const selectedProducts = productsCache.filter((product) => selectedProductIds.has(product.id));
+    if (selectedProducts.length !== selectedIds.length) {
+      throw new Error("選択した商品の最新情報を確認できません。画面を再読み込みして、もう一度選択してください。");
+    }
     const shipmentGroupId = `${now}_${requestType}`;
     const shipmentGroupCount = selectedIds.length;
     const shipmentGroupNames = selectedProducts.map((product) => product.name || "").filter(Boolean).join(" / ");
     const shipmentGroupNumberings = selectedProducts.map((product) => product.numbering || "").filter(Boolean).join(" / ");
 
-    await Promise.all(selectedIds.map((productId) => {
-      return update(ref(database, `products/${dataUid()}/${productId}`), {
+    const shippingUpdates = {};
+    selectedIds.forEach((productId) => {
+      const productUpdates = {
         shippingRequest: requestType,
         preferYuPacket,
         returnMethod: isReturnRequest ? returnMethod : "",
@@ -1819,8 +1833,12 @@ shippingForm.addEventListener("submit", async (event) => {
         prepaidLabelDiscordError: "",
         shippingRequestedAt: now,
         updatedAt: now
+      };
+      Object.entries(productUpdates).forEach(([key, value]) => {
+        shippingUpdates[`products/${dataUid()}/${productId}/${key}`] = value;
       });
-    }));
+    });
+    await update(ref(database), shippingUpdates);
 
     let prepaidLabelDiscordWarning = "";
     if (isFileLabelRequest || isInternationalLabelPlanned) {
@@ -1879,15 +1897,20 @@ shippingForm.addEventListener("submit", async (event) => {
     selectedProductIds.clear();
     shippingForm.reset();
     closeShippingModal();
-    await loadData();
+    let reloadWarning = "";
+    const reloadSucceeded = await loadData();
+    if (!reloadSucceeded) {
+      reloadWarning = "\n\n発送依頼の保存は完了していますが、画面更新に失敗しました。画面を再読み込みしてください。";
+      showError("発送依頼の保存は完了しています。最新状態を表示するため、画面を再読み込みしてください。");
+    }
     alert(isReturnPickup
-      ? "集荷による返品依頼を作成しました。"
+      ? `集荷による返品依頼を作成しました。${reloadWarning}`
       : isFileLabelRequest || isInternationalLabelPlanned
-      ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : isInternationalLabelPlanned ? "海外発送のラベル調整依頼" : isInternationalLabel ? "海外発送ラベル依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || `\n\nDiscordへ${isInternationalLabelPlanned ? "調整依頼" : "ラベル"}を送信しました。`}`
-      : "発送依頼を作成しました。");
+      ? `${isReturnLabel ? "QRコード・バーコードでの返品依頼" : isInternationalLabelPlanned ? "海外発送のラベル調整依頼" : isInternationalLabel ? "海外発送ラベル依頼" : "ラベル発送依頼"}を作成しました。${prepaidLabelDiscordWarning || `\n\nDiscordへ${isInternationalLabelPlanned ? "調整依頼" : "ラベル"}を送信しました。`}${reloadWarning}`
+      : `発送依頼を作成しました。${reloadWarning}`);
   } catch (error) {
     console.error(error);
-    showError(`発送依頼の作成に失敗しました。${error && error.message ? error.message : ""}`);
+    showShippingError(`発送依頼の作成に失敗しました。${error && error.message ? error.message : ""}`);
   } finally {
     isShippingRequestSubmitting = false;
     if (shippingSubmitBtn) {
@@ -2046,7 +2069,7 @@ async function purgeOwnExpiredShippingDestinationData(productMap) {
 }
 
 async function loadData() {
-  if (!currentUser) return;
+  if (!currentUser) return false;
 
   try {
     const productsSnapshot = await get(ref(database, `products/${dataUid()}`));
@@ -2119,9 +2142,11 @@ async function loadData() {
     renderInvoiceList();
     renderPriceTable();
     renderEbayProducts();
+    return true;
   } catch (error) {
     console.error(error);
     showError("データの読み込みに失敗しました。");
+    return false;
   }
 }
 
@@ -3037,7 +3062,10 @@ window.toggleGssExportSelection = function(productId, checked) {
 
 window.openShippingModal = function(type) {
   if (!ensureWritableAction("発送依頼")) return;
-  if (!selectedProductIds.size) return;
+  if (!selectedProductIds.size) {
+    showError("発送する商品を選択してください。");
+    return;
+  }
 
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
   const isReturnRequest = type === "返品依頼";
@@ -3050,13 +3078,19 @@ window.openShippingModal = function(type) {
   }
 
   clearError();
+  clearShippingError();
   shippingForm.reset();
   shippingRequestType.value = type;
 
   if (returnMethodSelect) returnMethodSelect.value = "address";
   if (internationalMethodSelect) internationalMethodSelect.value = "label";
-  updateShippingFormVisibility();
-  shippingModalBackdrop.classList.add("show");
+  try {
+    updateShippingFormVisibility();
+    shippingModalBackdrop.classList.add("show");
+  } catch (error) {
+    console.error("発送依頼画面の表示に失敗しました。", error);
+    showError(`発送依頼画面を表示できませんでした。${error?.message ? ` ${error.message}` : ""}`);
+  }
 };
 
 function updateShippingFormVisibility() {
@@ -4810,6 +4844,19 @@ function showError(message) {
   errorMessage.textContent = message;
   errorMessage.classList.remove("success");
   errorMessage.classList.add("show");
+}
+
+function showShippingError(message) {
+  if (!shippingFormError) return showError(message);
+  shippingFormError.textContent = message;
+  shippingFormError.classList.remove("success");
+  shippingFormError.classList.add("show");
+}
+
+function clearShippingError() {
+  if (!shippingFormError) return;
+  shippingFormError.textContent = "";
+  shippingFormError.classList.remove("show", "success");
 }
 
 function showSuccess(message) {
