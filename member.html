@@ -3064,6 +3064,7 @@ function updateShippingFormVisibility() {
   const isPrepaidLabel = type === PREPAID_LABEL_REQUEST;
   const isReturnRequest = type === "返品依頼";
   const isInternationalRequest = type === "海外発送";
+  const isDomesticRequest = type === "国内発送";
   const isReturnLabel = isReturnRequest && returnMethodSelect?.value === "label";
   const isReturnPickup = isReturnRequest && returnMethodSelect?.value === "pickup";
   const isInternationalLabel = isInternationalRequest && internationalMethodSelect?.value === "label";
