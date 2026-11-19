@@ -640,13 +640,13 @@ textarea{min-height:62px;resize:vertical}
             <input id="prepaidLabelFile" type="file" accept="image/*,.pdf">
           </div>
           <div class="form-group full" id="batteryLabelCheckGroup" style="display:none;">
-            <label>ラベル発行時のバッテリーチェック <span class="required">必須</span></label>
+            <label>ラベル発行時「バッテリーあり」にチェックを入れたか <span class="required">必須</span></label>
             <select id="batteryLabelCheck">
               <option value="">選択してください</option>
               <option value="あり">あり</option>
               <option value="なし">なし</option>
             </select>
-            <p class="member-meta">ラベル発行時のバッテリーチェックについて、「あり」または「なし」を選択してください。</p>
+            <p class="member-meta">ラベル発行時に「バッテリーあり」へチェックを入れたか、「あり」または「なし」を選択してください。</p>
           </div>
           <div class="form-group full">
             <label>ラベル発送メモ <span class="required" id="labelMemoRequired">必須</span></label>
@@ -1797,7 +1797,7 @@ shippingForm.addEventListener("submit", async (event) => {
     return;
   }
   if (isInternationalLabel && !batteryLabelCheckValue) {
-    showShippingError("バッテリーチェックの「あり」「なし」を選択してください。");
+    showShippingError("ラベル発行時に「バッテリーあり」へチェックを入れたか、「あり」または「なし」を選択してください。");
     batteryLabelCheck?.focus();
     return;
   }
@@ -4511,7 +4511,7 @@ async function sendPrepaidLabelToDiscord({ file, memo, requestType, pickupSchedu
     `ナンバリング：${shipmentGroupNumberings || "-"}`,
     `商品名：${shipmentGroupNames || "-"}`,
     ...(requestType === "海外発送" ? [`集荷予定日：${pickupScheduledDate || "-"}`] : []),
-    ...(requestType === "海外発送" ? [`バッテリーチェック：${batteryLabelCheck || "-"}`] : []),
+    ...(requestType === "海外発送" ? [`ラベル発行時「バッテリーあり」にチェックを入れたか：${batteryLabelCheck || "-"}`] : []),
     `発送メモ：${memo || "-"}`
   ].join("\n");
 
@@ -4618,7 +4618,7 @@ function shippingDetailHtml(product) {
         ${isReturnPickup ? `<div class="detail-label">集荷メモ</div><div>${lineBreaks(product.returnPickupMemo || "-")}</div>` : ""}
         ${internationalMethodText ? `<div class="detail-label">海外発送方法</div><div>${escapeHtml(internationalMethodText)}</div>` : ""}
         ${isInternationalRequest ? `<div class="detail-label">集荷予定日</div><div>${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
-        ${isInternationalLabel ? `<div class="detail-label">バッテリーチェック</div><div>${escapeHtml(product.batteryLabelCheck || "-")}</div>` : ""}
+        ${isInternationalLabel ? `<div class="detail-label">ラベル発行時「バッテリーあり」にチェックを入れたか</div><div>${escapeHtml(product.batteryLabelCheck || "-")}</div>` : ""}
         <div class="detail-label">状態</div><div>${isShippedStatus(product.shippingStatus) ? product.shippingStatus === "cash_on_delivery" ? "着払い発送" : "発送済み" : "未発送"}</div>
         <div class="detail-label">配送希望日</div><div>${escapeHtml(destination.deliveryDate || "-")}</div>
         <div class="detail-label">配送希望時間</div><div>${escapeHtml(destination.deliveryTime || "-")}</div>

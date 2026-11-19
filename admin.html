@@ -4278,7 +4278,7 @@
 
             ${isInternationalRequest ? `<div class="info-label">集荷予定日</div><div class="info-value">${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
 
-            ${isInternationalLabel ? `<div class="info-label">バッテリーチェック</div><div class="info-value">${escapeHtml(product.batteryLabelCheck || "-")}</div>` : ""}
+            ${isInternationalLabel ? `<div class="info-label">ラベル発行時「バッテリーあり」にチェックを入れたか</div><div class="info-value">${escapeHtml(product.batteryLabelCheck || "-")}</div>` : ""}
 
             ${isReturnLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
 
