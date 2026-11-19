@@ -4116,6 +4116,7 @@
         "shipmentGroupNumberings",
         "prepaidLabelFileName",
         "prepaidLabelMemo",
+        "batteryLabelCheck",
         "labelAdjustmentRequested",
         "prepaidLabelDiscordSentAt",
         "prepaidLabelDiscordError",
@@ -4674,6 +4675,8 @@
             ${internationalMethodText ? `<div class="info-label">海外発送方法</div><div class="info-value">${escapeHtml(internationalMethodText)}</div>` : ""}
 
             ${isInternationalRequest ? `<div class="info-label">集荷予定日</div><div class="info-value">${escapeHtml(product.pickupScheduledDate || "-")}</div>` : ""}
+
+            ${isInternationalLabel ? `<div class="info-label">バッテリーチェック</div><div class="info-value">${escapeHtml(product.batteryLabelCheck || "-")}</div>` : ""}
 
             ${isReturnLabel ? `<div class="info-label">ラベル発送メモ</div><div class="info-value">${lineBreaks(product.prepaidLabelMemo || "-")}</div>` : ""}
 
