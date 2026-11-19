@@ -4969,7 +4969,8 @@ function isCameraOnlyConfirmationEntry(entry) {
 function feeDetailHtml(product) {
   const rows = [
     feeDetailLine(product, "inspection"),
-    feeDetailLine(product, "shipping")
+    feeDetailLine(product, "shipping"),
+    ...memberBillingAdjustmentLines(product)
   ];
 
   return `
@@ -5006,6 +5007,32 @@ function feeDetailHtml(product) {
       </table>
     </div>
   `;
+}
+
+function memberBillingAdjustmentLines(product) {
+  const source = product?.billingAdjustments || {};
+  return Object.entries(source)
+    .map(([id, value]) => {
+      const targetMonth = String(value?.targetMonth || "").trim();
+      const invoiceItem = findInvoiceItem(targetMonth, product.id);
+      const billedAmount = invoiceItem?.adjustmentFee;
+      const isBilled = billedAmount !== null && billedAmount !== undefined && billedAmount !== "-";
+      const title = String(value?.title || "調整料金").trim() || "調整料金";
+      const note = String(value?.note || "").trim();
+      return {
+        id,
+        label: note ? `${title}（${note}）` : title,
+        date: formatDate(value?.updatedAt || value?.createdAt),
+        month: targetMonth || "-",
+        amount: feeValue(value?.amount),
+        status: isBilled ? "請求済み" : "請求予定",
+        createdAt: Number(value?.createdAt || 0)
+      };
+    })
+    .sort((a, b) => {
+      const monthCompare = String(a.month).localeCompare(String(b.month), "ja", { numeric: true });
+      return monthCompare || a.createdAt - b.createdAt;
+    });
 }
 
 function feeDetailLine(product, type) {
