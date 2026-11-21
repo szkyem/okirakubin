@@ -3137,6 +3137,7 @@ function addProductEntry() {
       <div class="form-group full">
         <label>オプションコメント</label>
         <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄（相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"></textarea>
+        <p class="member-meta">※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
       </div>
 
     </div>
@@ -4175,6 +4176,7 @@ window.openProductEdit = function(productId) {
         <div class="form-group full">
           <label>オプションコメント</label>
           <textarea name="optionComment">${escapeHtml(product.optionComment || "")}</textarea>
+          <p class="member-meta">※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
         </div>
 
       </div>
