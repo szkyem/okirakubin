@@ -1591,6 +1591,8 @@ registerProductsBtn.addEventListener("click", async () => {
       optionThanksCard: entry.querySelector('[data-field="optionThanksCard"]').checked,
       optionOkirakuInsert: entry.querySelector('[data-field="optionOkirakuInsert"]').checked,
       optionComment: entry.querySelector('[data-field="optionComment"]').value.trim(),
+      optionPolicyAccepted: entry.querySelector('[data-field="optionPolicyAccepted"]')?.checked === true,
+      entryElement: entry,
       note: entry.querySelector('[data-field="note"]')?.value.trim() || "",
       purchaseUrl: entry.querySelector('[data-field="purchaseUrl"]').value.trim()
     };
@@ -1599,6 +1601,19 @@ registerProductsBtn.addEventListener("click", async () => {
   if (!payloads.length) {
     showError("登録する商品を入力してください。");
     return;
+  }
+
+  if (isStandardMemberPlan()) {
+    payloads.forEach((item) => item.entryElement?.querySelector('[data-field="optionPolicyAccepted"]')?.setCustomValidity(""));
+    const unacceptedItem = payloads.find((item) => !item.optionPolicyAccepted);
+    if (unacceptedItem) {
+      showError("各商品の注意事項を確認し、チェックを入れてから商品を登録してください。");
+      const checkbox = unacceptedItem.entryElement?.querySelector('[data-field="optionPolicyAccepted"]');
+      checkbox?.setCustomValidity("注意事項を確認し、チェックを入れてください。");
+      checkbox?.reportValidity();
+      checkbox?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
   }
 
   if (payloads.some((item) => !item.name || !item.numbering || !item.workRequest || !item.bodyCount || !item.lensCount || item.accessoryCount === "")) {
@@ -2133,6 +2148,7 @@ async function loadData() {
       ...(loginUserSnapshot.exists() ? loginUserSnapshot.val() : {}),
       ...(memberSettingsSnapshot.exists() ? memberSettingsSnapshot.val() : {})
     };
+    updateOptionCommentPolicyVisibility();
     isWriteLocked = isMemberWriteLocked();
     companyInfoCache = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
     priceTableCache = priceTableSnapshot.exists() ? priceTableSnapshot.val() : {};
@@ -2600,6 +2616,23 @@ function resetEntries() {
   addProductEntry();
 }
 
+function isStandardMemberPlan() {
+  const planType = String(memberProfileCache?.planType || "").trim().toLowerCase();
+  return planType === "standard" || planType === "スタンダード";
+}
+
+function updateOptionCommentPolicyVisibility() {
+  const isStandard = isStandardMemberPlan();
+  productEntries?.querySelectorAll("[data-option-comment-policy]").forEach((policy) => {
+    policy.style.display = isStandard ? "flex" : "none";
+    const checkbox = policy.querySelector('[data-field="optionPolicyAccepted"]');
+    if (checkbox) {
+      checkbox.required = isStandard;
+      if (!isStandard) checkbox.checked = false;
+    }
+  });
+}
+
 function addProductEntry() {
   entryCount += 1;
 
@@ -2665,6 +2698,10 @@ function addProductEntry() {
         <label>オプションコメント</label>
         <textarea data-field="optionComment" placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"></textarea>
         <p class="member-meta">※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
+        <label class="checkbox-line" data-option-comment-policy style="display:${isStandardMemberPlan() ? "flex" : "none"};margin-top:8px;">
+          <input class="shipping-check" type="checkbox" data-field="optionPolicyAccepted" ${isStandardMemberPlan() ? "required" : ""}>
+          <span>基本動作以外の個別の確認要望は、スタンダードプランでは対応できないことを確認しました。</span>
+        </label>
       </div>
 
     </div>
@@ -3297,6 +3334,12 @@ window.openProductEdit = function(productId) {
           <label>オプションコメント</label>
           <textarea name="optionComment">${escapeHtml(product.optionComment || "")}</textarea>
           <p class="member-meta">※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
+          ${isStandardMemberPlan() ? `
+            <label class="checkbox-line" style="margin-top:8px;">
+              <input class="shipping-check" type="checkbox" name="optionPolicyAccepted" required>
+              <span>基本動作以外の個別の確認要望は、スタンダードプランでは対応できないことを確認しました。</span>
+            </label>
+          ` : ""}
         </div>
 
       </div>
@@ -3315,6 +3358,11 @@ window.saveProductEdit = async function(event, productId) {
 
   const product = productsCache.find((item) => item.id === productId) || {};
   const formData = new FormData(event.target);
+  if (isStandardMemberPlan() && formData.get("optionPolicyAccepted") !== "on") {
+    showError("注意事項を確認し、チェックを入れてから保存してください。");
+    event.target.querySelector('[name="optionPolicyAccepted"]')?.reportValidity();
+    return;
+  }
   const data = {
     name: String(formData.get("name") || "").trim(),
     numbering: String(formData.get("numbering") || "").trim(),
