@@ -2615,9 +2615,7 @@ function updateOptionCommentAvailability() {
     textarea.style.color = isStandard ? "#111827" : "";
     textarea.style.background = isStandard ? "#f3f4f6" : "";
     textarea.style.cursor = isStandard ? "not-allowed" : "";
-    textarea.placeholder = isStandard
-      ? "スタンダードプランでは入力できません。"
-      : textarea.dataset.editablePlaceholder || "";
+    textarea.placeholder = textarea.dataset.editablePlaceholder || "";
   });
 }
 
@@ -2684,8 +2682,8 @@ function addProductEntry() {
 
       <div class="form-group full">
         <label>オプションコメント</label>
-        <textarea data-field="optionComment" data-editable-placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）" placeholder="${isStandardMemberPlan() ? "スタンダードプランでは入力できません。" : "オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）"}" ${isStandardMemberPlan() ? 'readonly aria-disabled="true" style="color:#111827;background:#f3f4f6;cursor:not-allowed;"' : ""}></textarea>
-        <p class="member-meta" ${isStandardMemberPlan() ? 'style="color:#111827;"' : ""}>※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
+        <textarea data-field="optionComment" data-editable-placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）" placeholder="オプションに関する自由記入欄（シャッター数を確認、や、相談内容等を記載ください。内容によって、ご相談の上別途費用が発生する可能性があります）" ${isStandardMemberPlan() ? 'readonly aria-disabled="true" style="color:#111827;background:#f3f4f6;cursor:not-allowed;"' : ""}></textarea>
+        <p class="member-meta" ${isStandardMemberPlan() ? 'style="color:#111827;"' : ""}>※スタンダードプランでは、基本動作以外の確認要望を受け付けておりません。基本動作以外の確認要望がある場合は、プレミアムプランへのアップグレードをお願いします。</p>
       </div>
 
     </div>
@@ -3317,7 +3315,7 @@ window.openProductEdit = function(productId) {
         <div class="form-group full">
           <label>オプションコメント</label>
           <textarea name="optionComment" ${isStandardMemberPlan() ? 'readonly aria-disabled="true" style="color:#111827;background:#f3f4f6;cursor:not-allowed;"' : ""}>${escapeHtml(product.optionComment || "")}</textarea>
-          <p class="member-meta" ${isStandardMemberPlan() ? 'style="color:#111827;"' : ""}>※基本動作以外の要望はプレミアムプランのみ受け付けています。スタンダードプランでは個別の確認要望には対応できません。</p>
+          <p class="member-meta" ${isStandardMemberPlan() ? 'style="color:#111827;"' : ""}>※スタンダードプランでは、基本動作以外の確認要望を受け付けておりません。基本動作以外の確認要望がある場合は、プレミアムプランへのアップグレードをお願いします。</p>
         </div>
 
       </div>
