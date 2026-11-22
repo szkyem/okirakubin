@@ -3831,6 +3831,12 @@ window.saveAdjustmentDecision = async function(event, productId) {
     const now = Date.now();
     const product = productsCache.find((item) => item.id === productId);
     const nextStage = adjustmentDecision === "resize_repack" ? "repacking" : adjustmentDecision === "store" ? "stored" : "shipping_ready";
+    const repackingCycleUpdates = adjustmentDecision === "resize_repack" ? {
+      activeRepackingCycleId: product?.activeRepackingCycleId || "initial",
+      activeRepackingCycleType: "initial",
+      repackingStartedAt: product?.repackingStartedAt || now
+    } : {};
+    const billingUpdates = adjustmentDecision === "return" ? returnBillingEventUpdates(product, now) : {};
     await update(ref(database, `products/${dataUid()}/${productId}`), {
       adjustmentDecision,
       packagingMaterialChoice,
@@ -3853,7 +3859,8 @@ window.saveAdjustmentDecision = async function(event, productId) {
     showSuccess("調整内容を保存しました。");
   } catch (error) {
     console.error(error);
-    showError("調整内容の保存に失敗しました。Realtime Databaseのルールを確認してください。");
+    const detail = error?.message || error?.code || "原因を確認できませんでした。";
+    showError(`調整内容の保存に失敗しました。画面を再読み込みして再度お試しください。詳細：${detail}`);
   }
 };
 
