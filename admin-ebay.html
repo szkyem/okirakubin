@@ -1494,7 +1494,8 @@
               <th>対象月</th>
               <th>管理番号</th>
               <th>会員</th>
-              <th>件数</th>
+              <th>検品件数</th>
+              <th>発送件数</th>
               <th>作業料金</th>
               <th>国内配送料・返送料</th>
               <th>調整金</th>
@@ -6477,7 +6478,7 @@
       if (invoiceNetSalesTotal) invoiceNetSalesTotal.textContent = `${yen(netSalesTotal)}円`;
 
       if (!invoices.length) {
-        invoiceListBody.innerHTML = `<tr><td colspan="13"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
+        invoiceListBody.innerHTML = `<tr><td colspan="14"><div class="empty">対象月の請求対象はありません。</div></td></tr>`;
         return;
       }
 
@@ -6487,7 +6488,11 @@
           if (numberCompare !== 0) return numberCompare;
           return String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja");
         })
-        .map((invoice) => `
+        .map((invoice) => {
+          const invoiceItems = Object.values(invoice.items || {});
+          const inspectionCount = invoiceItems.filter((item) => item.inspectionFee !== null && item.inspectionFee !== undefined && item.inspectionFee !== "-").length;
+          const shippingCount = invoiceItems.filter((item) => itemHasShippingCharge(item)).length;
+          return `
           <tr class="${invoice.received === true ? "invoice-received-row" : ""}">
             <td>
               ${invoice.isPreview ? "-" : `<input class="invoice-received-check" type="checkbox" aria-label="受領済み" ${invoice.received === true ? "checked" : ""} onchange="setInvoiceReceived('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}',this.checked)">`}
@@ -6498,7 +6503,8 @@
               <div class="member-name">${escapeHtml(invoice.memberName || "-")}</div>
               <div class="member-meta">${escapeHtml(invoice.email || "-")}</div>
             </td>
-            <td>${Object.keys(invoice.items || {}).length}</td>
+            <td>${inspectionCount}</td>
+            <td>${shippingCount}</td>
             <td>${escapeHtml(invoice.totalInspectionFee || 0)}</td>
             <td>${escapeHtml(invoiceShippingFareFee(invoice))}</td>
             <td>${escapeHtml(invoiceGlobalAdjustmentFee(invoice))}</td>
@@ -6515,7 +6521,8 @@
             </td>
             <td>${invoice.isPreview ? "-" : `<button class="danger-btn" ${monthLocked ? "disabled" : ""} onclick="deleteInvoice('${escapeAttr(invoice.uid)}','${escapeAttr(invoice.month)}')">削除</button>`}</td>
           </tr>
-        `).join("");
+        `;
+        }).join("");
     }
 
     function isInvoiceMonthLocked(month) {
