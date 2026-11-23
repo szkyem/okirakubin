@@ -3759,6 +3759,7 @@
         "prepaidLabelMemo",
         "batteryLabelCheck",
         "labelAdjustmentRequested",
+        "prepaidLabelDiscordRequestId",
         "prepaidLabelDiscordSentAt",
         "prepaidLabelDiscordError",
         "prepaidLabelBackupFileId",
@@ -4275,7 +4276,7 @@
           fileId: product.prepaidLabelBackupFileId,
           webhookUrl,
           message,
-          requestId: `${requestIdPrefix}_${uid}_${groupId}`
+          requestId: product.prepaidLabelDiscordRequestId || `${requestIdPrefix}_${uid}_${groupId}`
         }, { maxAttempts: 3, retryDelayMs: 3000 });
         if (!result.ok) throw new Error(result.error || "Discordへの再送に失敗しました。");
 

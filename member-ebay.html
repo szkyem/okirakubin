@@ -2024,6 +2024,9 @@ shippingForm.addEventListener("submit", async (event) => {
         prepaidLabelMemo: isFileLabelRequest ? labelMemo : "",
         batteryLabelCheck: batteryLabelCheckValue,
         labelAdjustmentRequested: isInternationalLabelPlanned,
+        prepaidLabelDiscordRequestId: isFileLabelRequest || isInternationalLabelPlanned
+          ? `${isReturnLabel ? "discord_return_label" : isInternationalLabel ? "discord_overseas_label" : isInternationalLabelPlanned ? "discord_overseas_label_plan" : "discord_label"}_${dataUid()}_${shipmentGroupId}_${now}`
+          : "",
         prepaidLabelDiscordSentAt: "",
         prepaidLabelDiscordError: "",
         shippingRequestedAt: now,
@@ -2045,7 +2048,7 @@ shippingForm.addEventListener("submit", async (event) => {
             shipmentGroupNames,
             shipmentGroupNumberings,
             pickupScheduledDate,
-            requestId: `discord_overseas_label_plan_${dataUid()}_${shipmentGroupId}`
+            requestId: `discord_overseas_label_plan_${dataUid()}_${shipmentGroupId}_${now}`
           });
         } else {
           labelDeliveryResult = await sendPrepaidLabelToDiscord({
@@ -2057,7 +2060,7 @@ shippingForm.addEventListener("submit", async (event) => {
             selectedProducts,
             shipmentGroupNames,
             shipmentGroupNumberings,
-            requestId: `${isReturnLabel ? "discord_return_label" : isInternationalLabel ? "discord_overseas_label" : "discord_label"}_${dataUid()}_${shipmentGroupId}`
+            requestId: `${isReturnLabel ? "discord_return_label" : isInternationalLabel ? "discord_overseas_label" : "discord_label"}_${dataUid()}_${shipmentGroupId}_${now}`
           });
         }
         try {
