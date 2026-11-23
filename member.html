@@ -991,6 +991,13 @@ onAuthStateChanged(auth, async (user) => {
       ]);
       isMember = (memberSnapshot.exists() && memberSnapshot.val() === true) || (inactiveMemberSnapshot.exists() && inactiveMemberSnapshot.val() === true);
 
+      const migrationResult = await activateAccountMigration(user);
+      if (migrationResult.activated === true) {
+        isMember = true;
+      } else if (!isMember) {
+        migrationLoginError = migrationResult.message || migrationLoginError || "";
+      }
+
       if (isMember) {
         const emailAllowed = await validateMemberLoginEmail(user);
         if (!emailAllowed) {
@@ -1005,12 +1012,6 @@ onAuthStateChanged(auth, async (user) => {
         const repairResult = await repairMemberRecordFromSettings(user);
         isMember = repairResult.activated === true;
         migrationLoginError = repairResult.message || "";
-      }
-
-      if (!isMember) {
-        const migrationResult = await activateAccountMigration(user);
-        isMember = migrationResult.activated === true;
-        migrationLoginError = migrationResult.message || migrationLoginError || "";
       }
 
       if (!isMember) {
@@ -1381,12 +1382,13 @@ async function activateAccountMigration(user) {
 
   const memberSnapshot = await get(ref(database, `members/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }));
 
-  const [settingsSnapshot, loginSnapshot, productsSnapshot, originsSnapshot, invoicesSnapshot, discordSnapshot] = await Promise.all([
+  const [settingsSnapshot, loginSnapshot, productsSnapshot, originsSnapshot, invoicesSnapshot, ebayInvoicesSnapshot, discordSnapshot] = await Promise.all([
     get(ref(database, `memberSettings/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `loginUsers/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `products/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `shippingOrigins/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `invoices/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
+    get(ref(database, `ebayInvoices/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null })),
     get(ref(database, `discordNotificationQueue/${fromUid}`)).catch(() => ({ exists: () => false, val: () => null }))
   ]);
 
@@ -1428,7 +1430,8 @@ async function activateAccountMigration(user) {
     },
     [`loginUsers/${fromUid}`]: null,
     [`accountMigrationRequests/${key}`]: null,
-    [`accountMigrationRequestsByOldUid/${fromUid}`]: null
+    [`accountMigrationRequestsByOldUid/${fromUid}`]: null,
+    [`pendingMembers/${key}`]: null
   };
 
   const products = productsSnapshot.exists() ? productsSnapshot.val() : null;
@@ -1447,6 +1450,12 @@ async function activateAccountMigration(user) {
   if (invoices) {
     updates[`invoices/${user.uid}`] = remapInvoiceOwnerFields(invoices, user.uid, newEmail, now);
     updates[`invoices/${fromUid}`] = null;
+  }
+
+  const ebayInvoices = ebayInvoicesSnapshot.exists() ? ebayInvoicesSnapshot.val() : null;
+  if (ebayInvoices) {
+    updates[`ebayInvoices/${user.uid}`] = remapInvoiceOwnerFields(ebayInvoices, user.uid, newEmail, now);
+    updates[`ebayInvoices/${fromUid}`] = null;
   }
 
   const discordQueue = discordSnapshot.exists() ? discordSnapshot.val() : null;

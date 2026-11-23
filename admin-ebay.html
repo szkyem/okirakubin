@@ -2285,7 +2285,7 @@
             uid,
             membershipStatus,
             name: user.name || memberSettings.name || user.email || uid,
-            email: user.email || memberSettings.email || "",
+            email: memberSettings.pendingEmail || user.email || memberSettings.email || "",
             role: user.role || "member",
             lastLoginAt: user.lastLoginAt || "",
             managementNumber: memberSettings.managementNumber || user.managementNumber || "",
@@ -5010,7 +5010,7 @@
       const member = findMember(uid);
       if (!member) return;
 
-      activeEdit = { type: "memberManagement", uid };
+      activeEdit = { type: "memberManagement", uid, oldEmail: String(loginUsersCache?.[uid]?.email || member.email || "").trim().toLowerCase(), previousPendingEmail: String(memberSettingsCache?.[uid]?.pendingEmail || "").trim().toLowerCase() };
 
       editModalTitle.textContent = "会員管理情報を編集";
       editForm.innerHTML = `
@@ -5018,6 +5018,12 @@
           <label>
             管理番号
             <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
+          </label>
+
+          <label>
+            ログインメールアドレス
+            <input name="loginEmail" type="email" value="${escapeAttr(member.email || "")}" />
+            <span class="form-note">変更時は旧会員情報を新しいGoogleアカウントへ自動で引き継ぎます。</span>
           </label>
 
           <label>
@@ -5596,6 +5602,12 @@
         }
 
         if (activeEdit.type === "memberManagement") {
+          const oldEmail = String(activeEdit.oldEmail || loginUsersCache?.[activeEdit.uid]?.email || "").trim().toLowerCase();
+          const loginEmail = getFormValue(formData, "loginEmail").trim().toLowerCase();
+          if (!loginEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+            showError(appError, "正しいログインメールアドレスを入力してください。");
+            return;
+          }
           const managementNumber = getFormValue(formData, "managementNumber");
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
           const driveBaseUrl = getFormValue(formData, "driveBaseUrl");
@@ -5608,24 +5620,23 @@
             return;
           }
 
-          await update(ref(db, `memberSettings/${activeEdit.uid}`), {
-            managementNumber,
-            adminDisplayName,
-            driveBaseUrl,
-            discordWebhookUrl,
-            discordLabelWebhookUrl,
-            planType,
-            enabledServices,
-            updatedAt: now,
-            updatedBy: currentUser?.uid || ""
+          const memberUpdates = buildMemberEmailChangeUpdates({ uid: activeEdit.uid, oldEmail, loginEmail, previousPendingEmail: activeEdit.previousPendingEmail, now });
+          Object.assign(memberUpdates, {
+            [`memberSettings/${activeEdit.uid}/managementNumber`]: managementNumber,
+            [`memberSettings/${activeEdit.uid}/adminDisplayName`]: adminDisplayName,
+            [`memberSettings/${activeEdit.uid}/driveBaseUrl`]: driveBaseUrl,
+            [`memberSettings/${activeEdit.uid}/discordWebhookUrl`]: discordWebhookUrl,
+            [`memberSettings/${activeEdit.uid}/discordLabelWebhookUrl`]: discordLabelWebhookUrl,
+            [`memberSettings/${activeEdit.uid}/planType`]: planType,
+            [`memberSettings/${activeEdit.uid}/enabledServices`]: enabledServices,
+            [`memberSettings/${activeEdit.uid}/updatedAt`]: now,
+            [`memberSettings/${activeEdit.uid}/updatedBy`]: currentUser?.uid || "",
+            [`loginUsers/${activeEdit.uid}/managementNumber`]: managementNumber,
+            [`loginUsers/${activeEdit.uid}/driveBaseUrl`]: driveBaseUrl,
+            [`loginUsers/${activeEdit.uid}/planType`]: planType,
+            [`loginUsers/${activeEdit.uid}/updatedAt`]: now
           });
-
-          await update(ref(db, `loginUsers/${activeEdit.uid}`), {
-            managementNumber,
-            driveBaseUrl,
-            planType,
-            updatedAt: now
-          });
+          await update(ref(db), memberUpdates);
         }
 
         if (activeEdit.type === "invoiceGlobalAdjustment") {
@@ -9586,6 +9597,23 @@ function firstInvoiceDate(item) {
         .trim()
         .toLowerCase()
         .replace(/[.#$/\[\]]/g, "_");
+    }
+
+    function buildMemberEmailChangeUpdates({ uid, oldEmail, loginEmail, previousPendingEmail, now }) {
+      const updates = {
+        [`memberSettings/${uid}/email`]: oldEmail || loginEmail,
+        [`memberSettings/${uid}/pendingEmail`]: loginEmail !== oldEmail ? loginEmail : null
+      };
+      if (previousPendingEmail && previousPendingEmail !== loginEmail) updates[`accountMigrationRequests/${emailKey(previousPendingEmail)}`] = null;
+      if (loginEmail === oldEmail) {
+        updates[`accountMigrationRequestsByOldUid/${uid}`] = null;
+        return updates;
+      }
+      const key = emailKey(loginEmail);
+      const request = { fromUid: uid, oldEmail, newEmail: loginEmail, status: "pending", requestedAt: now, updatedAt: now, requestedBy: currentUser?.uid || "", requestedByAdmin: true };
+      updates[`accountMigrationRequests/${key}`] = request;
+      updates[`accountMigrationRequestsByOldUid/${uid}`] = { ...request, emailKey: key };
+      return updates;
     }
 
     function showError(element, message) {

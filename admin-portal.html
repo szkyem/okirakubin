@@ -2260,7 +2260,7 @@
             uid,
             membershipStatus,
             name: user.name || memberSettings.name || user.email || uid,
-            email: user.email || memberSettings.email || "",
+            email: memberSettings.pendingEmail || user.email || memberSettings.email || "",
             role: user.role || "member",
             lastLoginAt: user.lastLoginAt || "",
             managementNumber: memberSettings.managementNumber || user.managementNumber || "",
@@ -4762,7 +4762,7 @@
       const member = findMember(uid);
       if (!member) return;
 
-      activeEdit = { type: "memberManagement", uid };
+      activeEdit = { type: "memberManagement", uid, oldEmail: String(loginUsersCache?.[uid]?.email || member.email || "").trim().toLowerCase(), previousPendingEmail: String(memberSettingsCache?.[uid]?.pendingEmail || "").trim().toLowerCase() };
 
       editModalTitle.textContent = "会員管理情報を編集";
       editForm.innerHTML = `
@@ -4770,6 +4770,12 @@
           <label>
             管理番号
             <input name="managementNumber" value="${escapeAttr(member.managementNumber || "")}" />
+          </label>
+
+          <label>
+            ログインメールアドレス
+            <input name="loginEmail" type="email" value="${escapeAttr(member.email || "")}" />
+            <span class="form-note">変更時は旧会員情報を新しいGoogleアカウントへ自動で引き継ぎます。</span>
           </label>
 
           <label>
@@ -5272,6 +5278,12 @@
         }
 
         if (activeEdit.type === "memberManagement") {
+          const oldEmail = String(activeEdit.oldEmail || loginUsersCache?.[activeEdit.uid]?.email || "").trim().toLowerCase();
+          const loginEmail = getFormValue(formData, "loginEmail").trim().toLowerCase();
+          if (!loginEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+            showError(appError, "正しいログインメールアドレスを入力してください。");
+            return;
+          }
           const managementNumber = getFormValue(formData, "managementNumber");
           const adminDisplayName = getFormValue(formData, "adminDisplayName");
           const memberPreferences = getFormValue(formData, "memberPreferences");
@@ -5288,28 +5300,60 @@
             return;
           }
 
-          await update(ref(db, `memberSettings/${activeEdit.uid}`), {
-            managementNumber,
-            adminDisplayName,
-            memberPreferences,
-            driveBaseUrl,
-            discordWebhookUrl,
-            discordLabelWebhookUrl,
-            inspectionSheetUrl,
-            inspectionSheetName,
-            inspectionGeneratorWebhookUrl,
-            planType,
-            enabledServices,
-            updatedAt: now,
-            updatedBy: currentUser?.uid || ""
-          });
+          const memberUpdates = {
+            [`memberSettings/${activeEdit.uid}/email`]: oldEmail || loginEmail,
+            [`memberSettings/${activeEdit.uid}/pendingEmail`]: loginEmail !== oldEmail ? loginEmail : null,
+            [`memberSettings/${activeEdit.uid}/managementNumber`]: managementNumber,
+            [`memberSettings/${activeEdit.uid}/adminDisplayName`]: adminDisplayName,
+            [`memberSettings/${activeEdit.uid}/memberPreferences`]: memberPreferences,
+            [`memberSettings/${activeEdit.uid}/driveBaseUrl`]: driveBaseUrl,
+            [`memberSettings/${activeEdit.uid}/discordWebhookUrl`]: discordWebhookUrl,
+            [`memberSettings/${activeEdit.uid}/discordLabelWebhookUrl`]: discordLabelWebhookUrl,
+            [`memberSettings/${activeEdit.uid}/inspectionSheetUrl`]: inspectionSheetUrl,
+            [`memberSettings/${activeEdit.uid}/inspectionSheetName`]: inspectionSheetName,
+            [`memberSettings/${activeEdit.uid}/inspectionGeneratorWebhookUrl`]: inspectionGeneratorWebhookUrl,
+            [`memberSettings/${activeEdit.uid}/planType`]: planType,
+            [`memberSettings/${activeEdit.uid}/enabledServices`]: enabledServices,
+            [`memberSettings/${activeEdit.uid}/updatedAt`]: now,
+            [`memberSettings/${activeEdit.uid}/updatedBy`]: currentUser?.uid || "",
+            [`loginUsers/${activeEdit.uid}/managementNumber`]: managementNumber,
+            [`loginUsers/${activeEdit.uid}/driveBaseUrl`]: driveBaseUrl,
+            [`loginUsers/${activeEdit.uid}/planType`]: planType,
+            [`loginUsers/${activeEdit.uid}/updatedAt`]: now
+          };
 
-          await update(ref(db, `loginUsers/${activeEdit.uid}`), {
-            managementNumber,
-            driveBaseUrl,
-            planType,
-            updatedAt: now
-          });
+          if (activeEdit.previousPendingEmail && activeEdit.previousPendingEmail !== loginEmail) {
+            memberUpdates[`accountMigrationRequests/${emailKey(activeEdit.previousPendingEmail)}`] = null;
+          }
+
+          if (loginEmail !== oldEmail) {
+            const key = emailKey(loginEmail);
+            memberUpdates[`accountMigrationRequests/${key}`] = {
+              fromUid: activeEdit.uid,
+              oldEmail,
+              newEmail: loginEmail,
+              status: "pending",
+              requestedAt: now,
+              updatedAt: now,
+              requestedBy: currentUser?.uid || "",
+              requestedByAdmin: true
+            };
+            memberUpdates[`accountMigrationRequestsByOldUid/${activeEdit.uid}`] = {
+              emailKey: key,
+              fromUid: activeEdit.uid,
+              oldEmail,
+              newEmail: loginEmail,
+              status: "pending",
+              requestedAt: now,
+              updatedAt: now,
+              requestedBy: currentUser?.uid || "",
+              requestedByAdmin: true
+            };
+          } else {
+            memberUpdates[`accountMigrationRequestsByOldUid/${activeEdit.uid}`] = null;
+          }
+
+          await update(ref(db), memberUpdates);
         }
 
         if (activeEdit.type === "invoiceGlobalAdjustment") {
