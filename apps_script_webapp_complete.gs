@@ -71,6 +71,10 @@ function routeAction_(body, requireToken) {
     return handleDiscordNotifyFile_(body);
   }
 
+  if (action === "discordNotifyDriveFile") {
+    return handleDiscordNotifyDriveFile_(body);
+  }
+
   if (action === "backupTemporaryLabel") {
     return handleBackupTemporaryLabel_(body);
   }
@@ -399,6 +403,31 @@ function handleDiscordNotifyFile_(body) {
     });
   } finally {
     lock.releaseLock();
+  }
+}
+
+function handleDiscordNotifyDriveFile_(body) {
+  const fileId = String(body.fileId || "").trim();
+  if (!fileId) {
+    return json_({ ok: false, error: "Temporary label file ID is empty." });
+  }
+
+  try {
+    const file = DriveApp.getFileById(fileId);
+    if (file.isTrashed()) {
+      return json_({ ok: false, error: "Temporary label file has already been deleted." });
+    }
+    const blob = file.getBlob();
+    return handleDiscordNotifyFile_(Object.assign({}, body, {
+      fileName: file.getName() || body.fileName || "label.pdf",
+      mimeType: blob.getContentType() || body.mimeType || "application/pdf",
+      fileBase64: Utilities.base64Encode(blob.getBytes())
+    }));
+  } catch (error) {
+    return json_({
+      ok: false,
+      error: "Failed to load temporary label file. " + (error && error.message ? error.message : String(error))
+    });
   }
 }
 

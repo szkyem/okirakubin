@@ -3125,15 +3125,24 @@
       let lastText = "";
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const response = await fetch(GAS_WEB_APP_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            action,
-            token: GAS_WEB_APP_TOKEN,
-            requestId
-          })
-        });
+        let response;
+        try {
+          response = await fetch(GAS_WEB_APP_URL, {
+            method: "POST",
+            body: JSON.stringify({
+              ...payload,
+              action,
+              token: GAS_WEB_APP_TOKEN,
+              requestId
+            })
+          });
+        } catch (error) {
+          if (attempt < maxAttempts - 1) {
+            await sleep((options.retryDelayMs || 2000) * (attempt + 1));
+            continue;
+          }
+          throw error;
+        }
 
         lastText = await response.text();
         let result = {};
@@ -3153,6 +3162,14 @@
 
         if (!response.ok || !result.ok) {
           result.responseStatus = response.status;
+          const status = Number(result.status || response.status || 0);
+          const errorText = String(result.error || "").toLowerCase();
+          const retryable = status === 408 || status === 409 || status === 423 || status === 425 || status === 429 || status >= 500
+            || /timeout|timed out|temporar|busy|lock|rate limit|too many|internal error|service unavailable/.test(errorText);
+          if (retryable && attempt < maxAttempts - 1) {
+            await sleep((options.retryDelayMs || 2000) * (attempt + 1));
+            continue;
+          }
           return result;
         }
 
@@ -4221,6 +4238,64 @@
       infoModalBackdrop.classList.add("show");
     }
 
+    async function retryPrepaidLabelDiscord(uid, productId) {
+      const product = findProduct(uid, productId);
+      const member = findMember(uid);
+      if (!product || !member) return;
+
+      if (!product.prepaidLabelBackupFileId) {
+        alert("Driveに保存済みのラベルがないため再送できません。");
+        return;
+      }
+
+      const webhookUrl = member.discordLabelWebhookUrl || member.discordWebhookUrl || "";
+      if (!webhookUrl) {
+        alert("発送ラベル連絡用のDiscord Webhook URLが未設定です。");
+        return;
+      }
+
+      const isReturnLabel = shippingKey(product.shippingRequest) === "return" && product.returnMethod === "label";
+      const isInternationalLabel = shippingKey(product.shippingRequest) === "international" && product.internationalMethod === "label";
+      const groupId = product.shipmentGroupId || product.id;
+      const requestIdPrefix = isReturnLabel ? "discord_return_label" : isInternationalLabel ? "discord_overseas_label" : "discord_label";
+      const message = [
+        isReturnLabel ? "【商品返品依頼】" : "【商品発送依頼】",
+        "",
+        `ナンバリング：${product.shipmentGroupNumberings || product.numbering || "-"}`,
+        `商品名：${product.shipmentGroupNames || product.name || "-"}`,
+        ...(isInternationalLabel ? [`集荷予定日：${product.pickupScheduledDate || "-"}`] : []),
+        ...(isInternationalLabel ? [`ラベル発行時「バッテリーあり」にチェックを入れたか：${product.batteryLabelCheck || "-"}`] : []),
+        `発送メモ：${product.prepaidLabelMemo || "-"}`
+      ].join("\n");
+
+      if (!confirm(`${product.numbering || "-"} の保存済みラベルをDiscordへ再送しますか？`)) return;
+
+      try {
+        const result = await callGasJson("discordNotifyDriveFile", {
+          fileId: product.prepaidLabelBackupFileId,
+          webhookUrl,
+          message,
+          requestId: `${requestIdPrefix}_${uid}_${groupId}`
+        }, { maxAttempts: 3, retryDelayMs: 3000 });
+        if (!result.ok) throw new Error(result.error || "Discordへの再送に失敗しました。");
+
+        const sentAt = Date.now();
+        const updates = {};
+        const targets = (member.products || []).filter((item) => (item.shipmentGroupId || item.id) === groupId);
+        (targets.length ? targets : [product]).forEach((item) => {
+          updates[`products/${uid}/${item.id}/prepaidLabelDiscordSentAt`] = sentAt;
+          updates[`products/${uid}/${item.id}/prepaidLabelDiscordError`] = "";
+          updates[`products/${uid}/${item.id}/updatedAt`] = sentAt;
+        });
+        await update(ref(db), updates);
+        await loadAllData();
+        infoModalBackdrop.classList.remove("show");
+        alert("保存済みラベルをDiscordへ再送しました。");
+      } catch (error) {
+        alert(`Discordへの再送に失敗しました。\n${error && error.message ? error.message : "時間をおいて再度お試しください。"}`);
+      }
+    }
+
     function openShippingInfo(uid, productId) {
       const product = findProduct(uid, productId);
       const member = findMember(uid);
@@ -4303,7 +4378,7 @@
             <span>${isReturnLabel ? "返品ラベル" : isInternationalLabel ? "海外発送ラベル" : isInternationalLabelPlanned ? "ラベル調整" : "発送先"}</span>
           </div>
           ${!isLabelWorkflow && product.shippingRequest === "国内発送" ? `<div class="info-grid" style="margin-bottom:12px;"><div class="info-label">ゆうパケット希望</div><div class="info-value">${product.preferYuPacket ? "ゆうパケットを希望する" : "－"}</div></div>` : ""}
-          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : "未送信"}${product.prepaidLabelBackupFileUrl ? `<br><a href="${escapeAttr(product.prepaidLabelBackupFileUrl)}" target="_blank" rel="noopener">一時保存PDFを開く</a><br>自動削除予定：${escapeHtml(formatDateTime(product.prepaidLabelBackupExpiresAt))}` : product.prepaidLabelBackupError ? `<br>Drive保存：失敗（${escapeHtml(product.prepaidLabelBackupError)}）` : "<br>Drive保存：未保存"}` : formatShippingInfo(product.shippingDestination)}</div>
+          <div class="info-value">${isLabelWorkflow ? `${isInternationalLabelPlanned ? "添付ファイルなし" : `ファイル名：${escapeHtml(product.prepaidLabelFileName || "-")}`}<br>Discord送信：${product.prepaidLabelDiscordSentAt ? "送信済み" : '<strong style="color:#b42318;">未送信</strong>'}${product.prepaidLabelDiscordError ? `<br>失敗内容：${escapeHtml(product.prepaidLabelDiscordError)}` : ""}${product.prepaidLabelBackupFileUrl ? `<br><a href="${escapeAttr(product.prepaidLabelBackupFileUrl)}" target="_blank" rel="noopener">一時保存PDFを開く</a><br>自動削除予定：${escapeHtml(formatDateTime(product.prepaidLabelBackupExpiresAt))}${!product.prepaidLabelDiscordSentAt && product.prepaidLabelBackupFileId ? `<br><button class="mini-btn" style="margin-top:10px;" onclick="retryPrepaidLabelDiscord('${escapeAttr(uid)}','${escapeAttr(productId)}')">保存済みPDFをDiscordへ再送</button>` : ""}` : product.prepaidLabelBackupError ? `<br>Drive保存：失敗（${escapeHtml(product.prepaidLabelBackupError)}）` : "<br>Drive保存：未保存"}` : formatShippingInfo(product.shippingDestination)}</div>
         </div>
 
         <div class="info-box">
@@ -7887,6 +7962,7 @@ function firstInvoiceDate(item) {
     window.downloadInvoicePdf = downloadInvoicePdf;
     window.deleteInvoice = deleteInvoice;
     window.sendDiscordNotificationsForDate = sendDiscordNotificationsForDate;
+    window.retryPrepaidLabelDiscord = retryPrepaidLabelDiscord;
     window.addAdminAdjustmentPriceRow = addAdminAdjustmentPriceRow;
     window.removeAdminAdjustmentPriceRow = removeAdminAdjustmentPriceRow;
     window.saveAdminAdjustmentPrices = saveAdminAdjustmentPrices;
