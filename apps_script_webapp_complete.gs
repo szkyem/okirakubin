@@ -345,17 +345,29 @@ function handleDiscordNotifyFile_(body) {
     let lastStatus = 0;
     let lastText = "";
     let lastRetryAfter = 0;
+    let lastFetchError = "";
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const blob = Utilities.newBlob(bytes, mimeType, fileName);
-      const res = UrlFetchApp.fetch(webhookUrl, {
-        method: "post",
-        payload: {
-          payload_json: JSON.stringify({ content: message.slice(0, 2000) }),
-          "files[0]": blob
-        },
-        muteHttpExceptions: true
-      });
+      let res;
+      try {
+        const blob = Utilities.newBlob(bytes, mimeType, fileName);
+        res = UrlFetchApp.fetch(webhookUrl, {
+          method: "post",
+          payload: {
+            payload_json: JSON.stringify({ content: message.slice(0, 2000) }),
+            "files[0]": blob
+          },
+          muteHttpExceptions: true
+        });
+      } catch (error) {
+        lastStatus = 0;
+        lastFetchError = error && error.message ? error.message : String(error);
+        if (attempt < maxAttempts - 1) {
+          Utilities.sleep(2000 * (attempt + 1));
+          continue;
+        }
+        break;
+      }
 
       lastStatus = res.getResponseCode();
       lastText = res.getContentText() || "";
@@ -365,8 +377,9 @@ function handleDiscordNotifyFile_(body) {
         return json_({ ok: true, status: lastStatus, requestId: requestId });
       }
 
-      if (lastStatus === 429 && attempt < maxAttempts - 1) {
-        const retryAfter = discordRetryAfterSeconds_(res, lastText, attempt);
+      const retryableStatus = lastStatus === 408 || lastStatus === 409 || lastStatus === 425 || lastStatus === 429 || lastStatus >= 500;
+      if (retryableStatus && attempt < maxAttempts - 1) {
+        const retryAfter = lastStatus === 429 ? discordRetryAfterSeconds_(res, lastText, attempt) : (attempt + 1) * 2;
         lastRetryAfter = retryAfter;
         Utilities.sleep(Math.min(Math.ceil(retryAfter * 1000), 120000));
         continue;
@@ -379,7 +392,10 @@ function handleDiscordNotifyFile_(body) {
       ok: false,
       status: lastStatus,
       retryAfter: lastRetryAfter,
-      error: "Discord file notification failed. status=" + lastStatus + (lastText ? " " + lastText.slice(0, 240) : "")
+      retryable: lastStatus === 0 || lastStatus === 408 || lastStatus === 409 || lastStatus === 425 || lastStatus === 429 || lastStatus >= 500,
+      error: "Discord file notification failed. status=" + lastStatus
+        + (lastFetchError ? " " + lastFetchError.slice(0, 240) : "")
+        + (lastText ? " " + lastText.slice(0, 240) : "")
     });
   } finally {
     lock.releaseLock();

@@ -5296,31 +5296,53 @@ async function callGasJson(action, payload = {}, options = {}) {
   const maxAttempts = options.maxAttempts || 2;
   const requestId = payload.requestId || gasRequestId(action);
   let lastText = "";
+  let lastError = null;
+
+  const shouldRetryResult = (result, responseStatus) => {
+    if (!result || result.ok !== false) return false;
+    const status = Number(result.status || responseStatus || 0);
+    const errorText = String(result.error || "").toLowerCase();
+    return status === 408
+      || status === 409
+      || status === 423
+      || status === 425
+      || status === 429
+      || status >= 500
+      || /timeout|timed out|temporar|busy|lock|rate limit|too many|internal error|service unavailable/.test(errorText);
+  };
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const requestUrl = new URL(GAS_WEB_APP_URL);
-    requestUrl.searchParams.set("action", action);
-
-    const response = await fetch(requestUrl.toString(), {
-      method: "POST",
-      body: JSON.stringify({
-        ...payload,
-        action,
-        token: GAS_WEB_APP_TOKEN,
-        requestId
-      })
-    });
-
-    lastText = await response.text();
     try {
+      const requestUrl = new URL(GAS_WEB_APP_URL);
+      requestUrl.searchParams.set("action", action);
+
+      const response = await fetch(requestUrl.toString(), {
+        method: "POST",
+        body: JSON.stringify({
+          ...payload,
+          action,
+          token: GAS_WEB_APP_TOKEN,
+          requestId
+        })
+      });
+
+      lastText = await response.text();
       const result = JSON.parse(lastText || "{}");
       result.responseStatus = response.status;
-      return result;
-    } catch (error) {
-      if (attempt < maxAttempts - 1) {
-        await sleep(options.retryDelayMs || 2500);
+      result.clientAttempts = attempt + 1;
+      if (attempt < maxAttempts - 1 && shouldRetryResult(result, response.status)) {
+        const retryAfterMs = Math.ceil(Number(result.retryAfter || 0) * 1000);
+        await sleep(Math.max(retryAfterMs, (options.retryDelayMs || 2500) * (attempt + 1)));
         continue;
       }
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts - 1) {
+        await sleep((options.retryDelayMs || 2500) * (attempt + 1));
+        continue;
+      }
+      if (!(error instanceof SyntaxError)) throw error;
       const hint = gasResponseLooksHtml(lastText)
         ? "GASがGoogle側のHTMLを返しました。公開設定・権限・実行制限・再デプロイを確認してください。"
         : "GASの返却がJSONではありません。";
@@ -5328,7 +5350,7 @@ async function callGasJson(action, payload = {}, options = {}) {
     }
   }
 
-  throw new Error(`GASの返却がJSONではありません。${lastText.slice(0, 160)}`);
+  throw lastError || new Error(`GASの返却がJSONではありません。${lastText.slice(0, 160)}`);
 }
 
 function confirmationResultExportText(product) {
