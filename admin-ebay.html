@@ -2916,10 +2916,15 @@
 
       if (detailView === "unshipped") {
         detailTableArea.innerHTML = `
+          <div class="table-actions">
+            <button class="primary-btn" type="button" onclick="openSelectedDetailShippingCompletion()">選択した商品の発送完了入力へ</button>
+          </div>
+          <p class="form-note">対象商品を選択すると、発送サイズ・料金・追跡番号を確認してから発送完了にできます。発送サイズに応じて価格表の料金を自動表示します。</p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th>選択</th>
                   <th>発送</th>
                   <th>商品名</th>
                   <th>ナンバリング</th>
@@ -2935,6 +2940,7 @@
               <tbody>
                 ${filteredProducts.map((product) => `
                   <tr class="${bundleRowClass(product)}">
+                    <td>${product.bundleRole === "child" ? '<span class="bundle-label">同梱</span>' : `<input type="checkbox" data-detail-shipping-check data-product-id="${escapeAttr(product.id)}" aria-label="${escapeAttr(product.numbering || product.name || "商品")}を選択" />`}</td>
                     <td>${shippingCellHtml(product)}</td>
                     <td>${productNameCell(product)}</td>
                     <td>${productNumberingCell(product)}</td>
@@ -2993,6 +2999,38 @@
           </table>
         </div>
       `;
+    }
+
+    function openSelectedDetailShippingCompletion() {
+      const selectedProductIds = [...detailTableArea.querySelectorAll("[data-detail-shipping-check]:checked")]
+        .map((input) => input.dataset.productId)
+        .filter(Boolean);
+
+      if (!selectedProductIds.length || !selectedMemberUid) {
+        showError(appError, "発送完了にする商品を選択してください。");
+        return;
+      }
+
+      if (shippingBatchSearchInput) shippingBatchSearchInput.value = "";
+      renderShippingBatch();
+      setMainTab("shippingBatch", { pushHistory: true });
+
+      let selectedCount = 0;
+      shippingBatchUnitsCache.forEach((unit, index) => {
+        const shouldSelect = unit.uid === selectedMemberUid
+          && unit.products.some((product) => selectedProductIds.includes(product.id));
+        const checkbox = document.querySelector(`[data-shipping-batch-check="${index}"]`);
+        if (checkbox) checkbox.checked = shouldSelect;
+        if (shouldSelect) selectedCount += 1;
+      });
+
+      if (!selectedCount) {
+        showError(appError, "選択した商品の発送完了入力を準備できませんでした。再読み込みしてもう一度お試しください。");
+        return;
+      }
+
+      shippingBatchSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showError(appError, `選択した${selectedCount}件を引き継ぎました。発送サイズ・料金・追跡番号を確認して「選択中を発送完了にする」を押してください。`);
     }
 
     function getProductGroups(member) {
@@ -8863,6 +8901,7 @@ function firstInvoiceDate(item) {
     window.deleteBillingAdjustment = deleteBillingAdjustment;
     window.updateShippingBatchPrice = updateShippingBatchPrice;
     window.saveShippingBatch = saveShippingBatch;
+    window.openSelectedDetailShippingCompletion = openSelectedDetailShippingCompletion;
     window.runYupackOcr = runYupackOcr;
     window.matchYupackOcrText = matchYupackOcrText;
     window.clearYupackOcr = clearYupackOcr;
