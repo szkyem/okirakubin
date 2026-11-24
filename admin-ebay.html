@@ -5309,6 +5309,11 @@
     function openRepackingFieldsEdit(uid, productId) {
       const product = findProduct(uid, productId);
       if (!product) return;
+      const savedRepackedDate = String(product.repackedConfirmationDate || "");
+      const shippedDate = String(product.shippedDate || "");
+      const repackedDateValue = shippedDate && (!savedRepackedDate || savedRepackedDate > shippedDate)
+        ? shippedDate
+        : savedRepackedDate || todayString();
       activeEdit = { type: "repackingFields", uid, productId };
       editModalTitle.textContent = "管理者記載情報（2：再梱包後）を編集";
       editForm.innerHTML = `
@@ -5316,7 +5321,7 @@
           <div>
             <label>再梱包確認日</label>
             <div class="inline-actions">
-              <input name="repackedConfirmationDate" type="date" value="${escapeAttr(product.repackedConfirmationDate || todayString())}" />
+              <input name="repackedConfirmationDate" type="date" value="${escapeAttr(repackedDateValue)}" max="${escapeAttr(shippedDate || "")}" />
               <button class="mini-btn" type="button" onclick="setRepackedConfirmationDateToday()">今日</button>
             </div>
             <p class="form-note">再梱包追加料金は、この確認日の月に請求されます。</p>
@@ -5908,6 +5913,10 @@
             showError(appError, "再梱包確認日を入力してください。");
             return;
           }
+          if (product?.shippedDate && repackedConfirmationDate > product.shippedDate) {
+            showError(appError, `再梱包確認日は発送日（${product.shippedDate}）以前の日付を指定してください。`);
+            return;
+          }
           const repackedConfirmedAt = repackedConfirmationDate
             ? new Date(`${repackedConfirmationDate}T12:00:00`).getTime()
             : now;
@@ -6159,8 +6168,11 @@
 
         if (invoiceRefreshTarget) {
           try {
-            await refreshExistingInvoicesForProduct(invoiceRefreshTarget);
+            const refreshResult = await refreshExistingInvoicesForProduct(invoiceRefreshTarget);
             await loadAllData();
+            if (refreshResult.lockedMonths.length) {
+              postSaveWarning = `商品情報と追加料金は保存しましたが、${refreshResult.lockedMonths.join("、")} の請求はロック中のため請求書を更新していません。請求書画面でロックを解除し、請求書を再作成してください。`;
+            }
           } catch (invoiceError) {
             console.error(invoiceError);
             postSaveWarning = `商品情報は保存しましたが、既存請求書の自動更新に失敗しました。請求書作成ボタンで再作成してください。${invoiceError && invoiceError.message ? "\n" + invoiceError.message : ""}`;
@@ -6975,7 +6987,8 @@ async function writeInvoiceForMember(member, month, showNoTargetError = true, re
 
 async function refreshExistingInvoicesForProduct(target) {
   const member = findMember(target.uid);
-  if (!member) return;
+  const result = { updatedMonths: [], lockedMonths: [] };
+  if (!member) return result;
 
   const afterProduct = findProduct(target.uid, target.productId);
   const currentInvoices = invoicesCache?.[target.uid] || {};
@@ -6998,10 +7011,15 @@ async function refreshExistingInvoicesForProduct(target) {
     const wasInInvoice = Boolean(currentInvoices?.[month]?.items?.[target.productId]);
 
     if (existed && (wasInInvoice || wasInMonth || isInMonth)) {
-      if (isInvoiceMonthLocked(month)) continue;
+      if (isInvoiceMonthLocked(month)) {
+        result.lockedMonths.push(month);
+        continue;
+      }
       await writeInvoiceForMember(member, month, false, true);
+      result.updatedMonths.push(month);
     }
   }
+  return result;
 }
 
 async function refreshExistingInvoicesForMember(uid) {
