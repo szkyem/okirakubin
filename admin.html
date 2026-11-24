@@ -2995,7 +2995,7 @@
               </select>
             </td>
             <td><input data-shipping-batch-price="${index}" type="number" min="0" value="${escapeAttr(hasValue(price) ? price : "")}" /></td>
-            <td><input data-shipping-batch-tracking="${index}" value="${escapeAttr(trackingNumber)}" placeholder="追跡番号" /></td>
+            <td><input data-shipping-batch-tracking="${index}" value="${escapeAttr(trackingNumber)}" placeholder="${size === "海外発送" ? "任意（海外発送）" : "追跡番号（必須）"}" /></td>
           </tr>
         `;
       }).join("");
@@ -3007,7 +3007,12 @@
       const status = document.querySelector(`[data-shipping-batch-status="${index}"]`)?.value || "shipped";
       const size = document.querySelector(`[data-shipping-batch-size="${index}"]`)?.value || "";
       const priceInput = document.querySelector(`[data-shipping-batch-price="${index}"]`);
+      const trackingInput = document.querySelector(`[data-shipping-batch-tracking="${index}"]`);
       if (!priceInput) return;
+
+      if (trackingInput) {
+        trackingInput.placeholder = size === "海外発送" ? "任意（海外発送）" : "追跡番号（必須）";
+      }
 
       const price = shippingKey(unit.parent.shippingRequest) === "prepaidLabel"
         ? String(PREPAID_LABEL_WORK_FEE)
@@ -3597,7 +3602,7 @@
             : status === "cash_on_delivery" ? "0" : document.querySelector(`[data-shipping-batch-price="${index}"]`)?.value.trim() || "";
           const trackingNumber = document.querySelector(`[data-shipping-batch-tracking="${index}"]`)?.value.trim() || "";
 
-          if (status === "shipped" && !trackingNumber) {
+          if (status === "shipped" && shippingSize !== "海外発送" && !trackingNumber) {
             throw new Error(`${unit.member.name || "-"} / ${unit.displayNames} の追跡番号を入力してください。`);
           }
 
@@ -4938,11 +4943,11 @@
 
           <label>
             追跡番号
-            <input name="trackingNumber" value="${escapeAttr(product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "")}" />
+            <input name="trackingNumber" value="${escapeAttr(product.trackingNumber || product.trackingNo || product.shippingTrackingNumber || product.shippingTrackingNo || "")}" placeholder="${product.shippingSize === "海外発送" ? "任意（海外発送）" : "追跡番号（必須）"}" />
           </label>
         </div>
 
-        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から料金を自動入力します。発送サイズで海外発送を選ぶと海外発送固定料金、着払い発送は0円です。</p>
+        <p class="form-note">発送先都道府県：${escapeHtml(destinationPrefecture || "-")}。発送サイズを選ぶと会員プラン別の価格表から料金を自動入力します。発送サイズが海外発送の場合のみ追跡番号は任意です。着払い発送は0円です。</p>
 
         <div class="modal-actions">
           <button class="secondary-btn" type="button" onclick="closeEditModal()">キャンセル</button>
@@ -4953,10 +4958,12 @@
       const sizeSelect = editForm.querySelector('[name="shippingSize"]');
       const statusSelect = editForm.querySelector('[name="shippingStatus"]');
       const priceInput = editForm.querySelector('[name="shippingPrice"]');
+      const trackingInput = editForm.querySelector('[name="trackingNumber"]');
       if (sizeSelect && statusSelect && priceInput) {
         const updateAutoPrice = () => {
           const nextPrice = autoShippingPriceFor(product, sizeSelect.value, statusSelect.value, member);
           priceInput.value = hasValue(nextPrice) ? nextPrice : "";
+          if (trackingInput) trackingInput.placeholder = sizeSelect.value === "海外発送" ? "任意（海外発送）" : "追跡番号（必須）";
         };
         sizeSelect.addEventListener("change", updateAutoPrice);
         statusSelect.addEventListener("change", updateAutoPrice);
@@ -5422,6 +5429,10 @@
           const member = findMember(activeEdit.uid);
           const shouldNotifyShipped = product && !isShippedStatus(product.shippingStatus) && isShippedStatus(status);
           const shippedDate = isShippedStatus(status) ? todayString() : "";
+
+          if (status === "shipped" && shippingSize !== "海外発送" && !trackingNumber) {
+            throw new Error("国内発送を発送完了にする場合は追跡番号を入力してください。");
+          }
 
           const statusUpdates = {
             [`products/${activeEdit.uid}/${activeEdit.productId}/updatedAt`]: now,
