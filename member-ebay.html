@@ -4820,6 +4820,8 @@ function productDetailHtml(product) {
         <div class="detail-label">箱のサイズ</div><div>${boxDimensionsText(product, true)}</div>
         <div class="detail-label">自動計算サイズ</div><div>${escapeHtml(boxPackageSizeText(product, true))}</div>
         <div class="detail-label">再梱包後重量（g）</div><div>${weightGramsText(product.repackedPackageWeight)}</div>
+        <div class="detail-label">サイズ調整</div><div>${typeof product.repackedSizeAdjustmentPerformed === "boolean" ? (product.repackedSizeAdjustmentPerformed ? "実施あり" : "実施なし") : "未記録"}</div>
+        <div class="detail-label">梱包資材</div><div>${typeof product.repackedNewMaterialUsed === "boolean" ? (product.repackedNewMaterialUsed ? "新品資材を使用" : "新品資材は不使用") : "未記録"}</div>
         <div class="detail-label">発送時予想重量</div><div>${estimatedShippingWeightHtml(product)}</div>
         <div class="detail-label">梱包袋判定</div><div>${packagingFitSummaryHtml(product, true)}</div>
       </div>

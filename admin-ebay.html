@@ -4574,6 +4574,10 @@
             <div class="info-value">${escapeHtml(boxPackageSizeText(product, true))}</div>
             <div class="info-label">再梱包後重量（g）</div>
             <div class="info-value">${weightGramsText(product.repackedPackageWeight)}</div>
+            <div class="info-label">サイズ調整</div>
+            <div class="info-value">${typeof product.repackedSizeAdjustmentPerformed === "boolean" ? (product.repackedSizeAdjustmentPerformed ? "実施あり" : "実施なし") : "未記録"}</div>
+            <div class="info-label">梱包資材</div>
+            <div class="info-value">${typeof product.repackedNewMaterialUsed === "boolean" ? (product.repackedNewMaterialUsed ? "新品資材を使用" : "新品資材は不使用") : "未記録"}</div>
             <div class="info-label">発送時予想重量</div>
             <div class="info-value">${estimatedShippingWeightHtml(product)}</div>
             <div class="info-label">梱包袋判定</div>
@@ -5330,6 +5334,9 @@
           </div>
           <label>自動計算サイズ<input name="repackedPackageSize" value="${escapeAttr(product.repackedPackageSize || "")}" readonly /></label>
           <label>再梱包後重量（g）<input name="repackedPackageWeight" inputmode="decimal" value="${escapeAttr(packageWeightGrams(product.repackedPackageWeight) || "")}" placeholder="例：1565" /></label>
+          <label class="full"><input name="repackedSizeAdjustmentPerformed" type="checkbox" ${product.repackedSizeAdjustmentPerformed ? "checked" : ""} /> サイズ調整を実施した</label>
+          <label class="full"><input name="repackedNewMaterialUsed" type="checkbox" ${product.repackedNewMaterialUsed ? "checked" : ""} /> 新品資材を使用した</label>
+          <p class="form-note full">実際の作業内容にチェックしてください。保存時に梱包後サイズと価格表を照合し、該当料金を請求へ反映します。</p>
           <label class="full">保存後のステータス
             <select name="repackingNextStage">
               <option value="repacking" ${product.productStage === "repacking" ? "selected" : ""}>再梱包作業中のまま</option>
@@ -5891,6 +5898,8 @@
           const dimensions = ["repackedBoxLength", "repackedBoxWidth", "repackedBoxHeight"].map((key) => numberValue(getFormValue(formData, key)));
           const repackedSize = getFormValue(formData, "repackedPackageSize");
           const repackedWeight = getFormValue(formData, "repackedPackageWeight");
+          const repackedSizeAdjustmentPerformed = formData.get("repackedSizeAdjustmentPerformed") === "on";
+          const repackedNewMaterialUsed = formData.get("repackedNewMaterialUsed") === "on";
           if (nextStage !== "adjusting" && (!repackedSize || !repackedWeight || dimensions.some((value) => !value))) {
             showError(appError, "再梱包後の箱サイズ・重量・縦横高さを入力してください。");
             return;
@@ -5909,7 +5918,9 @@
             repackingStartedAt: null,
             activeRepackingCycleId: null,
             activeRepackingCycleType: null,
-            activeRepackingCycleCompletedAt: null
+            activeRepackingCycleCompletedAt: null,
+            repackedSizeAdjustmentPerformed: null,
+            repackedNewMaterialUsed: null
           } : {
             updatedAt: now,
             repackedPackageSize: repackedSize,
@@ -5920,6 +5931,8 @@
             repackedAt: now,
             repackedConfirmationDate,
             repackedConfirmedAt,
+            repackedSizeAdjustmentPerformed,
+            repackedNewMaterialUsed,
             productStage: nextStage,
             shippingReadyAt: nextStage === "shipping_ready" ? product?.shippingReadyAt || now : null
           };
@@ -5931,10 +5944,11 @@
             }
           }
           if (!["adjusting", "repacking"].includes(nextStage)) {
-            const extraEvent = repackingExtraBillingEvent(product, repackedSize, repackedConfirmedAt);
-            if (!product?.billingEvents?.[extraEvent.id]) {
-              updates[`billingEvents/${extraEvent.id}`] = extraEvent;
-            }
+            const extraEvent = repackingExtraBillingEvent(product, repackedSize, repackedConfirmedAt, {
+              sizeAdjustmentPerformed: repackedSizeAdjustmentPerformed,
+              newMaterialUsed: repackedNewMaterialUsed
+            });
+            updates[`billingEvents/${extraEvent.id}`] = extraEvent.amount > 0 ? extraEvent : null;
             updates.activeRepackingCycleCompletedAt = now;
           }
           if (product?.productStage !== nextStage) {
@@ -8232,27 +8246,32 @@ function firstInvoiceDate(item) {
       return billingEventRecord("initial_work", "initial_work", "初回作業料金", amount, now, breakdown);
     }
 
-    function repackingExtraBillingEvent(product, repackedSize, now) {
+    function repackingExtraBillingEvent(product, repackedSize, now, actualWork = {}) {
       const rates = ebayBillingRates();
       const cycleId = product?.activeRepackingCycleId || "initial";
       const sizeKey = rates.normalizeSize(repackedSize);
-      const sizeFee = rates.sizeRows.find((row) => row.key === sizeKey)?.adjustment;
+      const sizeAdjustmentPerformed = actualWork.sizeAdjustmentPerformed === true;
+      const newMaterialUsed = actualWork.newMaterialUsed === true;
+      const sizeFee = sizeAdjustmentPerformed ? rates.sizeRows.find((row) => row.key === sizeKey)?.adjustment : 0;
       const materialRow = rates.materialRows.find((row) => row.key === sizeKey);
-      const forceNewMaterial = product?.activeRepackingCycleType === "stored_rework";
-      const useNewMaterial = forceNewMaterial || product?.packagingMaterialChoice === "new_material";
-      const materialFee = useNewMaterial ? materialRow?.newMaterial : materialRow?.recycle;
-      const breakdown = [
-        { label: "サイズ調整追加料金", amount: feeValue(sizeFee) },
-        { label: useNewMaterial ? "新品梱包資材料金" : "リサイクル梱包資材料金", amount: feeValue(materialFee) }
-      ];
+      const materialFee = newMaterialUsed ? materialRow?.newMaterial : 0;
+      const breakdown = [];
+      if (sizeAdjustmentPerformed) breakdown.push({ label: "サイズ調整追加料金", amount: feeValue(sizeFee) });
+      if (newMaterialUsed) breakdown.push({ label: "新品梱包資材料金", amount: feeValue(materialFee) });
+      const eventTitle = breakdown.length === 1 ? breakdown[0].label : "再梱包追加料金";
       return billingEventRecord(
         `repacking_extra_${cycleId}`,
         "repacking_extra",
-        "再梱包追加料金",
+        eventTitle,
         breakdown.reduce((sum, item) => sum + feeValue(item.amount), 0),
         now,
         breakdown,
-        { cycleId, packageSize: repackedSize, materialType: useNewMaterial ? "new" : "recycle" }
+        {
+          cycleId,
+          packageSize: repackedSize,
+          sizeAdjustmentPerformed,
+          materialType: newMaterialUsed ? "new" : "none"
+        }
       );
     }
 
