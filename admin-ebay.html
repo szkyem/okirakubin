@@ -170,6 +170,20 @@
       font-size: 13px;
     }
 
+    .storage-location-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      padding: 5px 10px;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
     .tabs {
       display: flex;
       gap: 18px;
@@ -1743,6 +1757,14 @@
     const SHIPPING_WORK_UNIT_FEE = 400;
     const PREPAID_LABEL_REQUEST = "送料会員事前負担";
     const PREPAID_LABEL_WORK_FEE = 500;
+    const STORAGE_LOCATION_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "外1", "外2", "外3"];
+    const STORAGE_LOCATION_COLORS = {
+      "1": ["#dbeafe", "#1e3a8a"], "2": ["#cffafe", "#155e75"], "3": ["#ccfbf1", "#115e59"],
+      "4": ["#dcfce7", "#166534"], "5": ["#ecfccb", "#3f6212"], "6": ["#fef9c3", "#854d0e"],
+      "7": ["#ffedd5", "#9a3412"], "8": ["#fee2e2", "#991b1b"], "9": ["#fce7f3", "#9d174d"],
+      "10": ["#f3e8ff", "#6b21a8"], "外1": ["#e5e7eb", "#374151"], "外2": ["#d6d3d1", "#44403c"],
+      "外3": ["#cbd5e1", "#334155"]
+    };
 
     const CONSULTING_PRICE_TABLE = {
       inspectionBase: 1000,
@@ -2885,6 +2907,7 @@
               <thead>
                 <tr>
                   <th>商品名</th>
+                  <th>保管場所</th>
                   <th>ナンバリング</th>
                   <th>作業依頼</th>
                   <th>情報</th>
@@ -2898,6 +2921,7 @@
                 ${filteredProducts.map((product) => `
                   <tr>
                     <td>${escapeHtml(product.name || "-")}</td>
+                    <td>${storageLocationBadgeHtml(product.storageLocation)}</td>
                     <td>${escapeHtml(product.numbering || "-")}</td>
                     <td>${escapeHtml(workRequestLabel(product.workRequest))}</td>
                     <td><button class="mini-btn" onclick="openInfoModal('${escapeAttr(member.uid)}','${escapeAttr(product.id)}')">詳細</button></td>
@@ -3092,6 +3116,25 @@
       if (product?.productStage === "shipping_ready") return "発送依頼";
       if (product?.productStage === "stored" || hasValue(product?.shootingDate)) return "保管中";
       return "商品確認中";
+    }
+
+    function storageLocationOptionsHtml(currentValue) {
+      const current = String(currentValue || "").trim();
+      const legacyOption = current && !STORAGE_LOCATION_OPTIONS.includes(current)
+        ? `<option value="${escapeAttr(current)}" selected>${escapeHtml(current)}（旧設定）</option>`
+        : "";
+      return `
+        <option value="" ${current ? "" : "selected"}>未選択</option>
+        ${STORAGE_LOCATION_OPTIONS.map((location) => `<option value="${escapeAttr(location)}" ${current === location ? "selected" : ""}>${escapeHtml(location)}</option>`).join("")}
+        ${legacyOption}
+      `;
+    }
+
+    function storageLocationBadgeHtml(value) {
+      const location = String(value || "").trim();
+      if (!location) return "－";
+      const colors = STORAGE_LOCATION_COLORS[location] || ["#f3f4f6", "#374151"];
+      return `<span class="storage-location-badge" style="background:${colors[0]};color:${colors[1]};">${escapeHtml(location)}</span>`;
     }
 
     function productStageLabel(stage) {
@@ -5288,7 +5331,7 @@
 
           <label>
             保管場所
-            <input name="storageLocation" value="${escapeAttr(product.storageLocation || "")}" />
+            <select name="storageLocation">${storageLocationOptionsHtml(product.storageLocation)}</select>
           </label>
         </div>
 
@@ -5415,6 +5458,11 @@
           <label class="full">
             備考欄
             <textarea name="note">${escapeHtml(product.note || "")}</textarea>
+          </label>
+
+          <label>
+            保管場所
+            <select name="storageLocation">${storageLocationOptionsHtml(product.storageLocation)}</select>
           </label>
         </div>
 
@@ -5892,6 +5940,7 @@
           };
 
           updates.note = getFormValue(formData, "note");
+          updates.storageLocation = getFormValue(formData, "storageLocation");
 
           await update(ref(db, `products/${activeEdit.uid}/${activeEdit.productId}`), updates);
         }
