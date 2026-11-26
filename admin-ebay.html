@@ -1293,6 +1293,7 @@
 
       <div class="section-title-row">
         <h2>お問い合わせ</h2>
+        <button id="hideSelectedInquiries" class="secondary-btn" type="button">選択したお問い合わせを非表示</button>
       </div>
       <div class="table-wrap inquiry-table-wrap">
         <table>
@@ -1303,6 +1304,7 @@
               <th>商品名</th>
               <th>ナンバリング</th>
               <th>お問い合わせ内容</th>
+              <th>選択</th>
             </tr>
           </thead>
           <tbody id="inquiryListBody"></tbody>
@@ -1508,8 +1510,8 @@
               <th>対象月</th>
               <th>管理番号</th>
               <th>会員</th>
-              <th>検品件数</th>
-              <th>発送件数</th>
+              <th>検品件数 <span id="invoiceInspectionCountTotal">（計0件）</span></th>
+              <th>発送件数 <span id="invoiceShippingCountTotal">（計0件）</span></th>
               <th>作業料金</th>
               <th>国内配送料・返送料</th>
               <th>調整金</th>
@@ -2753,6 +2755,28 @@
       }
     }
 
+    document.getElementById("hideSelectedInquiries").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const selected = inquiryListBody.querySelectorAll("input[data-inquiry-path]:checked");
+      hideError(appError);
+      if (!selected.length) {
+        showError(appError, "非表示にするお問い合わせを選択してください。");
+        return;
+      }
+      const hiddenAt = Date.now();
+      const updates = Object.fromEntries(Array.from(selected, (input) => [input.dataset.inquiryPath, hiddenAt]));
+      button.disabled = true;
+      try {
+        await update(ref(db), updates);
+        await loadAllData();
+      } catch (error) {
+        console.error(error);
+        showError(appError, "お問い合わせ一覧の更新に失敗しました。再読み込みして表示を確認してください。");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
     function renderInquiries() {
       const inquiries = membersCache.flatMap((member) => {
         return member.products.flatMap((product) => {
@@ -2760,7 +2784,7 @@
 
           const inquiryMap = product.inquiries || {};
 
-          return Object.entries(inquiryMap).map(([id, inquiry]) => ({
+          return Object.entries(inquiryMap).filter(([, inquiry]) => !inquiry?.adminHiddenAt).map(([id, inquiry]) => ({
             id,
             member,
             product,
@@ -2771,7 +2795,7 @@
       }).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
 
       if (!inquiries.length) {
-        inquiryListBody.innerHTML = `<tr><td colspan="5"><div class="empty">お問い合わせはありません。</div></td></tr>`;
+        inquiryListBody.innerHTML = `<tr><td colspan="6"><div class="empty">表示中のお問い合わせはありません。</div></td></tr>`;
         return;
       }
 
@@ -2788,6 +2812,7 @@
             <div class="inquiry-message">${escapeHtml(item.message || "-")}</div>
             <div class="member-meta">${escapeHtml(formatDateTime(item.createdAt))}</div>
           </td>
+          <td><input type="checkbox" aria-label="このお問い合わせを選択" data-inquiry-path="${escapeAttr(`products/${item.member.uid}/${item.product.id}/inquiries/${item.id}/adminHiddenAt`)}" /></td>
         </tr>
       `).join("");
     }
@@ -6658,6 +6683,19 @@
         invoices.push(buildInvoicePreview(member, month, items));
       });
 
+      const countsByInvoice = new Map(invoices.map((invoice) => {
+        const items = Object.values(invoice.items || {});
+        const inspectionCount = items.filter((item) => item.inspectionFee !== null && item.inspectionFee !== undefined && item.inspectionFee !== "-").length;
+        const shippingCount = items.filter(itemHasShippingCharge).length;
+        return [invoice, { inspectionCount, shippingCount }];
+      }));
+      const totalCounts = [...countsByInvoice.values()].reduce((totals, counts) => ({
+        inspectionCount: totals.inspectionCount + counts.inspectionCount,
+        shippingCount: totals.shippingCount + counts.shippingCount
+      }), { inspectionCount: 0, shippingCount: 0 });
+      document.getElementById("invoiceInspectionCountTotal").textContent = `（計${totalCounts.inspectionCount}件）`;
+      document.getElementById("invoiceShippingCountTotal").textContent = `（計${totalCounts.shippingCount}件）`;
+
       const inspectionTotal = invoices.reduce((sum, invoice) => sum + feeValue(invoice.totalInspectionFee), 0);
       const billedShippingTotal = invoices.reduce((sum, invoice) => sum + invoiceShippingWorkFee(invoice) + invoiceShippingFareFee(invoice), 0);
       const actualShippingTotal = invoices.reduce((sum, invoice) => sum + invoiceActualShippingFee(invoice), 0);
@@ -6700,9 +6738,7 @@
           return String(a.memberName || "").localeCompare(String(b.memberName || ""), "ja");
         })
         .map((invoice) => {
-          const invoiceItems = Object.values(invoice.items || {});
-          const inspectionCount = invoiceItems.filter((item) => item.inspectionFee !== null && item.inspectionFee !== undefined && item.inspectionFee !== "-").length;
-          const shippingCount = invoiceItems.filter((item) => itemHasShippingCharge(item)).length;
+          const { inspectionCount, shippingCount } = countsByInvoice.get(invoice);
           return `
           <tr class="${invoice.received === true ? "invoice-received-row" : ""}">
             <td>
